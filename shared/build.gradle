@@ -1,0 +1,26 @@
+eclipse.project.name = appName + '-shared'
+
+dependencies {
+  api 'com.esotericsoftware:kryonet:2.22.0-RC1'
+  api 'com.esotericsoftware:kryo:5.5.0' // Falls du Kryo separat brauchst
+  api 'org.joml:joml:1.10.5'
+  api("com.personthecat:fastnoise:0.10")
+  api("it.unimi.dsi:fastutil:8.2.1")
+  compileOnly("org.projectlombok:lombok:1.18.38")
+  annotationProcessor("org.projectlombok:lombok:1.18.38")
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+}
+
+test {
+  useJUnitPlatform()
+}
+
+sourceSets {
+  test {
+    java {
+      srcDirs = ['src/test/java']
+    }
+  }
+}
