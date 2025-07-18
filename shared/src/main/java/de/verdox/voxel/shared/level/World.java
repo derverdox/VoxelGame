@@ -1,6 +1,8 @@
 package de.verdox.voxel.shared.level;
 
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.lighting.ChunkLightData;
+import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import lombok.Getter;
 
 import java.util.UUID;
@@ -10,8 +12,6 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
     public static final int MAX_CHUNK_SIZE = 64;
 
     protected final UUID uuid;
-    protected final int minChunkY;
-    protected final int maxChunkY;
     protected final byte chunkSizeX;
     protected final byte chunkSizeY;
     protected final byte chunkSizeZ;
@@ -22,22 +22,22 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
     public World(UUID uuid) {
         this.uuid = uuid;
 
-        minChunkY = 0;
-        maxChunkY = 16;
         chunkSizeX = 16;
         chunkSizeY = 16;
         chunkSizeZ = 16;
     }
 
     // For packets only
-    public World(UUID uuid, int minChunkY, int maxChunkY, byte chunkSizeX, byte chunkSizeY, byte chunkSizeZ) {
+    public World(UUID uuid, byte chunkSizeX, byte chunkSizeY, byte chunkSizeZ) {
         this.uuid = uuid;
-        this.minChunkY = minChunkY;
-        this.maxChunkY = maxChunkY;
         this.chunkSizeX = chunkSizeX;
         this.chunkSizeY = chunkSizeY;
         this.chunkSizeZ = chunkSizeZ;
     }
+
+    public abstract CHUNK getChunkNow(int chunkX, int chunkY, int chunkZ);
+
+    public abstract CHUNK getChunkNow(long chunkKey);
 
     public final void addChunk(CHUNK chunk) {
         onAddChunk(chunk);
@@ -49,8 +49,8 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
         worldHeightMap.removeChunk(chunk);
     }
 
-    public final void chunkUpdate(CHUNK chunk, byte localX, byte localY, byte localZ) {
-        onChunkUpdate(chunk, localX, localY, localZ);
+    public final void chunkUpdate(CHUNK chunk, byte localX, byte localY, byte localZ, boolean wasEmptyBefore) {
+        onChunkUpdate(chunk, localX, localY, localZ, wasEmptyBefore);
         worldHeightMap.blockUpdate(chunk);
     }
 
@@ -58,5 +58,7 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
 
     protected abstract void onRemoveChunk(CHUNK chunk);
 
-    protected abstract void onChunkUpdate(CHUNK chunk, byte localX, byte localY, byte localZ);
+    protected abstract void onChunkUpdate(CHUNK chunk, byte localX, byte localY, byte localZ, boolean wasEmptyBefore);
+
+    public abstract CHUNK constructChunkObject(int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, byte[][] heightmap, byte[][] depthMap, ChunkLightData chunkLightData);
 }

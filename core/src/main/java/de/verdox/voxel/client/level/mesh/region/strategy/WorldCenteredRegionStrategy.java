@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.Camera;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 
 import java.util.HashMap;
@@ -18,7 +19,7 @@ public class WorldCenteredRegionStrategy implements ChunkRenderRegionStrategy {
     private int centerChunkX, centerChunkY, centerChunkZ;
     private int minViewChunkX, minViewChunkY, minViewChunkZ, maxViewChunkX, maxViewChunkY, maxViewChunkZ;
 
-    private final Map<Long, RenderRegion> regions = new HashMap<>();
+    private final Long2ObjectOpenHashMap<RenderRegion> regions = new Long2ObjectOpenHashMap<>();
 
     public WorldCenteredRegionStrategy(ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
         this.world = world;

@@ -1,3 +1,7 @@
+plugins {
+  id 'me.champeau.jmh' version '0.7.2'
+}
+
 eclipse.project.name = appName + '-shared'
 
 dependencies {
@@ -9,8 +13,15 @@ dependencies {
   compileOnly("org.projectlombok:lombok:1.18.38")
   annotationProcessor("org.projectlombok:lombok:1.18.38")
 
+  jmh 'org.openjdk.jmh:jmh-core:1.36'
+  jmh 'org.openjdk.jmh:jmh-generator-annprocess:1.36'
+
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
   testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+}
+
+tasks.named("jmhRunBytecodeGenerator") {
+  doNotTrackState("JMH codegen on Netzlaufwerk: disable Gradle state tracking")
 }
 
 test {

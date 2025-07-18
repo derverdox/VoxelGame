@@ -12,27 +12,31 @@ public enum Direction {
     SOUTH(5, 0, 0, 1);
 
     @Getter
-    private final int id;
-    private final int dx;
-    private final int dy;
-    private final int dz;
+    private final byte id;
+    private final byte dx;
+    private final byte dy;
+    private final byte dz;
 
     Direction(int id, int dx, int dy, int dz) {
-        this.id = id;
-        this.dx = dx;
-        this.dy = dy;
-        this.dz = dz;
+        this.id = (byte) id;
+        this.dx = (byte) dx;
+        this.dy = (byte) dy;
+        this.dz = (byte) dz;
     }
 
-    public int getOffsetX() {
+    public Direction getOpposite() {
+        return fromOffsets(dx * -1, dy * -1, dz * -1);
+    }
+
+    public byte getOffsetX() {
         return dx;
     }
 
-    public int getOffsetY() {
+    public byte getOffsetY() {
         return dy;
     }
 
-    public int getOffsetZ() {
+    public byte getOffsetZ() {
         return dz;
     }
 

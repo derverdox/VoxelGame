@@ -5,6 +5,7 @@ import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.data.types.Registries;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import lombok.Getter;
 
@@ -21,12 +22,13 @@ public abstract class ChunkBase<WORLD extends World> {
     private final byte[][] heightmap;
     private final byte[][] depthMap;
     private boolean isEmpty = true;
+    private final ChunkLightData chunkLightData;
 
     public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ) {
-        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()), new byte[world.getChunkSizeX()][world.getChunkSizeZ()], new byte[world.getChunkSizeX()][world.getChunkSizeZ()]);
+        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()), new byte[world.getChunkSizeX()][world.getChunkSizeZ()], new byte[world.getChunkSizeX()][world.getChunkSizeZ()], new ChunkLightData(world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()));
     }
 
-    public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, byte[][] heightmap, byte[][] depthMap) {
+    public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, byte[][] heightmap, byte[][] depthMap, ChunkLightData chunkLightData) {
         this.world = world;
         this.chunkX = chunkX;
         this.chunkY = chunkY;
@@ -37,6 +39,7 @@ public abstract class ChunkBase<WORLD extends World> {
         this.heightmap = heightmap;
         this.depthMap = depthMap;
         isEmpty = this.chunkBlockPalette.getBlockToId().size() == 1;
+        this.chunkLightData = chunkLightData;
     }
 
     public BlockBase getBlockAt(int localX, int localY, int localZ) {

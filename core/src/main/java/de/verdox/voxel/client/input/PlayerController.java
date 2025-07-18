@@ -75,9 +75,6 @@ public class PlayerController implements DebuggableOnScreen {
             camera.position.set(position);
         }
 
-        // 3) Kamera updaten und zum Renderer geben
-        camera.update();
-
         if (VoxelClient.getInstance().getCurrentWorld() != null) {
             blockInteractionResult = playerInteractionRayCast.rayCastNearestBlockTarget(this.camera, VoxelClient.getInstance().getCurrentWorld());
         }
@@ -117,9 +114,7 @@ public class PlayerController implements DebuggableOnScreen {
     @Override
     public void debugText(DebugScreen debugScreen) {
         debugScreen.addDebugTextLine("FPS: " + Gdx.graphics.getFramesPerSecond());
-        debugScreen.addDebugTextLine("Pos: " + position);
-        debugScreen.addDebugTextLine("Movement: " + movementVec);
-        debugScreen.addDebugTextLine("Yaw: " + yaw);
-        debugScreen.addDebugTextLine("Pitch: " + pitch);
+        debugScreen.addDebugTextLine("Pos: " + position + ", Yaw: " + yaw + ", Pitch: " + pitch);
+        debugScreen.addDebugTextLine("Velocity: " + movementVec);
     }
 }

@@ -1,6 +1,8 @@
 package de.verdox.voxel.shared.level;
 
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import it.unimi.dsi.fastutil.ints.Int2IntAVLTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +26,7 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
         }
         int absMin() { return baseY + localMin; }
         int absMax() { return baseY + localMax; }
+
     }
 
     private final int chunkHeight;
@@ -31,20 +34,20 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
     private final Map<ChunkPos, ChunkExtrema> chunkMap = new HashMap<>();
 
     /** Multiset: global count der absoluten Min-Y */
-    private final NavigableMap<Integer,Integer> globalMins = new TreeMap<>();
+    private final Int2IntMap globalMins = new Int2IntAVLTreeMap();
     /** Multiset: global count der absoluten Max-Y */
-    private final NavigableMap<Integer,Integer> globalMaxs = new TreeMap<>();
+    private final Int2IntMap globalMaxs = new Int2IntAVLTreeMap();
 
     public WorldHeightMap(int chunkHeight) {
         this.chunkHeight = chunkHeight;
     }
 
     /** Hilfsmethode: Multiset++ */
-    private void inc(NavigableMap<Integer,Integer> m, int key) {
+    private void inc(Int2IntMap m, int key) {
         m.merge(key, 1, Integer::sum);
     }
     /** Hilfsmethode: Multiset-- und ggf. entfernen */
-    private void dec(NavigableMap<Integer,Integer> m, int key) {
+    private void dec(Int2IntMap m, int key) {
         int cnt = m.getOrDefault(key, 0);
         if (cnt <= 1) m.remove(key);
         else          m.put(key, cnt - 1);
@@ -131,15 +134,6 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
         // füge neue Beiträge hinzu
         inc(globalMins, old.absMin());
         inc(globalMaxs, old.absMax());
-    }
-
-    /** Zugriff auf das globale Minimum (kleinster key in globalMins) */
-    public int getGlobalMin() {
-        return globalMins.isEmpty() ? 0 : globalMins.firstKey();
-    }
-    /** Zugriff auf das globale Maximum (größter key in globalMaxs) */
-    public int getGlobalMax() {
-        return globalMaxs.isEmpty() ? 0 : globalMaxs.lastKey();
     }
 }
 

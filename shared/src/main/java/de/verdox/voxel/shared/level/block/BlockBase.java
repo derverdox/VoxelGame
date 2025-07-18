@@ -14,11 +14,27 @@ public class BlockBase {
         return BlockModels.STONE;
     }
 
+    public boolean isOpaque() {
+        return !this.equals(Blocks.AIR);
+    }
+
     public boolean isTransparent() {
         return this.equals(Blocks.AIR);
     }
 
     public boolean isInteractableByRayCast() {
         return !this.equals(Blocks.AIR);
+    }
+
+    public byte getEmissionRed() {
+        return 0;
+    }
+
+    public byte getEmissionGreen() {
+        return 0;
+    }
+
+    public byte getEmissionBlue() {
+        return 0;
     }
 }

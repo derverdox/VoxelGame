@@ -7,6 +7,7 @@ import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.VoxelClient;
+import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.network.packet.server.ServerSetPlayerWorldPacket;
 import de.verdox.voxel.shared.network.packet.server.ServerWorldExistPacket;
 import de.verdox.voxel.shared.network.packet.server.level.chunk.ServerChunkPacket;
@@ -31,7 +32,7 @@ public class ClientConnectionListener extends Listener {
     }
 
     public void receive(ServerWorldExistPacket serverWorldExistPacket) {
-        ClientWorld world = new ClientWorld(serverWorldExistPacket.uuid, serverWorldExistPacket.minChunkY, serverWorldExistPacket.maxChunkY, serverWorldExistPacket.chunkSizeX, serverWorldExistPacket.chunkSizeY, serverWorldExistPacket.chunkSizeZ);
+        ClientWorld world = new ClientWorld(serverWorldExistPacket.uuid, serverWorldExistPacket.chunkSizeX, serverWorldExistPacket.chunkSizeY, serverWorldExistPacket.chunkSizeZ);
         VoxelClient.getInstance().insertWorld(world);
         Gdx.app.error("ConnectionListener", "Found a new world on server with uuid  " + world.getUuid());
     }
@@ -47,12 +48,10 @@ public class ClientConnectionListener extends Listener {
     }
 
     public void receive(ServerChunkPacket serverChunkPacket) {
-        ClientWorld currentClientWorld = VoxelClient.getInstance().getCurrentWorld();
-        if (currentClientWorld == null || !currentClientWorld.getUuid().equals(serverChunkPacket.getWorldUUID())) {
+        ClientChunk clientChunk = (ClientChunk) serverChunkPacket.chunkBase;
+        if (clientChunk == null) {
             return;
         }
-
-        ClientChunk clientChunk = new ClientChunk(currentClientWorld, serverChunkPacket.chunkX, serverChunkPacket.chunkY, serverChunkPacket.chunkZ, serverChunkPacket.palette, serverChunkPacket.heightmap, serverChunkPacket.depthMap);
-        Gdx.app.postRunnable(() -> currentClientWorld.queueChunkForProcessing(clientChunk));
+        Gdx.app.postRunnable(() -> clientChunk.getWorld().queueChunkForProcessing(clientChunk));
     }
 }

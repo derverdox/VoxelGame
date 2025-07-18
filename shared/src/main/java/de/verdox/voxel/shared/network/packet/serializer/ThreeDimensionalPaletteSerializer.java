@@ -8,8 +8,7 @@ import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 
 import java.util.List;
 
-public abstract class ThreeDimensionalPaletteSerializer<T>
-    extends Serializer<ThreeDimensionalPalette<T>> {
+public abstract class ThreeDimensionalPaletteSerializer<T> extends Serializer<ThreeDimensionalPalette<T>> {
 
     /**
      * Schreibe einen einzelnen Block-Wert vom Typ T.

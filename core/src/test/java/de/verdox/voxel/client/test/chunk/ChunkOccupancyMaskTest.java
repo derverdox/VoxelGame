@@ -3,8 +3,9 @@ package de.verdox.voxel.client.test.chunk;
 import static org.junit.jupiter.api.Assertions.*;
 
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ChunkOccupancyMask;
+import de.verdox.voxel.client.level.chunk.occupancy.ChunkOccupancyMask;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
 import de.verdox.voxel.shared.data.types.Blocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,11 +18,13 @@ class ChunkOccupancyMaskTest {
 
 
     private final int SX = 16, SY = 16, SZ = 16;
+    private ClientWorld clientWorld;
+    private ClientChunk chunk;
 
     @BeforeEach
     void setUp() {
-        ClientWorld clientWorld = new ClientWorld(UUID.randomUUID(),0, 32, (byte) SX, (byte) SY, (byte) SZ);
-        ClientChunk chunk = new ClientChunk(
+        clientWorld = new ClientWorld(UUID.randomUUID(), 0, 32, (byte) SX, (byte) SY, (byte) SZ);
+        chunk = new ClientChunk(
             clientWorld,  // world is not needed for occupancy test
             0, 0, 0
         );
@@ -57,7 +60,9 @@ class ChunkOccupancyMaskTest {
     void testFaceMasksSingleVoxelCenter() {
         com.updateOccupancyMask(Blocks.STONE, 1, 1, 1);
 
-        ChunkOccupancyMask.FaceMasks m = com.computeFaceMasks();
+        FaceMasks m = com.getFaceMasks();
+        m.computeMasks(clientWorld, com.getGameChunk().getChunkX(), com.getGameChunk().getChunkY(), com.getGameChunk().getChunkZ(), com.getOccupancyMask());
+
 
         long expected = 1L << 1;
         // X+
@@ -97,7 +102,8 @@ class ChunkOccupancyMaskTest {
         com.updateOccupancyMask(Blocks.STONE, 1, 1, 1);
         com.updateOccupancyMask(Blocks.STONE, 2, 1, 1);
 
-        ChunkOccupancyMask.FaceMasks m = com.computeFaceMasks();
+        FaceMasks m = com.getFaceMasks();
+        m.computeMasks(clientWorld, com.getGameChunk().getChunkX(), com.getGameChunk().getChunkY(), com.getGameChunk().getChunkZ(), com.getOccupancyMask());
 
         long expected = 1L << 1;
 
@@ -131,7 +137,9 @@ class ChunkOccupancyMaskTest {
     @Test
     void testEmptyChunkNoFaces() {
         // Nie update → alles transparent
-        ChunkOccupancyMask.FaceMasks m = com.computeFaceMasks();
+        FaceMasks m = com.getFaceMasks();
+        m.computeMasks(clientWorld, com.getGameChunk().getChunkX(), com.getGameChunk().getChunkY(), com.getGameChunk().getChunkZ(), com.getOccupancyMask());
+
         for (int x = 0; x < SX; x++) {
             for (int y = 0; y < SY; y++) {
                 assertEquals(0L, m.xPlus[x][y]);
@@ -151,7 +159,7 @@ class ChunkOccupancyMaskTest {
     void testEmptyAfterClear() {
         assertTrue(com.isChunkEmpty(), "Chunk must be empty after clear");
         assertFalse(com.isChunkFullOpaque(), "Chunk should not be full opaque when empty");
-        assertEquals(0, com.getTotalOpaqueBlocks(), "Total opaque count should be zero");
+        assertEquals(0, com.getTotalOpaque(), "Total opaque count should be zero");
         for (int x = 0; x < SX; x++) {
             for (int y = 0; y < SY; y++) {
                 assertEquals(0, com.getColumnOpaqueCount(x, y),
@@ -170,7 +178,7 @@ class ChunkOccupancyMaskTest {
         com.updateOccupancyMask(Blocks.STONE, x, y, z);
         assertFalse(com.isChunkEmpty(), "Chunk should not be empty after one block");
         assertFalse(com.isChunkFullOpaque(), "Chunk should not be full opaque after one block");
-        assertEquals(1, com.getTotalOpaqueBlocks(), "Total opaque count must be 1");
+        assertEquals(1, com.getTotalOpaque(), "Total opaque count must be 1");
         assertEquals(1, com.getColumnOpaqueCount(x, y),
             "Column opaque count at (1,2) must be 1");
         // Other columns remain zero
@@ -182,7 +190,7 @@ class ChunkOccupancyMaskTest {
         // Clear the block back to air
         com.updateOccupancyMask(Blocks.AIR, x, y, z);
         assertTrue(com.isChunkEmpty(), "Chunk should be empty after clearing");
-        assertEquals(0, com.getTotalOpaqueBlocks(), "Total opaque count must be 0");
+        assertEquals(0, com.getTotalOpaque(), "Total opaque count must be 0");
     }
 
     /**
@@ -200,7 +208,7 @@ class ChunkOccupancyMaskTest {
         }
         assertFalse(com.isChunkEmpty(), "Chunk should not be empty when full");
         assertTrue(com.isChunkFullOpaque(), "Chunk should be full opaque when all set");
-        assertEquals(SX * SY * SZ, com.getTotalOpaqueBlocks(),
+        assertEquals(SX * SY * SZ, com.getTotalOpaque(),
             "Total opaque count must equal total voxels");
         for (int x = 0; x < SX; x++) {
             for (int y = 0; y < SY; y++) {

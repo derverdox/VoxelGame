@@ -2,13 +2,14 @@ package de.verdox.voxel.client.level.mesh.terrain;
 
 import com.badlogic.gdx.Gdx;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.util.Direction;
+import de.verdox.voxel.shared.util.ThreadUtil;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,11 +18,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 
 public class TerrainMeshStorage {
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-    private final Map<Long, TerrainMesh> renderedChunks = new HashMap<>();
-    private final Map<Long, RegionQueue> queues = new HashMap<>();
+    private final ExecutorService executor = Executors.newFixedThreadPool(1, ThreadUtil.createFactoryForName("Meshing Thread", true));
+    private final Long2ObjectOpenHashMap<TerrainMesh> renderedRegions = new Long2ObjectOpenHashMap<>();
+    private final Long2ObjectOpenHashMap<RegionQueue> queues = new Long2ObjectOpenHashMap<>();
     private final ClientWorld world;
-    private final TerrainMeshPipeline terrainMeshPipeline;
+    private final TerrainManager terrainManager;
     protected final int regionSizeX;
     protected final int regionSizeY;
     protected final int regionSizeZ;
@@ -34,53 +35,43 @@ public class TerrainMeshStorage {
     // Chunk Calculation Ticket works the same way as before.
     // Instead of chunkDataChangeVersion we want to use a "forced" variable
 
-    public TerrainMeshStorage(ClientWorld world, TerrainMeshPipeline terrainMeshPipeline, int regionSizeX, int regionSizeY, int regionSizeZ) {
+    public TerrainMeshStorage(ClientWorld world, TerrainManager terrainManager, int regionSizeX, int regionSizeY, int regionSizeZ) {
         this.world = world;
-        this.terrainMeshPipeline = terrainMeshPipeline;
+        this.terrainManager = terrainManager;
         this.regionSizeX = regionSizeX;
         this.regionSizeY = regionSizeY;
         this.regionSizeZ = regionSizeZ;
     }
 
-    public void recalculateMesh(ClientChunk gameChunk) {
-        if (gameChunk.isEmpty()) return;
+    public void recalculateMesh(int regionX, int regionY, int regionZ, boolean force) {
+        long keyOfRegion = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
 
-        int regionX = gameChunk.getChunkX() / regionSizeX;
-        int regionY = gameChunk.getChunkY() / regionSizeY;
-        int regionZ = gameChunk.getChunkZ() / regionSizeZ;
+        RegionQueue q = queues.computeIfAbsent(keyOfRegion, k -> new RegionQueue());
 
-        int minChunkXOfRegion = regionX * regionSizeX;
-        int minChunkYOfRegion = regionY * regionSizeY;
-        int minChunkZOfRegion = regionZ * regionSizeZ;
-
-        long keyOfMinChunkX = ChunkBase.computeChunkKey(minChunkXOfRegion, minChunkYOfRegion, minChunkZOfRegion);
-
-        RegionQueue q = queues.computeIfAbsent(keyOfMinChunkX, k -> new RegionQueue());
-
-        MeshCalculationTicket oldTicket = q.getLastTicket(keyOfMinChunkX);
-        MeshCalculationTicket newTicket = MeshCalculationTicket.forRegion(minChunkXOfRegion, minChunkYOfRegion, minChunkZOfRegion, regionSizeX, regionSizeY, regionSizeZ);
+        MeshCalculationTicket oldTicket = q.getLastTicket(keyOfRegion);
+        MeshCalculationTicket newTicket = createRegionTicket(force, regionSizeX, regionSizeY, regionSizeZ);
 
         if (oldTicket == null || newTicket.isBetterThan(oldTicket)) {
-            TerrainMesh mesh = renderedChunks.computeIfAbsent(keyOfMinChunkX, k -> new TerrainMesh());
-            q.addTicket(keyOfMinChunkX, newTicket);
-            q.enqueue(() -> doRecalculate(keyOfMinChunkX, gameChunk, mesh));
+            TerrainMesh mesh = renderedRegions.computeIfAbsent(keyOfRegion, k -> new TerrainMesh());
+            q.addTicket(keyOfRegion, newTicket);
+            q.enqueue(() -> doRecalculate(keyOfRegion, regionX, regionY, regionZ, mesh));
         }
     }
 
-    private void doRecalculate(long chunkKey, ClientChunk gameChunk, TerrainMesh terrainMesh) {
+    private void doRecalculate(long chunkKey, int regionX, int regionY, int regionZ, TerrainMesh terrainMesh) {
         long start = System.nanoTime();
         try {
-            int regionX = gameChunk.getChunkX() / regionSizeX;
-            int regionY = gameChunk.getChunkY() / regionSizeY;
-            int regionZ = gameChunk.getChunkZ() / regionSizeZ;
-
-            int minChunkXOfRegion = regionX * regionSizeX;
-            int minChunkYOfRegion = regionY * regionSizeY;
-            int minChunkZOfRegion = regionZ * regionSizeZ;
-
-            var result = terrainMeshPipeline.buildMesh(world, minChunkXOfRegion, minChunkYOfRegion, minChunkZOfRegion, regionSizeX, regionSizeY, regionSizeZ);
+            var result = terrainManager.getMeshPipeline().buildMesh(world, regionX, regionY, regionZ);
             terrainMesh.setRawBlockFaces(result.faces(), result.completeMesh());
-            Gdx.app.postRunnable(() -> gameChunk.getWorld().getRenderRegionStrategy().markDirty(gameChunk));
+
+            Gdx.app.postRunnable(() -> {
+                if (!result.completeMesh() || result.faces().getSize() == 0) {
+                    terrainManager.getTerrainGraph().removeRegion(regionX, regionY, regionZ);
+                } else {
+                    terrainManager.getTerrainGraph().addRegion(regionX, regionY, regionZ);
+                    queues.remove(ChunkBase.computeChunkKey(regionX, regionY, regionZ));
+                }
+            });
         } catch (Throwable t) {
             Gdx.app.error("MeshMaster", "Error while generating mesh for chunk " + chunkKey, t);
         } finally {
@@ -90,14 +81,22 @@ public class TerrainMeshStorage {
         }
     }
 
-    public TerrainMesh getChunkMeshIfAvailable(int x, int y, int z) {
-        return renderedChunks.get(ChunkBase.computeChunkKey(x, y, z));
+    public TerrainMesh getRegionMeshIfAvailable(int regionX, int regionY, int regionZ) {
+        return renderedRegions.get(ChunkBase.computeChunkKey(regionX, regionY, regionZ));
+    }
+
+    public void removeMesh(int regionX, int regionY, int regionZ) {
+        renderedRegions.remove(ChunkBase.computeChunkKey(regionX, regionY, regionZ));
+    }
+
+    public int getAmountOfQueues() {
+        return queues.size();
     }
 
     private class RegionQueue {
         private final Queue<Runnable> pending = new ConcurrentLinkedQueue<>();
         private final AtomicBoolean running = new AtomicBoolean(false);
-        private final Map<Long, MeshCalculationTicket> tickets = new ConcurrentHashMap<>();
+        private final Long2ObjectMap<MeshCalculationTicket> tickets = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
 
         void enqueue(Runnable task) {
             pending.add(task);
@@ -133,41 +132,20 @@ public class TerrainMeshStorage {
         }
     }
 
-    private record MeshCalculationTicket(boolean forced, byte presentNeighbors) {
-
-        private static MeshCalculationTicket forRegion(int minChunkX, int minChunkY, int minChunkZ, int regionSizeX, int regionSizeY, int regionSizeZ) {
-            int maxX = minChunkX + regionSizeX - 1;
-            int maxY = minChunkY + regionSizeY - 1;
-            int maxZ = minChunkZ + regionSizeZ - 1;
-
-            for (int y = minChunkY; y <= maxY; y++) {
-                for (int z = minChunkZ; z <= maxZ; z++) {
-                    // Left
-                    processChunk(minChunkX, y, z);
-                    // Right
-                    processChunk(maxX, y, z);
-                }
-            }
-
-            for (int x = minChunkX + 1; x <= maxX - 1; x++) {
-                for (int z = minChunkZ; z <= maxZ; z++) {
-                    // DOWN
-                    processChunk(x, minChunkY, z);
-                    // UP
-                    processChunk(x, maxY, z);
-                }
-            }
-
-            for (int x = minChunkX + 1; x <= maxX - 1; x++) {
-                for (int y = minChunkY + 1; y <= maxY - 1; y++) {
-                    // BACKWARD
-                    processChunk(x, y, minChunkZ);
-                    // FORWARD
-                    processChunk(x, y, maxZ);
-                }
+    private MeshCalculationTicket createRegionTicket(boolean forced, int regionSizeX, int regionSizeY, int regionSizeZ) {
+        byte counter = 0;
+        for (int i = 0; i < Direction.values().length; i++) {
+            Direction dir = Direction.values()[i];
+            var node = terrainManager.getTerrainGraph().getRegion(regionSizeX + dir.getOffsetX(), regionSizeY + dir.getOffsetY(), regionSizeZ + dir.getOffsetZ());
+            if (node != null) {
+                counter++;
             }
         }
 
+        return new MeshCalculationTicket(forced, counter);
+    }
+
+    private record MeshCalculationTicket(boolean forced, byte presentNeighbors) {
         private boolean isBetterThan(MeshCalculationTicket other) {
             return other.forced || this.presentNeighbors > other.presentNeighbors;
         }

@@ -7,9 +7,13 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.GridPoint3;
 import com.badlogic.gdx.math.Vector3;
 import de.verdox.voxel.client.level.ClientWorld;
+import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.renderer.DebugScreen;
+import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.level.chunk.ChunkBase;
 
-public class PlayerInteractionRayCast {
+public class PlayerInteractionRayCast implements DebuggableOnScreen {
     private static final float RAY_CAST_STEP_SIZE = 0.05f;
     private static final float PLAYER_INTERACTION_RANGE = 8f;
 
@@ -18,6 +22,7 @@ public class PlayerInteractionRayCast {
     private final GridPoint3 block = new GridPoint3();
 
     private BlockRayCastResult lastHit;
+    private BlockRayCastResult blockOfPlayerPos;
 
     /**
      * Schießt einen Strahl aus der Kamera und liefert den ersten Block (BlockBase),
@@ -26,6 +31,8 @@ public class PlayerInteractionRayCast {
     public BlockRayCastResult rayCastNearestBlockTarget(Camera camera, ClientWorld world) {
         step.set(camera.direction).nor().scl(RAY_CAST_STEP_SIZE);
         rayPos.set(camera.position);
+
+        blockOfPlayerPos = new BlockRayCastResult(world, world.getBlockAt((int) camera.position.x, (int) camera.position.y, (int) camera.position.z), (int) camera.position.x, (int) camera.position.y, (int) camera.position.z);
 
         float traveled = 0f;
         while (traveled < PLAYER_INTERACTION_RANGE) {
@@ -43,7 +50,7 @@ public class PlayerInteractionRayCast {
                     return lastHit;
                 }
 
-                lastHit = new BlockRayCastResult(hit, block.x, block.y, block.z);
+                lastHit = new BlockRayCastResult(world, hit, block.x, block.y, block.z);
                 return lastHit;
             }
         }
@@ -52,16 +59,65 @@ public class PlayerInteractionRayCast {
         return null;
     }
 
-    public record BlockRayCastResult(BlockBase castBlock, int globalX, int globalY, int globalZ) {
+    @Override
+    public void debugText(DebugScreen debugScreen) {
+        if (lastHit != null) {
+            debugScreen.addDebugTextLine("Block [" + lastHit.globalX + ", " + lastHit.globalY + ", " + lastHit.globalZ + "]: " + lastHit.castBlock.findKey());
+            debugScreen.addDebugTextLine(" ".repeat(4) + "Sky Light: "+ lastHit.getSkyLightOfHitBlock());
+            debugScreen.addDebugTextLine(" ".repeat(4) + "Block Light: ("+ lastHit.getBlockLightRedOfHitBlock()+", "+lastHit.getBlockLightGreenOfHitBlock()+", "+lastHit.getBlockLightBlueOfHitBlock()+")");
+        }
+        if(blockOfPlayerPos != null) {
+            debugScreen.addDebugTextLine("Block of player [" + blockOfPlayerPos.globalX + ", " + blockOfPlayerPos.globalY + ", " + blockOfPlayerPos.globalZ + "]: " + blockOfPlayerPos.castBlock.findKey());
+            debugScreen.addDebugTextLine(" ".repeat(4) + "Sky Light: "+ blockOfPlayerPos.getSkyLightOfHitBlock());
+            debugScreen.addDebugTextLine(" ".repeat(4) + "Block Light: ("+ blockOfPlayerPos.getBlockLightRedOfHitBlock()+", "+blockOfPlayerPos.getBlockLightGreenOfHitBlock()+", "+blockOfPlayerPos.getBlockLightBlueOfHitBlock()+")");
+
+        }
+    }
+
+    public record BlockRayCastResult(ClientWorld world, BlockBase castBlock, int globalX, int globalY, int globalZ) {
         public void render(Camera camera, ShapeRenderer shapeRenderer) {
             Gdx.graphics.getGL20().glLineWidth(4);
             shapeRenderer.setColor(Color.WHITE);
             shapeRenderer.setProjectionMatrix(camera.combined);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-            // Align correctly with LibGDX cube shape
             shapeRenderer.box(globalX, globalY, (globalZ + 1), 1.02f, 1.02f, 1.02f);
             shapeRenderer.end();
         }
 
+        public ClientChunk getChunk() {
+            return world.getChunk(ChunkBase.chunkX(world, globalX), ChunkBase.chunkY(world, globalY), ChunkBase.chunkZ(world, globalZ));
+        }
+
+        public byte getSkyLightOfHitBlock() {
+            ClientChunk chunk = getChunk();
+            if(chunk == null) {
+                return -1;
+            }
+            return chunk.getChunkLightData().getSkyLight((byte) chunk.localX(globalX), (byte) chunk.localY(globalY), (byte) chunk.localZ(globalZ));
+        }
+
+        public byte getBlockLightRedOfHitBlock() {
+            ClientChunk chunk = getChunk();
+            if(chunk == null) {
+                return -1;
+            }
+            return chunk.getChunkLightData().getBlockRed((byte) chunk.localX(globalX), (byte) chunk.localY(globalY), (byte) chunk.localZ(globalZ));
+        }
+
+        public byte getBlockLightGreenOfHitBlock() {
+            ClientChunk chunk = getChunk();
+            if(chunk == null) {
+                return -1;
+            }
+            return chunk.getChunkLightData().getBlockGreen((byte) chunk.localX(globalX), (byte) chunk.localY(globalY), (byte) chunk.localZ(globalZ));
+        }
+
+        public byte getBlockLightBlueOfHitBlock() {
+            ClientChunk chunk = getChunk();
+            if(chunk == null) {
+                return -1;
+            }
+            return chunk.getChunkLightData().getBlockBlue((byte) chunk.localX(globalX), (byte) chunk.localY(globalY), (byte) chunk.localZ(globalZ));
+        }
     }
 }

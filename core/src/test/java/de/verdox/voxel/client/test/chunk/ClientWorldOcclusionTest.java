@@ -3,10 +3,9 @@ package de.verdox.voxel.client.test.chunk;
 import static org.junit.jupiter.api.Assertions.*;
 
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ChunkOccupancyMask;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
 import de.verdox.voxel.shared.data.types.Blocks;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -46,8 +45,10 @@ class ClientWorldOcclusionTest {
                 chunkB.setBlockAt(Blocks.STONE, 0, y, z);
             }
         }
-        // Compute FaceMasks for chunkA
-        ChunkOccupancyMask.FaceMasks masksA = chunkA.getOccupancyMask().computeFaceMasks();
+
+        FaceMasks masksA = chunkA.getOccupancyMask().getFaceMasks();
+        masksA.computeMasks(chunkA.getWorld(), chunkA.getChunkX(), chunkA.getChunkY(), chunkA.getChunkZ(), chunkA.getOccupancyMask().getOccupancyMask());
+
         long[][] xPlusA = masksA.xPlus;
         // All y,z at x = SX-1 should have mask zero (no visible faces)
         for (int y = 0; y < SY; y++) {

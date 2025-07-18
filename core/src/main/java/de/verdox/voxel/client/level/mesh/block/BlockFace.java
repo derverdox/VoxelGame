@@ -5,6 +5,9 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.math.Vector3;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
+import de.verdox.voxel.shared.lighting.LightAccessor;
+import de.verdox.voxel.shared.util.Direction;
+import de.verdox.voxel.shared.util.LightUtil;
 
 import java.util.Objects;
 
@@ -19,14 +22,22 @@ import java.util.Objects;
  * </ul>
  */
 public class BlockFace {
-    public float corner1X, corner1Y, corner1Z;
+    public byte blockXInChunk;
+    public byte blockYInChunk;
+    public byte blockZInChunk;
+    public float corner1X;
+    public float corner1Y;
+    public float corner1Z;
     public float corner2X, corner2Y, corner2Z;
     public float corner3X, corner3Y, corner3Z;
     public float corner4X, corner4Y, corner4Z;
     public float normalX, normalY, normalZ;
     public ResourceLocation textureId;
 
-    public BlockFace(float corner1X, float corner1Y, float corner1Z, float corner2X, float corner2Y, float corner2Z, float corner3X, float corner3Y, float corner3Z, float corner4X, float corner4Y, float corner4Z, float normalX, float normalY, float normalZ, ResourceLocation textureId) {
+    public BlockFace(byte blockXInChunk, byte blockYInChunk, byte blockZInChunk, float corner1X, float corner1Y, float corner1Z, float corner2X, float corner2Y, float corner2Z, float corner3X, float corner3Y, float corner3Z, float corner4X, float corner4Y, float corner4Z, float normalX, float normalY, float normalZ, ResourceLocation textureId) {
+        this.blockXInChunk = blockXInChunk;
+        this.blockYInChunk = blockYInChunk;
+        this.blockZInChunk = blockZInChunk;
         this.corner1X = corner1X;
         this.corner1Y = corner1Y;
         this.corner1Z = corner1Z;
@@ -57,12 +68,19 @@ public class BlockFace {
         return (int) Math.min(corner1Z, Math.min(corner2Z, Math.min(corner3Z, corner4Z)));
     }
 
+    // Corner positions in world space
+    // Mapping corners to UV coordinates:
+    //  c1 -> (u0, v0) bottom-left  (00)
+    //  c2 -> (uEnd, v0) bottom-right (10)
+    //  c3 -> (uEnd, vEnd) top-right   (11)
+    //  c4 -> (u0, vEnd) top-left    (01)
     public void addToBuilder(MeshPartBuilder meshPartBuilder, TextureAtlas textureAtlas) {
         if (textureId != null) {
             TextureRegion region = textureAtlas.findRegion(textureId.toString());
 
             if (!isGreedyFace()) {
                 meshPartBuilder.setUVRange(region);
+                //meshPartBuilder.setColor(1,1,0,1);
             } else {
                 float uStart = region.getU(), vStart = region.getV();
                 float uEnd = region.getU2(), vEnd = region.getV2();
@@ -73,67 +91,195 @@ public class BlockFace {
                 float greedyVEnd = vStart + vStepSize * getVLength();
 
                 meshPartBuilder.setUVRange(uStart, vStart, greedyUEnd, greedyVEnd);
+                //meshPartBuilder.setColor(getULength(),getVLength(),0,1);
             }
         }
-
-
-        // Corner positions in world space
-        // Mapping corners to UV coordinates:
-        //  c1 -> (u0, v0) bottom-left  (00)
-        //  c2 -> (uEnd, v0) bottom-right (10)
-        //  c3 -> (uEnd, vEnd) top-right   (11)
-        //  c4 -> (u0, vEnd) top-left    (01)
-        Vector3 c1 = new Vector3(corner1X, corner1Y, corner1Z);
-        Vector3 c2 = new Vector3(corner2X, corner2Y, corner2Z);
-        Vector3 c3 = new Vector3(corner3X, corner3Y, corner3Z);
-        Vector3 c4 = new Vector3(corner4X, corner4Y, corner4Z);
-
-        Vector3 normal = new Vector3(normalX, normalY, normalZ);
-        meshPartBuilder.rect(c1, c2, c3, c4, normal);
+        meshPartBuilder.rect(
+            corner1X, corner1Y, corner1Z,
+            corner2X, corner2Y, corner2Z,
+            corner3X, corner3Y, corner3Z,
+            corner4X, corner4Y, corner4Z,
+            normalX, normalY, normalZ
+        );
     }
+
+    /**
+     * Determines orthogonal tangent offsets u and v for face normal (nx,ny,nz).
+     */
+    private static void getTangents(float nx, float ny, float nz,
+                                    int[] uOffset, int[] vOffset) {
+        if (nx != 0f) {
+            // Face ±X → use Y and Z as tangents
+            uOffset[0] = 0;
+            uOffset[1] = 0;
+            uOffset[2] = (nx > 0 ? 1 : -1);
+            vOffset[0] = 0;
+            vOffset[1] = 1;
+            vOffset[2] = 0;
+        } else if (ny != 0f) {
+            // Face ±Y → use X and Z
+            uOffset[0] = 1;
+            uOffset[1] = 0;
+            uOffset[2] = 0;
+            vOffset[0] = 0;
+            vOffset[1] = 0;
+            vOffset[2] = (ny > 0 ? 1 : -1);
+        } else {
+            // Face ±Z → use X and Y
+            uOffset[0] = 1;
+            uOffset[1] = 0;
+            uOffset[2] = 0;
+            vOffset[0] = 0;
+            vOffset[1] = 1;
+            vOffset[2] = 0;
+        }
+    }
+
+    /**
+     * Computes ambient occlusion factor [0..1] for a vertex at block (x,y,z).
+     */
+
+    // Reusable arrays to avoid allocations
+    private static final int[] uOff = new int[3];
+    private static final int[] vOff = new int[3];
+
+    private static float computeAO(int x, int y, int z, float nx, float ny, float nz, LightAccessor lightAccessor) {
+        getTangents(nx, ny, nz, uOff, vOff);
+        int x1 = x + uOff[0], y1 = y + uOff[1], z1 = z + uOff[2];
+        int x2 = x + vOff[0], y2 = y + vOff[1], z2 = z + vOff[2];
+        int xc = x1 + (x2 - x), yc = y1 + (y2 - y), zc = z1 + (z2 - z);
+
+        boolean occ1 = false;
+        boolean occ2 = false;
+        boolean occc = false;
+        if (lightAccessor.isInBounds(x1, y1, z1)) {
+            occ1 = lightAccessor.isOpaque(x1, y1, z1);
+        }
+        if (lightAccessor.isInBounds(x2, y2, z2)) {
+            occ2 = lightAccessor.isOpaque(x2, y2, z2);
+        }
+        if (lightAccessor.isInBounds(xc, yc, zc)) {
+            occc = lightAccessor.isOpaque(xc, yc, zc);
+        }
+        int occ = (occ1 && occ2) ? 3 : ((occ1 ? 1 : 0) + (occ2 ? 1 : 0) + (occc ? 1 : 0));
+        return 1f - occ / 3f;
+    }
+
+
+    public void appendToBuffers(
+        float[] vertices,
+        short[] indices,
+        int vertexOffsetFloats,
+        int indexOffset,
+        short baseVertexIndex,
+        TextureAtlas textureAtlas,
+        int floatsPerVertex,
+        LightAccessor lightAccessor
+    ) {
+        // Hole Texturregion
+        TextureRegion region = null;
+        if (textureId != null) {
+            region = textureAtlas.findRegion(textureId.toString());
+        }
+
+        float uLen = isGreedyFace() ? getULength() : 1f;
+        float vLen = isGreedyFace() ? getVLength() : 1f;
+
+        float[][] uv = {
+            {0f, 0f},
+            {uLen, 0f},
+            {uLen, vLen},
+            {0f, vLen}
+        };
+
+        float[][] corners = new float[][]{
+            {corner1X, corner1Y, corner1Z},
+            {corner2X, corner2Y, corner2Z},
+            {corner3X, corner3Y, corner3Z},
+            {corner4X, corner4Y, corner4Z}
+        };
+
+        // Atlas-Region
+        float uStart = region.getU(), vStart = region.getV();
+        float tileU = region.getU2() - uStart;
+        float tileV = region.getV2() - vStart;
+
+        for (int i = 0; i < 4; i++) {
+            int o = vertexOffsetFloats + i * floatsPerVertex;
+
+            // Position
+            vertices[o + 0] = corners[i][0];
+            vertices[o + 1] = corners[i][1];
+            vertices[o + 2] = corners[i][2];
+
+            // Normal
+            vertices[o + 3] = normalX;
+            vertices[o + 4] = normalY;
+            vertices[o + 5] = normalZ;
+
+            // UV
+            vertices[o + 6] = uv[i][0];
+            vertices[o + 7] = uv[i][1];
+
+            // GREEDY START
+            vertices[o + 8] = uStart;
+            vertices[o + 9] = vStart;
+
+            // GREEDY END
+            vertices[o + 10] = tileU;
+            vertices[o + 11] = tileV;
+
+            int bx = blockXInChunk;
+            int by = blockYInChunk;
+            int bz = blockZInChunk;
+
+            int rx = (int) (blockXInChunk + normalX);
+            int ry = (int) (blockYInChunk + normalY);
+            int rz = (int) (blockZInChunk + normalZ);
+
+            // 2) Aus LightAccessor abfragen
+            byte sky;
+            if (lightAccessor.isInBounds(rx, ry, rz)) {
+                sky = lightAccessor.getSkyLight((byte) rx, (byte) ry, (byte) rz);
+            } else {
+                var neighborAccessor = lightAccessor.getNeighbor(Direction.fromOffsets((int) normalX, (int) normalY, (int) normalZ));
+                if (neighborAccessor != null) {
+                    sky = lightAccessor.getSkyLight((byte) normalX != 0 ? 0 : blockXInChunk, (byte) normalY != 0 ? 0 : blockYInChunk, (byte) normalZ != 0 ? 0 : blockZInChunk);
+                } else {
+                    sky = 15;
+                }
+            }
+
+
+            byte r = lightAccessor.getBlockLightRed((byte) bx, (byte) by, (byte) bz);
+            byte g = lightAccessor.getBlockLightGreen((byte) bx, (byte) by, (byte) bz);
+            byte b = lightAccessor.getBlockLightBlue((byte) bx, (byte) by, (byte) bz);
+
+            // Neues
+            vertices[o + 12] = LightUtil.packLightToFloat((byte) sky, (byte) r, (byte) g, (byte) b);
+
+            // Compute AO
+            float ao = computeAO(bx, by, bz, normalX, normalY, normalZ, lightAccessor);
+            vertices[o + 13] = ao;
+        }
+
+        // Indices für 2 Triangles
+        indices[indexOffset + 0] = (short) (baseVertexIndex + 0);
+        indices[indexOffset + 1] = (short) (baseVertexIndex + 1);
+        indices[indexOffset + 2] = (short) (baseVertexIndex + 2);
+        indices[indexOffset + 3] = (short) (baseVertexIndex + 2);
+        indices[indexOffset + 4] = (short) (baseVertexIndex + 3);
+        indices[indexOffset + 5] = (short) (baseVertexIndex + 0);
+    }
+
 
     public BlockFace addOffset(float offsetX, float offsetY, float offsetZ) {
         return new BlockFace(
+            (byte) (blockXInChunk + offsetX), (byte) (blockYInChunk + offsetY), (byte) (blockZInChunk + offsetZ),
             corner1X + offsetX, corner1Y + offsetY, corner1Z + offsetZ,
             corner2X + offsetX, corner2Y + offsetY, corner2Z + offsetZ,
             corner3X + offsetX, corner3Y + offsetY, corner3Z + offsetZ,
             corner4X + offsetX, corner4Y + offsetY, corner4Z + offsetZ,
-            normalX, normalY, normalZ,
-            textureId
-        );
-    }
-
-    public BlockFace addOffsetX(float offset) {
-        return new BlockFace(
-            // nur X-Koordinaten plus Offset
-            corner1X + offset, corner1Y, corner1Z,
-            corner2X + offset, corner2Y, corner2Z,
-            corner3X + offset, corner3Y, corner3Z,
-            corner4X + offset, corner4Y, corner4Z,
-            normalX, normalY, normalZ,
-            textureId
-        );
-    }
-
-    public BlockFace addOffsetY(float offset) {
-        return new BlockFace(
-            // nur Y-Koordinaten plus Offset
-            corner1X, corner1Y + offset, corner1Z,
-            corner2X, corner2Y + offset, corner2Z,
-            corner3X, corner3Y + offset, corner3Z,
-            corner4X, corner4Y + offset, corner4Z,
-            normalX, normalY, normalZ,
-            textureId
-        );
-    }
-
-    public BlockFace addOffsetZ(float offset) {
-        return new BlockFace(
-            // nur Z-Koordinaten plus Offset
-            corner1X, corner1Y, corner1Z + offset,
-            corner2X, corner2Y, corner2Z + offset,
-            corner3X, corner3Y, corner3Z + offset,
-            corner4X, corner4Y, corner4Z + offset,
             normalX, normalY, normalZ,
             textureId
         );
@@ -150,6 +296,7 @@ public class BlockFace {
         float uy = (corner2Y - corner1Y) / lengthU;
         float uz = (corner2Z - corner1Z) / lengthU;
         return new BlockFace(
+            blockXInChunk, blockYInChunk, blockZInChunk,
             corner1X, corner1Y, corner1Z,
             corner2X + ux * delta, corner2Y + uy * delta, corner2Z + uz * delta,
             corner3X + ux * delta, corner3Y + uy * delta, corner3Z + uz * delta,
@@ -170,46 +317,11 @@ public class BlockFace {
         float uy = (corner1Y - corner2Y) / lengthU;
         float uz = (corner1Z - corner2Z) / lengthU;
         return new BlockFace(
+            blockXInChunk, blockYInChunk, blockZInChunk,
             corner1X + ux * delta, corner1Y + uy * delta, corner1Z + uz * delta,
             corner2X, corner2Y, corner2Z,
             corner3X, corner3Y, corner3Z,
             corner4X + ux * delta, corner4Y + uy * delta, corner4Z + uz * delta,
-            normalX, normalY, normalZ,
-            textureId
-        );
-    }
-
-    /**
-     * Rotates this face 90 degrees around its normal (right-hand rule),
-     * returning a new BlockFace with rotated corners.
-     */
-    public BlockFace rotate90AroundNormal() {
-        Vector3 axis = new Vector3(normalX, normalY, normalZ).nor();
-        // compute center of the quad
-        Vector3 center = new Vector3(corner1X, corner1Y, corner1Z)
-            .add(corner2X, corner2Y, corner2Z)
-            .add(corner3X, corner3Y, corner3Z)
-            .add(corner4X, corner4Y, corner4Z)
-            .scl(0.25f);
-        // rotate each corner around center
-        Vector3[] src = new Vector3[]{
-            new Vector3(corner1X, corner1Y, corner1Z),
-            new Vector3(corner2X, corner2Y, corner2Z),
-            new Vector3(corner3X, corner3Y, corner3Z),
-            new Vector3(corner4X, corner4Y, corner4Z)
-        };
-        Vector3[] dst = new Vector3[4];
-        for (int i = 0; i < 4; i++) {
-            Vector3 v = new Vector3(src[i]).sub(center);
-            // v_rot = axis × v  (90° rotation)
-            Vector3 vRot = new Vector3(axis).crs(v);
-            dst[i] = vRot.add(center);
-        }
-        return new BlockFace(
-            dst[0].x, dst[0].y, dst[0].z,
-            dst[1].x, dst[1].y, dst[1].z,
-            dst[2].x, dst[2].y, dst[2].z,
-            dst[3].x, dst[3].y, dst[3].z,
             normalX, normalY, normalZ,
             textureId
         );
@@ -226,6 +338,7 @@ public class BlockFace {
         float vy = (corner4Y - corner1Y) / lengthV;
         float vz = (corner4Z - corner1Z) / lengthV;
         return new BlockFace(
+            blockXInChunk, blockYInChunk, blockZInChunk,
             corner1X, corner1Y, corner1Z,
             corner2X, corner2Y, corner2Z,
             corner3X + vx * delta, corner3Y + vy * delta, corner3Z + vz * delta,
@@ -246,51 +359,11 @@ public class BlockFace {
         float vy = (corner1Y - corner4Y) / lengthV;
         float vz = (corner1Z - corner4Z) / lengthV;
         return new BlockFace(
+            blockXInChunk, blockYInChunk, blockZInChunk,
             corner1X + vx * delta, corner1Y + vy * delta, corner1Z + vz * delta,
             corner2X + vx * delta, corner2Y + vy * delta, corner2Z + vz * delta,
             corner3X, corner3Y, corner3Z,
             corner4X, corner4Y, corner4Z,
-            normalX, normalY, normalZ,
-            textureId
-        );
-    }
-
-    /**
-     * Verschiebt das Face um `delta` Blöcke in U-Richtung (corner1 → corner2).
-     */
-    public BlockFace shiftU(int delta) {
-        float lengthU = getULength();
-        if (lengthU == 0) return this;  // kein valid U-Vector
-        // Erzeuge den normierten U-Vektor
-        float ux = (corner2X - corner1X) / lengthU;
-        float uy = (corner2Y - corner1Y) / lengthU;
-        float uz = (corner2Z - corner1Z) / lengthU;
-        return offsetFace(ux * delta, uy * delta, uz * delta);
-    }
-
-    /**
-     * Verschiebt das Face um `delta` Blöcke in V-Richtung (corner1 → corner4).
-     */
-    public BlockFace shiftV(int delta) {
-        float lengthV = getVLength();
-        if (lengthV == 0) return this;
-        // Erzeuge den normierten V-Vektor
-        float vx = (corner4X - corner1X) / lengthV;
-        float vy = (corner4Y - corner1Y) / lengthV;
-        float vz = (corner4Z - corner1Z) / lengthV;
-        return offsetFace(vx * delta, vy * delta, vz * delta);
-    }
-
-    /**
-     * Hilfsmethode: liefert ein neues BlockFace,
-     * dessen alle vier Ecken um (dx,dy,dz) verschoben sind.
-     */
-    private BlockFace offsetFace(float dx, float dy, float dz) {
-        return new BlockFace(
-            corner1X + dx, corner1Y + dy, corner1Z + dz,
-            corner2X + dx, corner2Y + dy, corner2Z + dz,
-            corner3X + dx, corner3Y + dy, corner3Z + dz,
-            corner4X + dx, corner4Y + dy, corner4Z + dz,
             normalX, normalY, normalZ,
             textureId
         );
@@ -335,21 +408,21 @@ public class BlockFace {
     @Override
     public String toString() {
         return "BlockFace{" +
-            "corner1X=" + corner1X +
-            ", corner1Y=" + corner1Y +
-            ", corner1Z=" + corner1Z +
-            ", corner2X=" + corner2X +
-            ", corner2Y=" + corner2Y +
-            ", corner2Z=" + corner2Z +
-            ", corner3X=" + corner3X +
-            ", corner3Y=" + corner3Y +
-            ", corner3Z=" + corner3Z +
-            ", corner4X=" + corner4X +
-            ", corner4Y=" + corner4Y +
-            ", corner4Z=" + corner4Z +
-            ", normalX=" + normalX +
-            ", normalY=" + normalY +
-            ", normalZ=" + normalZ +
+            "c1X=" + corner1X +
+            ", c1Y=" + corner1Y +
+            ", c1Z=" + corner1Z +
+            ", c2X=" + corner2X +
+            ", c2Y=" + corner2Y +
+            ", c2Z=" + corner2Z +
+            ", c3X=" + corner3X +
+            ", c3Y=" + corner3Y +
+            ", c3Z=" + corner3Z +
+            ", c4X=" + corner4X +
+            ", c4Y=" + corner4Y +
+            ", c4Z=" + corner4Z +
+            ", nX=" + normalX +
+            ", nY=" + normalY +
+            ", nZ=" + normalZ +
             ", textureId=" + textureId +
             '}';
     }

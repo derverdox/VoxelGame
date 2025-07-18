@@ -5,26 +5,18 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.profiling.GLProfiler;
-import de.verdox.voxel.client.ClientBase;
-import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
-import de.verdox.voxel.client.level.mesh.chunk.MeshMaster;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.BitOcclusionBasedChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
-import de.verdox.voxel.client.level.mesh.chunk.ChunkMesh;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import lombok.Getter;
 
-import java.util.List;
-
 @Getter
+@Deprecated
 public class WorldRenderer implements DebuggableOnScreen {
-    private final ChunkMeshCalculator chunkMeshCalculator = new BitOcclusionBasedChunkMeshCalculator();
-    private final MeshMaster meshMaster = new MeshMaster(chunkMeshCalculator);
     private int amountFaces;
     private int chunksInFrustum;
     private int chunkIterationsX;
@@ -83,7 +75,7 @@ public class WorldRenderer implements DebuggableOnScreen {
         }
     }
 
-    private void regionBasedRendering(Camera camera, ClientWorld world, ModelBatch batch, Environment environment) {
+    /*private void regionBasedRendering(Camera camera, ClientWorld world, ModelBatch batch, Environment environment) {
         world.getChunkVisibilityGraph().getChunkRenderRegionManager().rebuildDirtyCaches(camera);
         world.getChunkVisibilityGraph().getChunkRenderRegionManager().renderVisibleRegions(camera, batch);
     }
@@ -112,7 +104,7 @@ public class WorldRenderer implements DebuggableOnScreen {
                 }
             }
         }
-    }
+    }*/
 
 /*    private void naiveChunkRendering(Camera camera, World world, ModelBatch batch, Environment environment) {
         ChunkRenderingBounds renderBounds = ChunkRenderingBounds.computeChunkLoopBounds(camera, world);
@@ -170,7 +162,6 @@ public class WorldRenderer implements DebuggableOnScreen {
 
     @Override
     public void debugText(DebugScreen debugScreen) {
-        debugScreen.addDebugTextLine("Draw calls: " + worldRendererProfiler.getDrawCalls());
-        debugScreen.addDebugTextLine("GL calls: " + worldRendererProfiler.getCalls());
+
     }
 }

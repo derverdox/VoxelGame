@@ -3,13 +3,18 @@ package de.verdox.voxel.client;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.profiling.GLProfiler;
 import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.utils.PerformanceCounter;
+import com.badlogic.gdx.utils.BufferUtils;
 import com.esotericsoftware.kryonet.Client;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.input.ClientSettings;
 import de.verdox.voxel.client.level.ClientWorld;
+import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.shader.Shaders;
+import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.client.network.ClientConnectionListener;
 import de.verdox.voxel.client.renderer.ClientRenderer;
@@ -18,12 +23,14 @@ import de.verdox.voxel.shared.data.types.BlockModels;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.Bootstrap;
+import de.verdox.voxel.shared.network.packet.serializer.ChunkSerializer;
+import de.verdox.voxel.shared.util.Benchmark;
 import lombok.Getter;
-import org.joml.Vector3i;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms.
@@ -40,26 +47,39 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
 
     private PlayerController playerController;
     @Getter
-    private static long lastRenderCPUDurationNanos;
-    private static long lastSimulationCPUDurationNanos;
     private int chunkX;
     private int chunkY;
     private int chunkZ;
-    private final PerformanceCounter performanceCounter = new PerformanceCounter("");
+
+    private static int frameCounter = 0;
+    private static int benchmarkWindow = 60;
+    private final Benchmark benchmark = new Benchmark(benchmarkWindow);
+    private List<String> benchmarkInfoSampled = new ArrayList<>();
+    private GLProfiler worldRendererProfiler;
+
 
     @Override
     public void create() {
-        int writeBufferSize = 1024 * 1024 * 1024;   // z.B. 32 KB
-        int objectBufferSize = 1024 * 1024 * 1024;   // z.B. 64 KB
+        int writeBufferSize = 1024 * 1024 * 16;   // z.B. 32 KB
+        int objectBufferSize = 1024 * 1024 * 16;   // z.B. 64 KB
+
+        Shaders.initShaders();
 
         client = new Client(writeBufferSize, objectBufferSize);
         client.start();
         Bootstrap.bootstrap(client.getKryo());
+
+        client.getKryo().register(ClientChunk.class, new ChunkSerializer<>());
+
         Gdx.input.setCursorCatched(true);
         Gdx.graphics.setVSync(false);
         Gdx.graphics.setResizable(true);
 
         Gdx.graphics.setForegroundFPS(0);
+
+        IntBuffer depthBits = BufferUtils.newIntBuffer(16);
+        Gdx.gl.glGetIntegerv(GL20.GL_DEPTH_BITS, depthBits);
+        Gdx.app.log("DEPTH", "Depth bits: " + depthBits.get(0));
 
         BlockModels.bootstrap();
         TextureAtlasManager.getInstance().build();
@@ -72,6 +92,7 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
         playerController = new PlayerController(camera, client);
         clientRenderer = new ClientRenderer(camera, clientSettings, playerController);
         clientRenderer.getDebugScreen().attach(playerController);
+        clientRenderer.getDebugScreen().attach(playerController.getPlayerInteractionRayCast());
         clientRenderer.getDebugScreen().attach(this);
 
         try {
@@ -83,6 +104,8 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
 
         clientConnectionListener = new ClientConnectionListener(clientRenderer);
         client.addListener(clientConnectionListener);
+        worldRendererProfiler = new GLProfiler(Gdx.graphics);
+        worldRendererProfiler.enable();
     }
 
     @Override
@@ -97,28 +120,35 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
 
     @Override
     public void render() {
-        long startSimulation = System.nanoTime();
+        benchmark.start();
+        benchmark.startSection("Simulation");
+
         float delta = Gdx.graphics.getDeltaTime();
         accumulator += delta;
 
         // 1) Simulations-Ticks
         float tickRate = 1f / TICKS_PER_SECOND;
         while (accumulator >= tickRate) {
-            updateGameLogic(tickRate);
+            updateGameLogic(tickRate, benchmark);
+
             accumulator -= tickRate;
             clientTick++;
         }
-        lastSimulationCPUDurationNanos = System.nanoTime() - startSimulation;
-
-        // 2) Interpoliertes Rendering
         float alpha = accumulator / tickRate;
+        benchmark.endSection();
 
-        long startRender = System.nanoTime();
-        renderScene(alpha);
-        lastRenderCPUDurationNanos = System.nanoTime() - startRender;
+        benchmark.startSection("Rendering");
+        renderScene(alpha, benchmark);
+        benchmark.endSection();
+        benchmark.end();
+
+        clientRenderer.getDebugScreen().render();
+        frameCounter++;
+
+        worldRendererProfiler.reset();
     }
 
-    private void updateGameLogic(float dt) {
+    private void updateGameLogic(float dt, Benchmark benchmark) {
         ClientWorld current = VoxelClient.getInstance().getCurrentWorld();
         if (current == null) {
             return;
@@ -133,67 +163,38 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
         int chunkZ = ChunkBase.chunkZ(current, (int) z);
 
         if (chunkX != this.chunkX || chunkY != this.chunkY || chunkZ != this.chunkZ) {
-            //current.getChunkVisibilityGraph().getChunkRenderRegionManager().updateRegionsAround(current, chunkX, chunkY, chunkZ);
-
-            List<Vector3i> chunksInView = new ArrayList<>();
-            int horizontalRadius = clientSettings.horizontalViewDistance / 2;
-            int verticalRadius = clientSettings.verticalViewDistance / 2;
-
-            for (int rx = chunkX - horizontalRadius; rx <= chunkX + horizontalRadius; rx++) {
-                for (int ry = chunkY - verticalRadius; ry <= chunkY + verticalRadius; ry++) {
-/*                    if (ry < current.getMinChunkY() || ry > current.getMaxChunkY()) {
-                        continue;
-                    }*/
-                    for (int rz = chunkZ - horizontalRadius; rz <= chunkZ + horizontalRadius; rz++) {
-                        chunksInView.add(new Vector3i(rx, ry, rz));
-                    }
-                }
-            }
-
-            // Nach quadratischer Entfernung sortieren
-            chunksInView.sort(Comparator.comparingInt(coord -> {
-                int dx = coord.x - chunkX;
-                int dy = coord.y - chunkY;
-                int dz = coord.z - chunkZ;
-                return dx * dx + dy * dy + dz * dz;
-            }));
-
-            // Dann in ein LinkedHashSet (erhält Reihenfolge) oder gleich als List lassen
-            LinkedHashSet<Vector3i> orderedChunks = new LinkedHashSet<>(chunksInView);
-
-            // Übergabe an RequestManager
-            current.getChunkRequestManager().setChunksToRequest(orderedChunks);
-
             this.chunkX = chunkX;
             this.chunkY = chunkY;
             this.chunkZ = chunkZ;
+            current.getChunkRequestManager().changeCenter(chunkX, chunkY, chunkZ);
         }
-
-        current.getChunkRequestManager().update(dt);
     }
 
-    private void renderScene(float alpha) {
-        // • Kamera interpoliert bewegen
-        // • Chunks/Entities zeichnen mit interpolierten Positionen
+    private void renderScene(float alpha, Benchmark benchmark) {
+        benchmark.startSection("PlayerController");
         playerController.update(Gdx.graphics.getDeltaTime());
-        clientRenderer.draw();
+        benchmark.endSection();
+        benchmark.startSection("Draw");
+        clientRenderer.draw(benchmark);
+        benchmark.endSection();
     }
 
     @Override
     public void debugText(DebugScreen debugScreen) {
-        var renderMillis = TimeUnit.NANOSECONDS.toMillis(lastRenderCPUDurationNanos);
-        var simMillis = TimeUnit.NANOSECONDS.toMillis(lastSimulationCPUDurationNanos);
 
-        if (renderMillis > 0) {
-            debugScreen.addDebugTextLine("Rendering: " + renderMillis + " ms");
-        } else {
-            debugScreen.addDebugTextLine("Rendering: " + lastRenderCPUDurationNanos + " ns");
+        debugScreen.addDebugTextLine("Draw calls: " + worldRendererProfiler.getDrawCalls());
+        debugScreen.addDebugTextLine("GL calls: " + worldRendererProfiler.getCalls());
+        debugScreen.addDebugTextLine("Shader switches: " + worldRendererProfiler.getShaderSwitches());
+        debugScreen.addDebugTextLine("Vertex count: " + worldRendererProfiler.getVertexCount().total);
+        debugScreen.addDebugTextLine("Texture bindings: " + worldRendererProfiler.getTextureBindings());
+
+        if (frameCounter % benchmarkWindow == 0) {
+            benchmarkInfoSampled = benchmark.printToLines("Draw");
+            frameCounter = 0;
         }
 
-        if (simMillis > 0) {
-            debugScreen.addDebugTextLine("Simulation: " + simMillis + " ms");
-        } else {
-            debugScreen.addDebugTextLine("Simulation: " + lastSimulationCPUDurationNanos + " ns");
+        for (String draw : benchmarkInfoSampled) {
+            debugScreen.addDebugTextLine(draw);
         }
     }
 }

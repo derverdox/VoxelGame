@@ -3,10 +3,10 @@ package de.verdox.voxel.client.test.chunk;
 import static org.junit.jupiter.api.Assertions.*;
 
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ChunkOccupancyMask;
+import de.verdox.voxel.client.level.chunk.occupancy.ChunkOccupancyMask;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
 import de.verdox.voxel.shared.data.types.Blocks;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -83,7 +83,9 @@ public class ClientChunkIntegrationTest {
         ChunkOccupancyMask com = chunk.getOccupancyMask();
         // Put a block at the boundary to test neighbor retrieval as AIR
         chunk.setBlockAt(Blocks.STONE, 0, 0, 0);
-        ChunkOccupancyMask.FaceMasks masks = com.computeFaceMasks();
+
+        FaceMasks masks = com.getFaceMasks();
+        masks.computeMasks(chunk.getWorld(), com.getGameChunk().getChunkX(), com.getGameChunk().getChunkY(), com.getGameChunk().getChunkZ(), com.getOccupancyMask());
 
         long expectedBit = 1L << 0; // z=0 position
         // At (0,0) +X face should be visible

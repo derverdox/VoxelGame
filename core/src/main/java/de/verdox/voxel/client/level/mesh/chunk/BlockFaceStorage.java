@@ -4,23 +4,23 @@ import com.badlogic.gdx.math.Vector3;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.mesh.block.BlockFace;
 import de.verdox.voxel.shared.util.Direction;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenCustomHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Getter
 public class BlockFaceStorage implements Iterable<BlockFace> {
-    private final Map<Integer, List<BlockFace>> upFaces = new HashMap<>();
-    private final Map<Integer, List<BlockFace>> downFaces = new HashMap<>();
-    private final Map<Integer, List<BlockFace>> eastFaces = new HashMap<>();
-    private final Map<Integer, List<BlockFace>> westFaces = new HashMap<>();
-    private final Map<Integer, List<BlockFace>> southFaces = new HashMap<>();
-    private final Map<Integer, List<BlockFace>> northFaces = new HashMap<>();
+    private final Int2ObjectMap<List<BlockFace>> upFaces = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<List<BlockFace>> downFaces = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<List<BlockFace>> eastFaces = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<List<BlockFace>> westFaces = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<List<BlockFace>> southFaces = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<List<BlockFace>> northFaces = new Int2ObjectOpenHashMap<>();
 
     private final int scaleX;
     private final int scaleY;
@@ -35,6 +35,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
         westFaces.clear();
         southFaces.clear();
         northFaces.clear();
+        size = 0;
     }
 
     public BlockFaceStorage(int scaleX, int scaleY, int scaleZ) {
@@ -43,7 +44,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
         this.scaleZ = scaleZ;
     }
 
-    public Map<Integer, List<BlockFace>> getByDirection(Direction direction) {
+    public Int2ObjectMap<List<BlockFace>> getByDirection(Direction direction) {
         return switch (direction) {
             case WEST -> westFaces;
             case EAST -> eastFaces;
@@ -59,7 +60,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
      * of the same direction, texture, and orientation into larger quads.
      *
      */
-    private final ExecutorService greedyMeshingService = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService greedyMeshingService = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("Greedy Meshing Calculator Job - %d", 0).factory());
 
     public BlockFaceStorage applyGreedyMeshing() {
         BlockFaceStorage newStorage = new BlockFaceStorage(this.scaleX, this.scaleY, this.scaleZ);
@@ -71,7 +72,8 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
                 continue;
             }
             for (List<BlockFace> blockFacesInSlice : map.values()) {
-                Future<List<BlockFace>> futureBlockFaces = greedyMeshingService.submit(() -> merge2D(blockFacesInSlice, direction, getSizeU(direction), getSizeV(direction)));
+                //Future<List<BlockFace>> futureBlockFaces = greedyMeshingService.submit(() -> merge2D(blockFacesInSlice, direction, getSizeU(direction), getSizeV(direction)));
+                Future<List<BlockFace>> futureBlockFaces = CompletableFuture.completedFuture(merge2D(blockFacesInSlice, direction, getSizeU(direction), getSizeV(direction)));
                 futures.add(futureBlockFaces);
             }
         }
@@ -254,6 +256,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
 
         // 7) Default CCW for other directions: c1, c2, c3, c4
         return new BlockFace(
+            base.blockXInChunk, base.blockYInChunk, base.blockZInChunk,
             c1.x, c1.y, c1.z,
             c2.x, c2.y, c2.z,
             c3.x, c3.y, c3.z,

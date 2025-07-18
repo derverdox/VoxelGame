@@ -3,18 +3,22 @@ package de.verdox.voxel.server.level.chunk;
 import de.verdox.voxel.server.level.ServerWorld;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 @Getter
 public class ChunkMap {
     public static final Logger LOGGER = Logger.getLogger(ChunkMap.class.getSimpleName());
 
-    private final Map<Long, ServerChunk> chunks = new ConcurrentHashMap<>();
-    private final Map<Long, MinMaxY> columnHeights = new ConcurrentHashMap<>();
+    private final Long2ObjectMap<ServerChunk> chunks = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
+    private final Long2ObjectMap<MinMaxY> columnHeights = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
 
     private final ServerWorld world;
     private final Set<ChunkMapUpdateSubscriber> subscribers = new HashSet<>();
@@ -31,15 +35,19 @@ public class ChunkMap {
         subscribers.remove(subscriber);
     }
 
-    public CompletableFuture<ServerChunk> getOrCreateChunkAsync(int chunkX, int chunkY, int chunkZ) {
+    public CompletableFuture<ServerChunk> getOrCreateChunkAsync(int chunkX, int chunkY, int chunkZ, Consumer<ServerChunk> whenDone) {
         return getChunk(chunkX, chunkY, chunkZ)
-            .map(CompletableFuture::completedFuture)
-            .orElseGet(() -> world.getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ));
+            .map(chunk -> CompletableFuture.completedFuture(chunk).whenComplete((chunk1, throwable) -> whenDone.accept(chunk1)))
+            .orElseGet(() -> world.getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
     }
 
     public Optional<ServerChunk> getChunk(int chunkX, int chunkY, int chunkZ) {
         long chunkKey = ChunkBase.computeChunkKey(chunkX, chunkY, chunkZ);
-        return Optional.ofNullable(chunks.get(chunkKey));
+        if (!chunks.containsKey(chunkKey)) {
+            return Optional.empty();
+        }
+        ServerChunk chunk = chunks.get(chunkKey);
+        return Optional.of(chunk);
     }
 
     public void saveChunkAfterGeneration(ServerChunk gameChunk) {

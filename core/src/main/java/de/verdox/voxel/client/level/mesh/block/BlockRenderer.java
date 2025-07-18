@@ -25,6 +25,7 @@ public class BlockRenderer {
         float z4 = (blockZInMesh + blockFace.c4().cornerZ() + cubeBoundingBoxHalf);
 
         return new BlockFace(
+            (byte) blockXInMesh, (byte) blockYInMesh, (byte) blockZInMesh,
             x1, y1, z1,
             x2, y2, z2,
             x3, y3, z3,

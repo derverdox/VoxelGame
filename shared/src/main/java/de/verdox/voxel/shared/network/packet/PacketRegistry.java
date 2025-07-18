@@ -4,7 +4,11 @@ import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
+import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.lighting.ChunkLightData;
+import de.verdox.voxel.shared.network.packet.serializer.ChunkSerializer;
 import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import de.verdox.voxel.shared.network.packet.client.ClientInputPacket;
 import de.verdox.voxel.shared.network.packet.client.ClientLoadChunkPacket;
@@ -40,6 +44,8 @@ public class PacketRegistry {
         kryo.register(ServerChunkPacket.class);
         kryo.register(ServerSetPlayerWorldPacket.class);
         kryo.register(ServerWorldExistPacket.class);
+        kryo.register(ChunkLightData.LightState.class, new DefaultSerializers.EnumSerializer(ChunkLightData.LightState.class));
+        kryo.register(UUID.class, new DefaultSerializers.UUIDSerializer());
 
         kryo.register(byte[][].class, new Serializer<byte[][]>() {
             @Override

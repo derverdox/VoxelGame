@@ -11,6 +11,7 @@ public class VoxelServer extends VoxelBase<ServerWorld> {
     @Getter
     private static final VoxelServer instance = new VoxelServer();
 
+
     @Override
     protected ServerWorld constructNewWorld(UUID uuid) {
         return new ServerWorld(uuid);

@@ -2,8 +2,13 @@ package de.verdox.voxel.server.level.generator;
 
 import de.verdox.voxel.server.level.ServerWorld;
 import de.verdox.voxel.server.level.chunk.ServerChunk;
+import de.verdox.voxel.shared.util.ThreadUtil;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,7 +21,7 @@ public class WorldGenerator implements AutoCloseable {
     private final ServerWorld world;
     private final ChunkGenerator generator;
     private final ExecutorService executor;
-    private final ConcurrentMap<Long, CompletableFuture<ServerChunk>> chunkFutures = new ConcurrentHashMap<>();
+    private final Long2ObjectMap<CompletableFuture<ServerChunk>> chunkFutures = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
 
     /**
      * @param world       die Welt, in der die Chunks erstellt werden
@@ -26,19 +31,19 @@ public class WorldGenerator implements AutoCloseable {
     public WorldGenerator(ServerWorld world, ChunkGenerator generator, int threadCount) {
         this.world = world;
         this.generator = generator;
-        this.executor = Executors.newFixedThreadPool(threadCount);
+        this.executor = Executors.newFixedThreadPool(threadCount, ThreadUtil.createFactoryForName("World Generator Thread", true));
     }
 
     /**
      * Forder die Erzeugung eines Chunks asynchron an.
      * Duplicate Calls sind nicht vorgesehen, daher kein Check auf vorhandenen Future.
      */
-    public CompletableFuture<ServerChunk> requestChunkGeneration(int chunkX, int chunkY, int chunkZ) {
-        CompletableFuture<ServerChunk> future = new CompletableFuture<>();
+    public CompletableFuture<ServerChunk> requestChunkGeneration(int chunkX, int chunkY, int chunkZ, Consumer<ServerChunk> consumer) {
         long chunkKey = ServerChunk.computeChunkKey(chunkX, chunkY, chunkZ);
         if (chunkFutures.containsKey(chunkKey)) {
             return chunkFutures.get(chunkKey);
         }
+        CompletableFuture<ServerChunk> future = new CompletableFuture<>();
 
         chunkFutures.put(chunkKey, future);
 
@@ -51,11 +56,11 @@ public class WorldGenerator implements AutoCloseable {
 
                 world.getChunkMap().saveChunkAfterGeneration(gameChunk);
                 future.complete(gameChunk);
+                consumer.accept(gameChunk);
             } catch (Throwable t) {
                 LOGGER.log(Level.SEVERE, "Error generating chunk " + chunkX + ", " + chunkY + ", " + chunkZ, t);
                 future.completeExceptionally(t);
-            }
-            finally {
+            } finally {
                 chunkFutures.remove(chunkKey);
             }
         });

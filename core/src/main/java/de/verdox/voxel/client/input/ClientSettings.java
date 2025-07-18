@@ -19,3 +19,4 @@ public class ClientSettings {
 
     public boolean useMinMaxHeightImprovement = true;
 }
+

@@ -9,7 +9,6 @@ import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.MeshWithBounds;
-import de.verdox.voxel.client.level.mesh.chunk.ChunkMesh;
 import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
 import lombok.Setter;
@@ -125,7 +124,7 @@ public interface ChunkRenderRegionStrategy {
                     if (level <= 1) {
                         MeshWithBounds meshWithBounds = getChunkMeshAt(minChunkX, minChunkY, minChunkZ);
                         if (meshWithBounds == null) return;
-                        batch.render(meshWithBounds.instance());
+                        meshWithBounds.render(camera, batch);
                         //this.dirty = false;
                     } else {
                         naiveRegionBuilding(camera);
@@ -140,7 +139,7 @@ public interface ChunkRenderRegionStrategy {
             if (level <= 1) {
                 MeshWithBounds meshWithBounds = getChunkMeshAt(minChunkX, minChunkY, minChunkZ);
                 if (meshWithBounds == null) return;
-                batch.render(meshWithBounds.instance());
+                meshWithBounds.render(camera, batch);
             } else {
                 batch.render(modelCache);
             }
@@ -169,7 +168,7 @@ public interface ChunkRenderRegionStrategy {
                         if (meshWithBounds == null) {
                             continue;
                         }
-                        modelCache.add(meshWithBounds.instance());
+                        meshWithBounds.addToModelCache(modelCache);
                         counter++;
                     }
                 }
@@ -184,8 +183,8 @@ public interface ChunkRenderRegionStrategy {
         private final List<ClientChunk> visible = new ArrayList<>(512);
 
         private void bsfRegionBuilding(Camera camera) {
-            int horizontalRadius = ClientBase.clientSettings.horizontalViewDistance / 2;
-            int verticalRadius = ClientBase.clientSettings.verticalViewDistance / 2;
+            int horizontalRadius = ClientBase.clientSettings.horizontalViewDistance;
+            int verticalRadius = ClientBase.clientSettings.verticalViewDistance;
 
             int startChunkX = Math.min(Math.max(strategy.getCenterChunkX(), minChunkX), maxChunkX);
             int startChunkY = Math.min(Math.max(strategy.getCenterChunkY(), minChunkY), maxChunkY);
@@ -214,7 +213,7 @@ public interface ChunkRenderRegionStrategy {
 
                 MeshWithBounds meshWithBounds = getChunkMeshAt(current.getChunkX(), current.getChunkY(), current.getChunkZ());
                 if (meshWithBounds != null) {
-                    modelCache.add(meshWithBounds.instance());
+                    meshWithBounds.addToModelCache(modelCache);
                 }
 
                 // Is inside view distance?
@@ -231,11 +230,13 @@ public interface ChunkRenderRegionStrategy {
         }
 
         private MeshWithBounds getChunkMeshAt(int chunkX, int chunkY, int chunkZ) {
-            ChunkMesh chunkMesh = ClientBase.clientRenderer.getWorldRenderer().getMeshMaster().getChunkMeshIfAvailable(chunkX, chunkY, chunkZ);
+/*            ChunkMesh chunkMesh = ClientBase.clientRenderer.getWorldRenderer().getMeshMaster().getChunkMeshIfAvailable(chunkX, chunkY, chunkZ);
             if (chunkMesh == null) {
                 return null;
             }
             return chunkMesh.getOrGenerateMeshFromFaces(TextureAtlasManager.getInstance().getBlockTextureAtlas(), strategy.getWorld(), chunkX, chunkY, chunkZ);
+        */
+            return null;
         }
     }
 }

@@ -8,10 +8,18 @@ import java.util.logging.Logger;
 
 @Getter
 public abstract class VoxelBase<WORLD extends World> {
+
+    @Getter
+    protected static VoxelBase<?> INSTANCE = null;
+
     public static final Logger LOGGER = Logger.getLogger(VoxelBase.class.getSimpleName());
 
     private final Map<UUID, WORLD> worldStorage = new HashMap<>();
     private WORLD standardWorld;
+
+    public VoxelBase() {
+        INSTANCE = this;
+    }
 
     public Optional<WORLD> getWorld(UUID uuid) {
         return Optional.ofNullable(worldStorage.get(uuid));

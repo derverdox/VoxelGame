@@ -12,6 +12,7 @@ public class BlockFaceStorageTest {
     @Test
     void testUpDirection() throws Exception {
         BlockFace faceUp = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             3f, 0f, 5f,
             0f, 0f, 0f,
             0f, 0f, 0f,
@@ -29,6 +30,7 @@ public class BlockFaceStorageTest {
     @Test
     void testEastDirection() throws Exception {
         BlockFace faceEast = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             0f, 2f, 7f,
             0f, 0f, 0f,
             0f, 0f, 0f,
@@ -46,6 +48,7 @@ public class BlockFaceStorageTest {
     @Test
     void testNorthDirection() throws Exception {
         BlockFace faceNorth = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             4f, 6f, 0f,
             0f, 0f, 0f,
             0f, 0f, 0f,
@@ -63,6 +66,7 @@ public class BlockFaceStorageTest {
     @Test
     void testDownDirection() throws Exception {
         BlockFace faceDown = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             1f, 0f, 9f,
             0f, 0f, 0f,
             0f, 0f, 0f,
@@ -80,6 +84,7 @@ public class BlockFaceStorageTest {
     @Test
     void testWestDirection() throws Exception {
         BlockFace faceWest = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             0f, 3f, 8f,
             0f, 0f, 0f,
             0f, 0f, 0f,
@@ -97,6 +102,7 @@ public class BlockFaceStorageTest {
     @Test
     void testSouthDirection() throws Exception {
         BlockFace faceSouth = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             2f, 5f, 0f,
             0f, 0f, 0f,
             0f, 0f, 0f,
@@ -115,12 +121,13 @@ public class BlockFaceStorageTest {
     void testCreateQuadUnitFace() throws Exception {
         // 1) Erzeuge ein Basis-BlockFace für eine UP-Face an (3,0,5)
         BlockFace base = new BlockFace(
+            (byte) 0, (byte) 0, (byte) 0,
             3f, 0f, 5f,  // corner1
             4f, 0f, 5f,  // corner2 (1× in +X)
             4f, 0f, 6f,  // corner3 (1× +X, +Z)
             3f, 0f, 6f,  // corner4 (1× +Z)
             0f, 1f, 0f,  // normal UP
-            ResourceLocation.of("voxel","stone")
+            ResourceLocation.of("voxel", "stone")
         );
 
         // 2) Rufe createQuad mit u=0,v=0,w=1,h=1 auf
