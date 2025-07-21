@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
-import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
 import de.verdox.voxel.shared.data.types.Blocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

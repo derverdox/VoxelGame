@@ -1,6 +1,7 @@
 package de.verdox.voxel.server.level.generator;
 
 import de.verdox.voxel.server.level.chunk.ServerChunk;
+import de.verdox.voxel.server.level.generator.spline.NoiseHeightSpline;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import personthecat.fastnoise.FastNoise;
@@ -8,40 +9,58 @@ import personthecat.fastnoise.data.FractalType;
 import personthecat.fastnoise.data.NoiseType;
 
 public class NoiseChunkGenerator implements ChunkGenerator {
-    FastNoise noise = FastNoise.builder()
-        .type(NoiseType.PERLIN)
-        .fractal(FractalType.FBM)
-        .frequency(0.01f)
-        .build();
+    // Fläche: Kontinente vs. Ozeane
+    private final FastNoise continentalness;
+    // 3D Volume-Noise für Höhlen
+    private final FastNoise caveNoise;
+
+    public static final NoiseHeightSpline erosionSpline = new NoiseHeightSpline.Builder()
+            .addPoint(0.2f, 30)
+            .addPoint(0.35f, 64)
+            .addPoint(0.6f, 80)
+            .addPoint(1f, 90)
+            .build();
+
+    public NoiseChunkGenerator(int seed) {
+        continentalness = FastNoise.builder()
+                .seed(seed)
+                .type(NoiseType.SIMPLEX)
+                .frequency(0.02f)
+                .fractal(FractalType.FBM).octaves(4).gain(0.5f).lacunarity(2f)
+                .build();
+
+        caveNoise = FastNoise.builder()
+                .seed(seed+4)
+                .type(NoiseType.SIMPLEX)
+                .frequency(0.03f)
+                .fractal(FractalType.FBM).octaves(3)
+                .build();
+    }
 
     @Override
-    public void generateNoise(ServerChunk gameChunk) {
-        int minHeight = 40;
-        int noiseMaxHeight = 145;
+    public void generateNoise(ServerChunk chunk) {
+        int cx = chunk.getChunkX(), cz = chunk.getChunkZ();
+        int sizeX = chunk.getWorld().getChunkSizeX();
+        int sizeZ = chunk.getWorld().getChunkSizeZ();
+        int seaLevel = 64;
 
-        int maxHeightGenerated = 40 + 145;
-        int maxChunkYToGenerateNoiseIn = ChunkBase.chunkY(gameChunk.getWorld(), maxHeightGenerated);
+        for (int lx = 0; lx < sizeX; lx++) {
+            for (int lz = 0; lz < sizeZ; lz++) {
+                int gx = chunk.globalX(lx), gz = chunk.globalZ(lz);
 
-        if (gameChunk.getChunkY() > maxChunkYToGenerateNoiseIn) {
-            return;
-        }
+                // 1) Continentalness [0,1]
+                float cont = (continentalness.getNoise(gx, gz) + 1f) * .5f;
 
 
-        for (int x = 0; x < gameChunk.getWorld().getChunkSizeX(); x++) {
-            for (int z = 0; z < gameChunk.getWorld().getChunkSizeZ(); z++) {
-                int globalX = gameChunk.globalX(x);
-                int globalZ = gameChunk.globalZ(z);
-                int heightAtPos = (int) (noise.getNoise(globalX, globalZ) * noiseMaxHeight) + minHeight;
 
-                int chunkYOfMaxHeight = ChunkBase.chunkY(gameChunk.getWorld(), heightAtPos);
+                int height = (int) erosionSpline.evaluate(cont);
 
-                if (chunkYOfMaxHeight == gameChunk.getChunkY()) {
-                    for (int y = 0; y < gameChunk.localY(heightAtPos); y++) {
-                        gameChunk.setBlockAt(Blocks.STONE, x, y, z);
-                    }
-                } else if (chunkYOfMaxHeight > gameChunk.getChunkY()) {
-                    for (int y = 0; y < gameChunk.getWorld().getChunkSizeY(); y++) {
-                        gameChunk.setBlockAt(Blocks.STONE, x, y, z);
+                // 5) Fülle Stein bis Höhe
+                int chunkYOfMax = ChunkBase.chunkY(chunk.getWorld(), height);
+                for (int y = 0; y < chunk.getWorld().getChunkSizeY(); y++) {
+                    if (chunk.getChunkY() < chunkYOfMax ||
+                            (chunk.getChunkY() == chunkYOfMax && y <= chunk.localY(height))) {
+                        chunk.setBlockAt(Blocks.STONE, lx, y, lz);
                     }
                 }
             }

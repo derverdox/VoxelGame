@@ -10,11 +10,13 @@ public interface OccupancyMask {
 
     long getTotalOpaque();
 
-    int getColumnOpaqueCount(int x, int y);
-
     void initFromChunk(ClientChunk chunk);
 
     boolean isChunkFullOpaque();
 
     boolean isChunkEmpty();
+
+    long getZColumn(int x, int y);
+
+    long getSideMask();
 }

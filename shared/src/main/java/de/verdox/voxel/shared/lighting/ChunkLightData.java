@@ -32,7 +32,6 @@ public class ChunkLightData implements NetworkSerializable {
         }
     }
 
-
     public enum LightState {UNINITIALIZED, UNIFORM, DETAILED}
 
     private final int sizeX, sizeY, sizeZ, totalSize;

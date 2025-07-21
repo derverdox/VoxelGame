@@ -45,16 +45,19 @@ public class TerrainManager {
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
         long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        if(!chunk.isEmpty()) {
+            terrainGraph.addRegion(regionX, regionY, regionZ);
+        }
 
         TerrainRegion terrainRegion;
-        if(!terrainRegions.containsKey(regionKey)) {
+        if (!terrainRegions.containsKey(regionKey)) {
             TerrainRegion newRegion = new TerrainRegion(this, regionX, regionY, regionZ, bounds);
 
             for (int i = 0; i < Direction.values().length; i++) {
                 Direction dir = Direction.values()[i];
                 long neighborKey = ChunkBase.computeChunkKey(regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ());
 
-                if(!terrainRegions.containsKey(neighborKey)) {
+                if (!terrainRegions.containsKey(neighborKey)) {
                     terrainRegions.put(neighborKey, new TerrainRegion(this, regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ(), bounds));
                 }
                 TerrainRegion neighborRegion = terrainRegions.get(neighborKey);
@@ -63,8 +66,8 @@ public class TerrainManager {
 
             terrainRegions.put(regionKey, newRegion);
             terrainRegion = newRegion;
-        }
-        else {
+
+        } else {
             terrainRegion = terrainRegions.get(regionKey);
         }
         terrainRegion.addChunk(chunk);
@@ -101,6 +104,8 @@ public class TerrainManager {
                         terrainRegion.unLinkNeighbor(dir, neighborRegion);
                     }
                 }
+
+                terrainGraph.removeRegion(regionX, regionY, regionZ);
             }
         }
 
@@ -128,12 +133,18 @@ public class TerrainManager {
         }
     }
 
-    public void updateMesh(int regionX, int regionY, int regionZ, boolean updateNeighbors) {
-        this.meshStorage.recalculateMesh(regionX, regionY, regionZ, true);
+    public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors) {
+        this.meshStorage.recalculateMesh(terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ(), terrainRegion, true);
         if (!updateNeighbors) return;
         for (int i = 0; i < Direction.values().length; i++) {
             Direction direction = Direction.values()[i];
-            this.meshStorage.recalculateMesh(regionX + direction.getOffsetX(), regionY + direction.getOffsetY(), regionZ + direction.getOffsetZ(), true);
+
+            TerrainRegion neighbor = terrainRegion.getNeighbor(direction);
+            if (neighbor == null) {
+                continue;
+            }
+
+            this.meshStorage.recalculateMesh(neighbor.getRegionX() + direction.getOffsetX(), neighbor.getRegionY() + direction.getOffsetY(), neighbor.getRegionZ() + direction.getOffsetZ(), neighbor, true);
         }
     }
 

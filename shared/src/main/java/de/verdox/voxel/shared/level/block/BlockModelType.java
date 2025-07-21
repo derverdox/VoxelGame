@@ -91,22 +91,22 @@ public class BlockModelType {
         public boolean canBeOccluded() {
             if (Math.abs(normalX) == 1f) {
                 float planeX = normalX * 0.5f;
-                return c1.cornerX() == planeX
-                    && c2.cornerX() == planeX
-                    && c3.cornerX() == planeX
-                    && c4.cornerX() == planeX;
+                return c1.x() == planeX
+                    && c2.x() == planeX
+                    && c3.x() == planeX
+                    && c4.x() == planeX;
             } else if (Math.abs(normalY) == 1f) {
                 float planeY = normalY * 0.5f;
-                return c1.cornerY() == planeY
-                    && c2.cornerY() == planeY
-                    && c3.cornerY() == planeY
-                    && c4.cornerY() == planeY;
+                return c1.y() == planeY
+                    && c2.y() == planeY
+                    && c3.y() == planeY
+                    && c4.y() == planeY;
             } else {
                 float planeZ = normalZ * 0.5f;
-                return c1.cornerZ() == planeZ
-                    && c2.cornerZ() == planeZ
-                    && c3.cornerZ() == planeZ
-                    && c4.cornerZ() == planeZ;
+                return c1.z() == planeZ
+                    && c2.z() == planeZ
+                    && c3.z() == planeZ
+                    && c4.z() == planeZ;
             }
         }
 
@@ -163,11 +163,11 @@ public class BlockModelType {
             // Feste Achse (die nicht variiert) müssen gleich sein:
             // z.B. wenn |normalZ|==1, dann a.c1.z == b.c1.z
             if (Math.abs(a.normalX) == 1f)
-                return a.c1().cornerX() == b.c1().cornerX();
+                return a.c1().x() == b.c1().x();
             if (Math.abs(a.normalY) == 1f)
-                return a.c1().cornerY() == b.c1().cornerY();
+                return a.c1().y() == b.c1().y();
             // else Z-Faces
-            return a.c1().cornerZ() == b.c1().cornerZ();
+            return a.c1().z() == b.c1().z();
         }
 
         public static BlockFace front() {
@@ -268,36 +268,36 @@ public class BlockModelType {
 
         private static RelativeCoordinate midpoint(RelativeCoordinate a, RelativeCoordinate b) {
             return new RelativeCoordinate(
-                (a.cornerX() + b.cornerX()) * 0.5f,
-                (a.cornerY() + b.cornerY()) * 0.5f,
-                (a.cornerZ() + b.cornerZ()) * 0.5f
+                (a.x() + b.x()) * 0.5f,
+                (a.y() + b.y()) * 0.5f,
+                (a.z() + b.z()) * 0.5f
             );
         }
 
         /**
          * Relative coordinates in a block model. Relative to 0,0,0
          */
-        public record RelativeCoordinate(float cornerX, float cornerY, float cornerZ) {
+        public record RelativeCoordinate(float x, float y, float z) {
             public boolean onPlane(float plane, float nx, float ny, float nz) {
-                if (nx != 0) return cornerX == plane;
-                if (ny != 0) return cornerY == plane;
-                return cornerZ == plane;
+                if (nx != 0) return x == plane;
+                if (ny != 0) return y == plane;
+                return z == plane;
             }
 
             @Override
             public String toString() {
                 return "{" +
-                    "x=" + cornerX +
-                    ", y=" + cornerY +
-                    ", z=" + cornerZ +
+                    "x=" + x +
+                    ", y=" + y +
+                    ", z=" + z +
                     '}';
             }
         }
 
         private static float distance(RelativeCoordinate p1, RelativeCoordinate p2) {
-            float dx = p2.cornerX() - p1.cornerX();
-            float dy = p2.cornerY() - p1.cornerY();
-            float dz = p2.cornerZ() - p1.cornerZ();
+            float dx = p2.x() - p1.x();
+            float dy = p2.y() - p1.y();
+            float dz = p2.z() - p1.z();
             return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
     }

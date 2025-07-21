@@ -9,4 +9,27 @@ public class LightUtil {
             |  (b   & 0xF);
         return (float) packed;
     }
+
+    public static byte packAo(byte c1Ao, byte c2Ao, byte c3Ao, byte c4Ao) {
+        // c1 use bits 6–7, c2 bits 4–5, c3 bits 2–3, c4 bits 0–1
+        return (byte)(
+                ((c1Ao & 0x3) << 6) |
+                        ((c2Ao & 0x3) << 4) |
+                        ((c3Ao & 0x3) << 2) |
+                        (c4Ao & 0x3)
+        );
+    }
+
+    /**
+     * Liest das 2-Bit-AO für eine bestimmte Ecke (0…3) aus dem gepackten Byte.
+     *
+     * @param packedAo   das Byte mit allen vier AO-Werten (je 2 Bit)
+     * @param cornerIdx  Index der Ecke 0 (c1), 1 (c2), 2 (c3) oder 3 (c4)
+     * @return           der AO-Wert 0…3
+     */
+    public static byte unpackAo(byte packedAo, int cornerIdx) {
+        // Wir haben: c1 in Bits 6–7, c2 in 4–5, c3 in 2–3, c4 in 0–1
+        int shift = (3 - cornerIdx) * 2;        // cornerIdx 0 → shift=6, 1→4, 2→2, 3→0
+        return (byte)((packedAo >> shift) & 0x3);
+    }
 }

@@ -23,7 +23,7 @@ public class ChunkLightEngine {
     }
 
     public void scheduleSkylightUpdateInSlice(World<?> world, int regionSliceX, int regionSliceZ, LightAccessor startAccessor, int stepsToCalculateDown, LightUpdateCallback onDone) {
-        service.execute(() -> {
+/*        service.execute(() -> {
             int steps = stepsToCalculateDown;
 
             long start = System.currentTimeMillis();
@@ -45,7 +45,7 @@ public class ChunkLightEngine {
             }
             long end = System.currentTimeMillis() - start;
             //System.out.println("Took " + end + "ms to calculate sky light for region slice " + regionSliceX + ", " + regionSliceZ);
-        });
+        });*/
     }
 
     public static boolean computeSkylight(LightAccessor lightAccessor, boolean isHighest) {

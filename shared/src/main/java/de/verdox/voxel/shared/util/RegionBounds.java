@@ -12,7 +12,7 @@ public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
     }
 
     public int getMaxChunkX(int regionX) {
-        return getMinChunkX(regionX) + regionSizeX- 1 ;
+        return getMinChunkX(regionX) + regionSizeX - 1;
     }
 
     public int getRegionY(int chunkY) {

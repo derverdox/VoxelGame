@@ -1,93 +1,72 @@
 package de.verdox.voxel.shared.util.palette;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import de.verdox.voxel.shared.network.packet.serializer.NetworkSerializable;
+import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.*;
 
 @Getter
-public class ThreeDimensionalPalette<T> {
-    private final short dimensionX, dimensionY, dimensionZ;
-    private final int totalSize;
+public class ThreeDimensionalPalette<T> implements NetworkSerializable {
+    @Override
+    public void write(Kryo kryo, Output output) {
+        kryo.writeObject(output, state);
+        strategy.write(kryo, output);
+    }
 
-    // Palette: ID 0 reserved for defaultValue
-    private final Map<T, Integer> blockToId = new HashMap<>();
-    private final List<T> idToBlock = new ArrayList<>();
+    @Override
+    public void readAndUpdate(Kryo kryo, Input input) {
+        this.state = kryo.readObject(input, State.class);
+        this.strategy = switch (this.state) {
+            case EMPTY -> new PaletteStrategy.Empty<>(this);
+            case UNIFORM -> new PaletteStrategy.Uniform<>(null);
+            case PALETTED -> new PaletteStrategy.Paletted<>(this);
+        };
+        strategy.read(kryo, input, this);
+    }
+
+    public enum State {EMPTY, UNIFORM, PALETTED}
+
+    private State state = State.EMPTY;
+
+    @Getter
+    private PaletteStrategy<T> strategy;
+    @Getter
+    private final short dimensionX, dimensionY, dimensionZ;
+    @Getter
+    private final int totalSize;
     private final T defaultValue;
 
-    // Bit-packed storage
-    private int bitsPerBlock;
-    private long[] data;
-
-    private long localDataChangeVersion;
+    private final Map<T, Integer> blockToId = new HashMap<>();
+    private final List<T> idToBlock = new ArrayList<>();
 
     /**
      * Create a palette region of given dimensions, all initialized to defaultValue.
      */
-    public ThreeDimensionalPalette(T defaultValue, short dimensionX, short dimensionY, short dimensionZ) {
+    public ThreeDimensionalPalette(T defaultValue, short dx, short dy, short dz) {
         this.defaultValue = defaultValue;
-        this.dimensionX = dimensionX;
-        this.dimensionY = dimensionY;
-        this.dimensionZ = dimensionZ;
-        this.totalSize = (int) dimensionX * dimensionY * dimensionZ;
-
-        // initialize palette
-        idToBlock.add(defaultValue);
-        blockToId.put(defaultValue, 0);
-
-        // minimum 4 bits per block
-        this.bitsPerBlock = 4;
-        int longs = (totalSize * bitsPerBlock + 63) >>> 6;
-        this.data = new long[longs];
+        this.strategy = new PaletteStrategy.Empty<>(this);
+        this.dimensionX = dx;
+        this.dimensionY = dy;
+        this.dimensionZ = dz;
+        this.totalSize = dx * dy * dz;
     }
 
-    /**
-     * Returns a deep copy of this palette, including internal bit-array.
-     */
-    public ThreeDimensionalPalette<T> copy() {
-        ThreeDimensionalPalette<T> clone = new ThreeDimensionalPalette<>(defaultValue, dimensionX, dimensionY, dimensionZ);
-        // copy palette lists
-        clone.idToBlock.clear();
-        clone.idToBlock.addAll(this.idToBlock);
-        clone.blockToId.clear();
-        clone.blockToId.putAll(blockToId);
-        // copy bit-width and data
-        clone.bitsPerBlock = this.bitsPerBlock;
-        clone.data = this.data.clone();
-        return clone;
-    }
-
-    /**
-     * Get block at (x,y,z).
-     */
     public T get(short x, short y, short z) {
-        checkBounds(x, y, z);
-        int idx = computeIndex(x, y, z);
-        int id = readPaletteIndex(idx);
-        return idToBlock.get(id);
+        return strategy.get(x, y, z);
     }
 
-    /**
-     * Set block at (x,y,z).
-     */
     public void set(short x, short y, short z, T block) {
-        checkBounds(x, y, z);
-        int idx = computeIndex(x, y, z);
+        strategy.set(x, y, z, block, this);
+    }
 
-        int oldId = readPaletteIndex(idx);
-
-        Integer id = blockToId.get(block);
-        if (id == null) {
-            id = idToBlock.size();
-            idToBlock.add(block);
-            blockToId.put(block, id);
-            resizeIfNeeded();
-        }
-        writePaletteIndex(idx, id);
-
-        if (oldId != id) {
-            writePaletteIndex(idx, id);
-            localDataChangeVersion++;
-        }
+    public void setStrategy(PaletteStrategy<T> strategy, State state) {
+        this.strategy = strategy;
+        this.state = state;
     }
 
     /**
@@ -99,90 +78,29 @@ public class ThreeDimensionalPalette<T> {
 
     // --- internal methods ---
 
-    private void checkBounds(short x, short y, short z) {
+    public void checkBounds(short x, short y, short z) {
         if (x < 0 || x >= dimensionX || y < 0 || y >= dimensionY || z < 0 || z >= dimensionZ) {
             throw new IndexOutOfBoundsException(
-                "Coordinates out of bounds: (" + x + "," + y + "," + z + ")");
+                    "Coordinates out of bounds: (" + x + "," + y + "," + z + ")");
         }
     }
 
-    private int computeIndex(short x, short y, short z) {
+    public int computeIndex(short x, short y, short z) {
         return x + dimensionX * (y + dimensionY * z);
-    }
-
-    private void resizeIfNeeded() {
-        int requiredBits = Math.max(4, 32 - Integer.numberOfLeadingZeros(idToBlock.size() - 1));
-        if (requiredBits != bitsPerBlock) {
-            // allocate new data array
-            long[] newData = new long[(totalSize * requiredBits + 63) >>> 6];
-            // re-pack old values
-            for (int i = 0; i < totalSize; i++) {
-                int oldId = readPaletteIndex(i);
-                writeBits(newData, i, oldId, requiredBits);
-            }
-            bitsPerBlock = requiredBits;
-            data = newData;
-        }
-    }
-
-    private int readPaletteIndex(int cellIndex) {
-        int bitPos = cellIndex * bitsPerBlock;
-        int longPos = bitPos >>> 6;
-        int offset = bitPos & 0x3F;
-        long segment = data[longPos] >>> offset;
-        int remaining = bitsPerBlock;
-        if (offset + bitsPerBlock > 64) {
-            int overflow = offset + bitsPerBlock - 64;
-            segment |= data[longPos + 1] << (64 - offset);
-        }
-        return (int) (segment & ((1L << bitsPerBlock) - 1));
-    }
-
-    private void writePaletteIndex(int cellIndex, int id) {
-        writeBits(this.data, cellIndex, id, bitsPerBlock);
-    }
-
-    private void writeBits(long[] targetData, int cellIndex, int value, int bitWidth) {
-        int bitPos = cellIndex * bitWidth;
-        int longPos = bitPos >>> 6;
-        int offset = bitPos & 0x3F;
-        long mask = ((1L << bitWidth) - 1) << offset;
-        // clear bits then set
-        targetData[longPos] = (targetData[longPos] & ~mask) | (((long) value << offset) & mask);
-        int overflow = offset + bitWidth - 64;
-        if (overflow > 0) {
-            long mask2 = (1L << overflow) - 1;
-            targetData[longPos + 1] =
-                (targetData[longPos + 1] & ~mask2) |
-                    ((long) value >>> (bitWidth - overflow) & mask2);
-        }
-    }
-
-    public void setForSerialization(T block, int id) {
-        if (blockToId.containsKey(block)) {
-            return;
-        }
-        idToBlock.add(block);
-        blockToId.put(block, id);
-    }
-
-    public void setForDeserialization(int bitsPerBlock, long[] data) {
-        this.bitsPerBlock = bitsPerBlock;
-        this.data = data;
     }
 
     @Override
     public String toString() {
         return "ThreeDimensionalPalette{" +
-            "dimensionX=" + dimensionX +
-            ", dimensionY=" + dimensionY +
-            ", dimensionZ=" + dimensionZ +
-            ", totalSize=" + totalSize +
-            ", blockToId=" + blockToId +
-            ", idToBlock=" + idToBlock +
-            ", defaultValue=" + defaultValue +
-            ", bitsPerBlock=" + bitsPerBlock +
-            ", data=" + Arrays.toString(data) +
-            '}';
+                "state=" + state +
+                ", strategy=" + strategy +
+                ", dimensionX=" + dimensionX +
+                ", dimensionY=" + dimensionY +
+                ", dimensionZ=" + dimensionZ +
+                ", totalSize=" + totalSize +
+                ", defaultValue=" + defaultValue +
+                ", blockToId=" + blockToId +
+                ", idToBlock=" + idToBlock +
+                '}';
     }
 }

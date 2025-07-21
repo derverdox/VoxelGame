@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit;
  * Hierarchischer Benchmark-Profiler mit gleitendem Durchschnitt der letzten X Messwerte.
  */
 public class Benchmark {
+
+    private static final boolean ENABLE_BENCHMARK = true;
+
     private static final DecimalFormat PERCENT_FORMAT = new DecimalFormat("00.00%");
 
     private final Section root;
@@ -33,6 +36,9 @@ public class Benchmark {
      * Startet das Root-Benchmark neu und leert alle vorherigen Daten.
      */
     public void start() {
+        if (!ENABLE_BENCHMARK) {
+            return;
+        }
         root.clear();
         root.startTime = System.nanoTime();
         stack.clear();
@@ -43,6 +49,9 @@ public class Benchmark {
      * Beginnt eine neue Sektion mit dem gegebenen Namen.
      */
     public void startSection(String name) {
+        if (!ENABLE_BENCHMARK) {
+            return;
+        }
         Section parent = stack.peek();
         Section sec = parent.getOrCreateChild(name, windowSize);
         sec.startTime = System.nanoTime();
@@ -53,6 +62,9 @@ public class Benchmark {
      * Beendet die aktuellste Sektion und zeichnet die Dauer auf.
      */
     public void endSection() {
+        if (!ENABLE_BENCHMARK) {
+            return;
+        }
         Section sec = stack.pop();
         sec.endTime = System.nanoTime();
         sec.duration = sec.endTime - sec.startTime;
@@ -63,6 +75,9 @@ public class Benchmark {
      * Beendet alle offenen Sektionen (inkl. Root) und zeichnet auch deren Dauer auf.
      */
     public void end() {
+        if (!ENABLE_BENCHMARK) {
+            return;
+        }
         while (stack.size() > 1) {
             endSection();
         }
@@ -75,6 +90,9 @@ public class Benchmark {
      * Liefert den Bericht als Liste von Zeilen, mit gleitenden Durchschnitten.
      */
     public List<String> printToLines(String title) {
+        if (!ENABLE_BENCHMARK) {
+            return List.of();
+        }
         List<String> lines = new ArrayList<>();
         long totalAvg = root.getAverage();
         lines.add(title + ": avg " + formatTime(totalAvg) + " (über letzte " + windowSize + ")");
@@ -85,11 +103,13 @@ public class Benchmark {
     }
 
     private void printSection(Section sec, int depth, long totalAvg, List<String> lines) {
+        if (!ENABLE_BENCHMARK) {
+            return;
+        }
         String indent = "    ".repeat(depth);
         long avg = sec.getAverage();
         double pct = totalAvg > 0 ? avg * 1.0 / totalAvg : 0.0;
-        lines.add(indent + sec.name + ": avg " + formatTime(avg)
-            + " (" + PERCENT_FORMAT.format(pct) + ")");
+        lines.add(indent + sec.name + ": avg " + formatTime(avg) + " (" + PERCENT_FORMAT.format(pct) + ")");
         for (Section child : sec.children.values()) {
             printSection(child, depth + 1, totalAvg, lines);
         }

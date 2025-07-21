@@ -1,6 +1,8 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
 import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
+import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
@@ -18,6 +20,8 @@ public class TerrainRegion implements LightAccessor {
     private int count;
     private short airRegions;
     private final TerrainRegion[] neighbors;
+    @Getter
+    private int sideOcclusionMask;
 
     public TerrainRegion(TerrainManager terrainManager, int regionX, int regionY, int regionZ, RegionBounds bounds) {
         this.terrainManager = terrainManager;
@@ -57,8 +61,9 @@ public class TerrainRegion implements LightAccessor {
             airRegions += 1;
         }
 
-        if(isComplete()) {
-            terrainManager.updateMesh(regionX, regionY, regionZ, true);
+        if (isComplete()) {
+            terrainManager.updateMesh(this, true);
+            computeRegionSideMask(chunk.getWorld());
         }
 
         TerrainRegion highest = terrainManager.getHighestRegion(regionX, regionZ);
@@ -66,8 +71,10 @@ public class TerrainRegion implements LightAccessor {
 
         if (highest != null && lowest != null) {
             int calcSteps = highest.getRegionY() - lowest.getRegionY();
-            terrainManager.getLightEngine().scheduleSkylightUpdateInSlice(terrainManager.getWorld(), regionX, regionZ, highest, calcSteps, (x, y, z) -> {});
+            terrainManager.getLightEngine().scheduleSkylightUpdateInSlice(terrainManager.getWorld(), regionX, regionZ, highest, calcSteps, (x, y, z) -> {
+            });
         }
+
     }
 
     public void removeChunk(ClientChunk chunk) {
@@ -77,11 +84,12 @@ public class TerrainRegion implements LightAccessor {
             count++;
         }
         chunksInRegion[idx] = null;
-        terrainManager.updateMesh(regionX, regionY, regionZ, true);
+        terrainManager.updateMesh(this, true);
 
         if (chunk.isEmpty()) {
             airRegions -= 1;
         }
+        computeRegionSideMask(chunk.getWorld());
     }
 
     public boolean isComplete() {
@@ -100,16 +108,17 @@ public class TerrainRegion implements LightAccessor {
         } else if (!wasEmptyBefore && chunk.isEmpty()) {
             airRegions += 1;
         }
+        computeRegionSideMask(chunk.getWorld());
     }
 
     @Override
     public String toString() {
         return "TerrainRegion{" +
-            "regionX=" + regionX +
-            ", regionY=" + regionY +
-            ", regionZ=" + regionZ +
-            ", count=" + count +
-            '}';
+                "regionX=" + regionX +
+                ", regionY=" + regionY +
+                ", regionZ=" + regionZ +
+                ", count=" + count +
+                '}';
     }
 
     @Override
@@ -225,9 +234,9 @@ public class TerrainRegion implements LightAccessor {
     @Override
     public boolean isInBounds(int localX, int localY, int localZ) {
         return
-            localX >= 0 && localX < sizeX() &&
-                localY >= 0 && localY < sizeY() &&
-                localZ >= 0 && localZ < sizeZ();
+                localX >= 0 && localX < sizeX() &&
+                        localY >= 0 && localY < sizeY() &&
+                        localZ >= 0 && localZ < sizeZ();
     }
 
     @Override
@@ -236,7 +245,7 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null || chunk.isEmpty()) {
             return -1;
         }
-        return chunk.getHeightmap()[chunk.localX(localX)][chunk.localZ(localZ)];
+        return chunk.getHeightmap().get(chunk.localX(localX), chunk.localZ(localZ));
     }
 
     @Override
@@ -245,12 +254,12 @@ public class TerrainRegion implements LightAccessor {
     }
 
     @Override
-    public LightAccessor getNeighbor(Direction direction) {
+    public TerrainRegion getNeighbor(Direction direction) {
         return neighbors[direction.getId()];
     }
 
     @Override
-    public LightAccessor getRelative(int x, int y, int z) {
+    public TerrainRegion getRelative(int x, int y, int z) {
         return terrainManager.getRegion(regionX + x, regionY + y, regionZ + z);
     }
 
@@ -277,8 +286,8 @@ public class TerrainRegion implements LightAccessor {
         int sizeZ = bounds.regionSizeZ();
 
         return xIndex
-            + zIndex * sizeX
-            + yIndex * (sizeX * sizeZ);
+                + zIndex * sizeX
+                + yIndex * (sizeX * sizeZ);
     }
 
     private int getIndexInHeightMap(int chunkX, int chunkZ) {
@@ -337,5 +346,91 @@ public class TerrainRegion implements LightAccessor {
             return chunkDepthMap[idx];
         }
         return chunkHeighMap[idx];
+    }
+
+    private void computeRegionSideMask(World<?> chunkProvider) {
+        sideOcclusionMask = 0;
+
+
+        if (isRegionFaceFullyOpaque(
+                bounds.getMinChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                Direction.WEST, chunkProvider))
+            sideOcclusionMask |= 1 << Direction.WEST.getId();
+
+        // X-Pos Face (EAST) an maxChunkX
+        if (isRegionFaceFullyOpaque(
+                bounds.getMaxChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                Direction.EAST, chunkProvider))
+            sideOcclusionMask |= 1 << Direction.EAST.getId();
+
+        // Y-Neg Face (DOWN) an minChunkY
+        if (isRegionFaceFullyOpaque(
+                bounds.getMinChunkY(regionY), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                Direction.DOWN, chunkProvider, true, false))
+            sideOcclusionMask |= 1 << Direction.DOWN.getId();
+
+        // Y-Pos Face (UP) an maxChunkY
+        if (isRegionFaceFullyOpaque(
+                bounds.getMaxChunkY(regionY), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                Direction.UP, chunkProvider, true, false))
+            sideOcclusionMask |= 1 << Direction.UP.getId();
+
+        // Z-Neg Face (NORTH) an minChunkZ
+        if (isRegionFaceFullyOpaque(
+                bounds.getMinChunkZ(regionZ), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY),
+                Direction.NORTH, chunkProvider, false, true))
+            sideOcclusionMask |= 1 << Direction.NORTH.getId();
+
+        // Z-Pos Face (SOUTH) an maxChunkZ
+        if (isRegionFaceFullyOpaque(
+                bounds.getMaxChunkZ(regionZ), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY),
+                Direction.SOUTH, chunkProvider, false, true))
+            sideOcclusionMask |= 1 << Direction.SOUTH.getId();
+    }
+
+    /**
+     * Prüft, ob **alle** Chunks auf der angegebenen Face-Ebene diese Face voll occluden.
+     *
+     * @param faceCoord   der konstante Chunk-Index auf der Face (z.B. minChunkX für WEST)
+     * @param rangeAStart Start des ersten freien Variablen-Ranges (y oder x)
+     * @param rangeAEnd   Ende des ersten Ranges (inklusive)
+     * @param rangeBStart Start des zweiten Ranges (z oder y)
+     * @param rangeBEnd   Ende des zweiten Ranges
+     * @param faceDir     in welche Richtung das Face zeigt
+     * @param provider    zum Nachladen der Chunks
+     * @param swapAB      tausche A- mit B-Koordinate (für Y-Faces)
+     * @param isZFace     true, wenn die Face-Ebene in Z liegt (für NORTH/SOUTH)
+     */
+    private boolean isRegionFaceFullyOpaque(int faceCoord,
+                                            int rangeAStart, int rangeAEnd,
+                                            int rangeBStart, int rangeBEnd,
+                                            Direction faceDir,
+                                            World<?> provider,
+                                            boolean swapAB,
+                                            boolean isZFace) {
+        for (int a = rangeAStart; a <= rangeAEnd; a++) {
+            for (int b = rangeBStart; b <= rangeBEnd; b++) {
+                int cx = swapAB ? a : faceCoord;
+                int cy = swapAB ? faceCoord : (isZFace ? b : a);
+                int cz = isZFace ? faceCoord : b;
+
+                ClientChunk chunk = (ClientChunk) provider.getChunkNow(cx, cy, cz);
+                if (chunk == null) return false;
+                OccupancyMask mask = chunk.getChunkOccupancyMask();
+                if ((mask.getSideMask() & (1L << faceDir.getId())) == 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // Überladene Variante für X-Faces
+    private boolean isRegionFaceFullyOpaque(int faceX,
+                                            int yStart, int yEnd,
+                                            int zStart, int zEnd,
+                                            Direction faceDir,
+                                            World<?> provider) {
+        return isRegionFaceFullyOpaque(faceX, yStart, yEnd, zStart, zEnd, faceDir, provider, false, false);
     }
 }

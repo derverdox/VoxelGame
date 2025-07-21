@@ -15,7 +15,7 @@ import java.util.List;
 
 public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
     @Override
-    public BlockFaceStorage calculateChunkMesh(ClientChunk chunk) {
+    public BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float offsetX, float offsetY, float offsetZ) {
         if (chunk.isEmpty()) {
             return null;
         }
@@ -23,31 +23,31 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
         int chunkSizeY = chunk.getWorld().getChunkSizeY();
         int chunkSizeZ = chunk.getWorld().getChunkSizeZ();
 
-        BlockFaceStorage blockFaceStorage = new BlockFaceStorage(chunkSizeX, chunkSizeY, chunkSizeZ);
         for (int x = 0; x < chunkSizeX; x++) {
             for (int y = 0; y < chunkSizeY; y++) {
                 for (int z = 0; z < chunkSizeZ; z++) {
                     BlockBase block = chunk.getBlockAt(x, y, z);
                     if (block == Blocks.AIR) continue;
-                    drawBlock(block, chunk, x, y, z, blockFaceStorage);
+                    drawBlock(block, chunk, x, y, z, blockFaces, offsetX, offsetY, offsetZ);
                 }
             }
         }
-        return blockFaceStorage;
+        return blockFaces;
     }
 
-    private void drawBlock(BlockBase blockBase, ClientChunk chunk, int blockXInMesh, int blockYInMesh, int blockZInMesh, BlockFaceStorage blockFaceStorage) {
-        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, 0, -1, blockFaceStorage);
-        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, 0, +1, blockFaceStorage);
-        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, +1, 0, blockFaceStorage);
-        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, -1, 0, blockFaceStorage);
-        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, -1, 0, 0, blockFaceStorage);
-        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, +1, 0, 0, blockFaceStorage);
+    private void drawBlock(BlockBase blockBase, ClientChunk chunk, int blockXInMesh, int blockYInMesh, int blockZInMesh, BlockFaceStorage blockFaceStorage, float offsetX, float offsetY, float offsetZ) {
+        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, 0, -1, offsetX, offsetY, offsetZ, blockFaceStorage);
+        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, 0, +1, offsetX, offsetY, offsetZ, blockFaceStorage);
+        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, +1, 0, offsetX, offsetY, offsetZ, blockFaceStorage);
+        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, -1, 0, offsetX, offsetY, offsetZ, blockFaceStorage);
+        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, -1, 0, 0, offsetX, offsetY, offsetZ, blockFaceStorage);
+        paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, +1, 0, 0, offsetX, offsetY, offsetZ, blockFaceStorage);
     }
 
     private void paintFaceIfVisible(BlockBase blockBase, ClientChunk chunk,
                                     int localX, int localY, int localZ,
                                     int relativeX, int relativeY, int relativeZ,
+                                    float offsetX, float offsetY, float offsetZ,
                                     BlockFaceStorage blockFaceStorage) {
 
         BlockModel blockModel = blockBase.equals(Blocks.AIR) ? null : BlockModels.STONE;
@@ -66,8 +66,8 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
 
         BlockBase neighbour;
         if (neighbourX < 0 || neighbourX >= sizeX ||
-            neighbourY < 0 || neighbourY >= sizeY ||
-            neighbourZ < 0 || neighbourZ >= sizeZ) {
+                neighbourY < 0 || neighbourY >= sizeY ||
+                neighbourZ < 0 || neighbourZ >= sizeZ) {
 
             int deltaChunkX = (neighbourX < 0 ? -1 : neighbourX >= sizeX ? 1 : 0);
             int deltaChunkY = (neighbourY < 0 ? -1 : neighbourY >= sizeY ? 1 : 0);
@@ -116,7 +116,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
             }
 
             String nameOfBlockFace = blockModel.getBlockModelType().getNameOfFace(relevantBlockFace);
-            blockFaceStorage.addFace(BlockRenderer.generateBlockFace(blockModel.getTextureOfFace(nameOfBlockFace), relevantBlockFace, localX, localY, localZ));
+            blockFaceStorage.addFace(BlockRenderer.generateBlockFace(chunk, blockModel.getTextureOfFace(nameOfBlockFace), relevantBlockFace, localX, localY, localZ, (int) (localX + offsetX), (int) (localY + offsetY), (int) (localZ + offsetZ)));
         }
     }
 }

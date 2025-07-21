@@ -4,15 +4,17 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
+import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
+import de.verdox.voxel.client.renderer.ClientRenderer;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongList;
+import de.verdox.voxel.shared.util.datastructure.LongQueue;
+import it.unimi.dsi.fastutil.longs.*;
 
 import java.util.*;
 
@@ -38,6 +40,10 @@ public class TerrainGraph {
         this.chunkSizeZ = chunkSizeZ;
     }
 
+    public int getAmountOfRegions() {
+        return regions.size();
+    }
+
     /**
      * Represents a stored chunk with 6 neighbor pointers.
      */
@@ -47,7 +53,6 @@ public class TerrainGraph {
         public RegionNode nextYPos, nextYNeg;
         public RegionNode nextZPos, nextZNeg;
         public BoundingBox boundingBox;
-        private int visibleChunksInRegion;
 
         public RegionNode(int x, int y, int z) {
             this.pos = ChunkBase.computeChunkKey(x, y, z);
@@ -56,19 +61,6 @@ public class TerrainGraph {
 
         public boolean hasLinkedNeighbors() {
             return nextXPos != null || nextXNeg != null || nextYPos != null || nextYNeg != null || nextZPos != null || nextZNeg != null;
-        }
-
-        public void incrementVisibleChunks() {
-            this.visibleChunksInRegion += 1;
-        }
-
-        public boolean decrementVisibleChunks() {
-            this.visibleChunksInRegion -= 1;
-            if (this.visibleChunksInRegion == 0) {
-                removeRegion(ChunkBase.unpackChunkX(pos), ChunkBase.unpackChunkY(pos), ChunkBase.unpackChunkZ(pos));
-                return true;
-            }
-            return false;
         }
 
         private BoundingBox createBoundingBox(int x, int y, int z) {
@@ -80,31 +72,30 @@ public class TerrainGraph {
             int maxChunkY = bounds.getMaxChunkY(y);
             int maxChunkZ = bounds.getMaxChunkZ(z);
             return new BoundingBox().set(
-                new Vector3(
-                    minChunkX * chunkSizeX,
-                    minChunkY * chunkSizeY,
-                    minChunkZ * chunkSizeZ
-                ),
-                new Vector3(
-                    maxChunkX * chunkSizeX + chunkSizeX - 1,
-                    maxChunkY * chunkSizeY + chunkSizeY - 1,
-                    maxChunkZ * chunkSizeZ + chunkSizeZ - 1
-                )
+                    new Vector3(
+                            minChunkX * chunkSizeX,
+                            minChunkY * chunkSizeY,
+                            minChunkZ * chunkSizeZ
+                    ),
+                    new Vector3(
+                            maxChunkX * chunkSizeX + chunkSizeX - 1,
+                            maxChunkY * chunkSizeY + chunkSizeY - 1,
+                            maxChunkZ * chunkSizeZ + chunkSizeZ - 1
+                    )
             );
         }
 
         @Override
         public String toString() {
             return "RegionNode{" +
-                "nextZNeg=" + (nextZNeg != null) +
-                ", nextZPos=" + (nextZPos != null) +
-                ", nextYNeg=" + (nextYNeg != null) +
-                ", nextYPos=" + (nextYPos != null) +
-                ", nextXNeg=" + (nextXNeg != null) +
-                ", nextXPos=" + (nextXPos != null) +
-                ", pos=" + pos +
-                ", visibleChunksInRegion=" + visibleChunksInRegion +
-                '}';
+                    "nextZNeg=" + (nextZNeg != null) +
+                    ", nextZPos=" + (nextZPos != null) +
+                    ", nextYNeg=" + (nextYNeg != null) +
+                    ", nextYPos=" + (nextYPos != null) +
+                    ", nextXNeg=" + (nextXNeg != null) +
+                    ", nextXPos=" + (nextXPos != null) +
+                    ", pos=" + pos +
+                    '}';
         }
     }
 
@@ -272,9 +263,9 @@ public class TerrainGraph {
 
                 // Check if in view distance
                 if (
-                    relX > x + maxStepsX || relX < x - maxStepsX ||
-                        relY > y + maxStepsY || relY < y - maxStepsY ||
-                        relZ > z + maxStepsZ || relZ < z - maxStepsZ
+                        relX > x + maxStepsX || relX < x - maxStepsX ||
+                                relY > y + maxStepsY || relY < y - maxStepsY ||
+                                relZ > z + maxStepsZ || relZ < z - maxStepsZ
                 ) {
                     continue;
                 }
@@ -289,28 +280,18 @@ public class TerrainGraph {
         return null;
     }
 
-    private final Set<Long> visited = new HashSet<>();
-    private final Deque<Long> queue = new ArrayDeque<>();
-
-    private final LongList foundRegions = new LongArrayList();
-    private int lastStartChunkX = Integer.MIN_VALUE;
-    private int lastStartChunkY = Integer.MIN_VALUE;
-    private int lastStartChunkZ = Integer.MIN_VALUE;
+    private final LongSet visited = new LongOpenHashSet();
+    private final LongQueue queue = new LongQueue();
 
     public int bsfRenderVisibleRegions(Camera camera, ClientWorld world, ModelBatch batch, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
         visited.clear();
         queue.clear();
-        foundRegions.clear();
 
         int amountOfRenderedBlockFaces = 0;
 
         int startChunkX = ChunkBase.chunkX(chunkSizeX, (int) camera.position.x);
         int startChunkY = ChunkBase.chunkY(chunkSizeY, (int) camera.position.y);
         int startChunkZ = ChunkBase.chunkZ(chunkSizeZ, (int) camera.position.z);
-
-        this.lastStartChunkX = startChunkX;
-        this.lastStartChunkY = startChunkY;
-        this.lastStartChunkZ = startChunkZ;
 
         int regionX = bounds.getRegionX(startChunkX);
         int regionY = bounds.getRegionY(startChunkY);
@@ -326,10 +307,10 @@ public class TerrainGraph {
         }
 
         visited.add(regionKey);
-        queue.add(regionKey);
+        queue.enqueue(regionKey);
 
         while (!queue.isEmpty()) {
-            long key = queue.poll();
+            long key = queue.dequeue();
             RegionNode node = regions.get(key);
             if (node == null) {
                 continue;
@@ -339,40 +320,71 @@ public class TerrainGraph {
             int ny = ChunkBase.unpackChunkY(key);
             int nz = ChunkBase.unpackChunkZ(key);
 
+            TerrainRegion terrainRegion = terrainManager.getRegion(nx, ny, nz);
+
+            if (terrainRegion == null) {
+                continue;
+            }
+
             if (!startNode.equals(node)) {
                 if (Math.abs(startChunkX - nx) > (viewDistanceX) ||
-                    Math.abs(startChunkY - ny) > (viewDistanceY) ||
-                    Math.abs(startChunkZ - nz) > (viewDistanceZ)) {
+                        Math.abs(startChunkY - ny) > (viewDistanceY) ||
+                        Math.abs(startChunkZ - nz) > (viewDistanceZ)) {
                     continue;
                 }
             }
-            if (camera.frustum.boundsInFrustum(node.boundingBox)) {
-                TerrainMesh terrainMesh = world.getTerrainManager().getMeshStorage().getRegionMeshIfAvailable(nx, ny, nz);
-
-                if (terrainMesh != null && terrainMesh.getAmountOfBlockFaces() != 0 && terrainMesh.isComplete()) {
-
-                    TerrainRegion terrainRegion = terrainManager.getRegion(nx, ny, nz);
-                    if (terrainRegion != null) {
-                        var mesh = terrainMesh.getOrGenerateMeshFromFaces(TextureAtlasManager.getInstance().getBlockTextureAtlas(), world, nx, ny, nz, terrainRegion);
-                        mesh.render(camera, batch);
-
-                        amountOfRenderedBlockFaces += terrainMesh.getAmountOfBlockFaces();
-                    }
-                }
+            if (!camera.frustum.boundsInFrustum(node.boundingBox)) {
+                continue;
             }
-            foundRegions.add(ChunkBase.computeChunkKey(nx, ny, nz));
+
+            TerrainMesh terrainMesh = world.getTerrainManager().getMeshStorage().getRegionMeshIfAvailable(nx, ny, nz);
+
+            if (terrainMesh != null && terrainMesh.getAmountOfBlockFaces() != 0 && terrainMesh.isComplete()) {
+
+                var mesh = terrainMesh.getOrGenerateMeshFromFaces(TextureAtlasManager.getInstance().getBlockTextureAtlas(), world, nx, ny, nz, terrainRegion);
+                mesh.render(camera, batch);
+
+                amountOfRenderedBlockFaces += terrainMesh.getAmountOfBlockFaces();
+            }
 
             if (!node.hasLinkedNeighbors()) {
                 continue;
             }
 
+            if (node.nextXPos != null && visited.add(node.nextXPos.pos)) {
+                if (!ClientBase.clientSettings.useOcclusionCulling || (terrainRegion.getSideOcclusionMask() & (1 << Direction.EAST.getId())) == 0) {
+                    queue.enqueue(node.nextXPos.pos);
+                }
+            }
 
-            for (RegionNode neigh : new RegionNode[]{
-                node.nextXPos, node.nextXNeg,
-                node.nextYPos, node.nextYNeg,
-                node.nextZPos, node.nextZNeg}) {
-                if (neigh != null && visited.add(neigh.pos)) {
-                    queue.add(neigh.pos);
+            if (node.nextXNeg != null && visited.add(node.nextXNeg.pos)) {
+                if (!ClientBase.clientSettings.useOcclusionCulling || (terrainRegion.getSideOcclusionMask() & (1 << Direction.WEST.getId())) == 0) {
+                    queue.enqueue(node.nextXNeg.pos);
+                }
+            }
+
+            if (node.nextYPos != null && visited.add(node.nextYPos.pos)) {
+                if (!ClientBase.clientSettings.useOcclusionCulling || (terrainRegion.getSideOcclusionMask() & (1 << Direction.UP.getId())) == 0) {
+                    queue.enqueue(node.nextYPos.pos);
+                }
+            }
+
+            if (node.nextYNeg != null && visited.add(node.nextYNeg.pos)) {
+                if (!ClientBase.clientSettings.useOcclusionCulling || (terrainRegion.getSideOcclusionMask() & (1 << Direction.DOWN.getId())) == 0) {
+                    queue.enqueue(node.nextYNeg.pos);
+                }
+            }
+
+            if (node.nextZPos != null && visited.add(node.nextZPos.pos)) {
+                if (!ClientBase.clientSettings.useOcclusionCulling || (terrainRegion.getSideOcclusionMask() & (1 << Direction.SOUTH.getId())) == 0) {
+                    queue.enqueue(node.nextZPos.pos);
+                }
+            }
+
+
+            if (node.nextZNeg != null && visited.add(node.nextZNeg.pos)) {
+                if (!ClientBase.clientSettings.useOcclusionCulling || (terrainRegion.getSideOcclusionMask() & (1 << Direction.NORTH.getId())) == 0) {
+                    queue.enqueue(node.nextZNeg.pos);
                 }
             }
         }
@@ -384,4 +396,73 @@ public class TerrainGraph {
     }
 
 
+    /**
+     * Prüft, ob 'target' komplett occluded ist von allen
+     * Chunks zwischen 'cameraChunk' und 'targetChunk'.
+     */
+    public static boolean isVisible(
+            int cameraChunkX, int cameraChunkY, int cameraChunkZ,
+            int targetChunkX, int targetChunkY, int targetChunkZ,
+            ClientWorld world // liefert per Koordinate die ClientChunk/OccupancyMask
+    ) {
+
+        // 1) Delta-Chunks
+        int dx = targetChunkX - cameraChunkX;
+        int dy = targetChunkY - cameraChunkY;
+        int dz = targetChunkZ - cameraChunkZ;
+
+        // 2) Einfache Achsen-Schritte (kann man ersetzen durch Bresenham für schräge Linien)
+        int stepX = Integer.signum(dx);
+        int stepY = Integer.signum(dy);
+        int stepZ = Integer.signum(dz);
+
+        int steps = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+        int cx = cameraChunkX, cy = cameraChunkY, cz = cameraChunkZ;
+
+        for (int i = 0; i < steps; i++) {
+            // Bestimme nächste Chunk-Koordinate auf dem Weg
+            // hier simple Priorität X→Y→Z; du kannst das mit Bresenham ersetzen
+            if (cx != targetChunkX) cx += stepX;
+            else if (cy != targetChunkY) cy += stepY;
+            else cz += stepZ;
+
+            // 3) Welches Face des bisherigen Chunks schaut zum neuen Chunk?
+            Direction faceDir = getDirectionFromDelta(
+                    cx - cameraChunkX,
+                    cy - cameraChunkY,
+                    cz - cameraChunkZ
+            );
+
+            // 4) Hole OccupancyMask und SideMask
+            ClientChunk chunk = world.getChunkNow(cx, cy, cz);
+            if (chunk == null) break;
+            OccupancyMask mask = chunk.getChunkOccupancyMask();
+
+            // 5) Ist die komplette Face in faceDir voll opaque?
+            long sideMask = mask.getSideMask();
+            if ((sideMask & (1L << faceDir.getId())) != 0) {
+                // Strahl schlägt hier auf eine voll-opaque Face auf → alles dahinter ist occluded
+                return false;
+            }
+
+            // Merke dir neue Kamera-Position für die Face-Richtung
+            cameraChunkX = cx;
+            cameraChunkY = cy;
+            cameraChunkZ = cz;
+        }
+        return true;
+    }
+
+    /**
+     * Hilfsfunktion: wandelt ein (dx,dy,dz) in eine der 6 Cardinal-Directions um.
+     */
+    private static Direction getDirectionFromDelta(int dx, int dy, int dz) {
+        if (dx > 0) return Direction.EAST;
+        if (dx < 0) return Direction.WEST;
+        if (dy > 0) return Direction.UP;
+        if (dy < 0) return Direction.DOWN;
+        if (dz > 0) return Direction.SOUTH;
+        if (dz < 0) return Direction.NORTH;
+        throw new IllegalArgumentException("Zero delta");
+    }
 }

@@ -3,9 +3,8 @@ package de.verdox.voxel.client.test.chunk;
 import static org.junit.jupiter.api.Assertions.*;
 
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.occupancy.ChunkOccupancyMask;
+import de.verdox.voxel.client.level.chunk.occupancy.NaiveChunkOccupancyMask;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
-import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
 import de.verdox.voxel.shared.data.types.Blocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +13,7 @@ import java.util.UUID;
 
 class ChunkOccupancyMaskTest {
 
-    private ChunkOccupancyMask com;
+    private NaiveChunkOccupancyMask com;
 
 
     private final int SX = 16, SY = 16, SZ = 16;

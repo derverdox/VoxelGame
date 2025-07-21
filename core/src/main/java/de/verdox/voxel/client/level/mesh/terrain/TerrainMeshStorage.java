@@ -3,6 +3,7 @@ package de.verdox.voxel.client.level.mesh.terrain;
 import com.badlogic.gdx.Gdx;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.ThreadUtil;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -18,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 
 public class TerrainMeshStorage {
-    private final ExecutorService executor = Executors.newFixedThreadPool(1, ThreadUtil.createFactoryForName("Meshing Thread", true));
+    private final ExecutorService executor = Executors.newFixedThreadPool(4, ThreadUtil.createFactoryForName("Meshing Thread", true));
     private final Long2ObjectOpenHashMap<TerrainMesh> renderedRegions = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectOpenHashMap<RegionQueue> queues = new Long2ObjectOpenHashMap<>();
     private final ClientWorld world;
@@ -43,7 +44,7 @@ public class TerrainMeshStorage {
         this.regionSizeZ = regionSizeZ;
     }
 
-    public void recalculateMesh(int regionX, int regionY, int regionZ, boolean force) {
+    public void recalculateMesh(int regionX, int regionY, int regionZ, LightAccessor lightAccessor, boolean force) {
         long keyOfRegion = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
 
         RegionQueue q = queues.computeIfAbsent(keyOfRegion, k -> new RegionQueue());
@@ -62,16 +63,7 @@ public class TerrainMeshStorage {
         long start = System.nanoTime();
         try {
             var result = terrainManager.getMeshPipeline().buildMesh(world, regionX, regionY, regionZ);
-            terrainMesh.setRawBlockFaces(result.faces(), result.completeMesh());
-
-            Gdx.app.postRunnable(() -> {
-                if (!result.completeMesh() || result.faces().getSize() == 0) {
-                    terrainManager.getTerrainGraph().removeRegion(regionX, regionY, regionZ);
-                } else {
-                    terrainManager.getTerrainGraph().addRegion(regionX, regionY, regionZ);
-                    queues.remove(ChunkBase.computeChunkKey(regionX, regionY, regionZ));
-                }
-            });
+            terrainMesh.setRawBlockFaces(result.faces(), result.completeMesh(), terrainManager.getRegion(regionX, regionY, regionZ));
         } catch (Throwable t) {
             Gdx.app.error("MeshMaster", "Error while generating mesh for chunk " + chunkKey, t);
         } finally {

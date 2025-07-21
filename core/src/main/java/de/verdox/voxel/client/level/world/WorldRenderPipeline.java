@@ -7,12 +7,9 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.profiling.GLProfiler;
 import de.verdox.voxel.client.ClientBase;
-import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.mesh.region.strategy.CameraCenteredRegionStrategy;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.client.shader.Shaders;
@@ -39,10 +36,13 @@ public abstract class WorldRenderPipeline implements DebuggableOnScreen {
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glDepthFunc(GL20.GL_LEQUAL);
         Gdx.gl.glDepthMask(true);
+        Gdx.gl.glClearDepthf(1f);
         Gdx.gl.glDisable(GL20.GL_BLEND);
 
-        Shaders.OPAQUE_BLOCK_SHADER.bind();
-        Shaders.OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
+        Shaders.GREEDY_OPAQUE_BLOCK_SHADER.bind();
+        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.bind();
+        Shaders.GREEDY_OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
+        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
 
         Gdx.gl.glEnable(GL20.GL_CULL_FACE);
 

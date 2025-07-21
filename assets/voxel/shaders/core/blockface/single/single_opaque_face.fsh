@@ -5,8 +5,6 @@ precision mediump float;
 uniform sampler2D u_texture;
 
 varying vec2 v_texCoord;
-varying vec2 v_greedy_start;
-varying vec2 v_greedy_end;
 varying float v_light;
 varying float v_ambient_occlusion;
 
@@ -18,7 +16,6 @@ float getNibble(inout float data, float div) {
 
 void main() {
     vec2 local = fract(v_texCoord);
-    vec2 atlasUV = v_greedy_start.xy + local * v_greedy_end.xy;
 
     float light = v_light;
 
@@ -32,9 +29,10 @@ void main() {
     float blue = getNibble(light, 1.0) / 15;
 
     vec3 blockLight = vec3(red, green, blue);
-    vec4 texture = texture2D(u_texture, atlasUV);
+    vec4 texture = texture2D(u_texture, local);
 
-    vec3 lit = texture.rgb * (mix(0.2, 0.8, sky)/** + blockLight*/) /*** v_ambient_occlusion*/;
+    //vec3 lit = texture.rgb * (mix(0.2, 0.8, sky)/** + blockLight*/);
+    vec3 lit = texture.rgb * (mix(0.4, 0.8, v_ambient_occlusion));
 
     gl_FragColor = vec4(lit, texture.a);
 }

@@ -9,6 +9,8 @@ import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.DepthMap;
+import de.verdox.voxel.shared.level.chunk.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 
@@ -25,12 +27,12 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
         output.writeInt(chunk.getChunkZ());
         output.writeBoolean(chunk.isEmpty());
         chunk.getChunkLightData().write(kryo, output);
+        chunk.getHeightmap().write(kryo, output);
+        chunk.getDepthMap().write(kryo, output);
         if (chunk.isEmpty()) {
             return;
         }
-        writeBlockPalette(kryo, output, chunk);
-        kryo.writeObject(output, chunk.getHeightmap());
-        kryo.writeObject(output, chunk.getDepthMap());
+        chunk.getChunkBlockPalette().write(kryo, output);
     }
 
     @Override
@@ -46,24 +48,19 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
         int chunkZ = input.readInt();
         boolean isEmpty = input.readBoolean();
 
+
         ChunkLightData chunkLightData = new ChunkLightData(world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
         chunkLightData.readAndUpdate(kryo, input);
-
+        HeightMap heightMap = new HeightMap(world.getChunkSizeX(), world.getChunkSizeZ());
+        heightMap.readAndUpdate(kryo, input);
+        DepthMap depthMap = new DepthMap(world.getChunkSizeX(), world.getChunkSizeZ());
+        depthMap.readAndUpdate(kryo, input);
 
         ChunkBlockPalette chunkBlockPalette = new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
 
-        byte[][] heightMap;
-        byte[][] depthMap;
 
         if (!isEmpty) {
-            readBlockPalette(kryo, input, chunkBlockPalette);
-            heightMap = kryo.readObject(input, byte[][].class);
-            depthMap = kryo.readObject(input, byte[][].class);
-
-        }
-        else {
-            heightMap = new byte[world.getChunkSizeX()][world.getChunkSizeZ()];
-            depthMap = new byte[world.getChunkSizeX()][world.getChunkSizeZ()];
+            chunkBlockPalette.readAndUpdate(kryo, input);
         }
 
         return world.constructChunkObject(chunkX, chunkY, chunkZ, chunkBlockPalette, heightMap, depthMap, chunkLightData);
@@ -71,37 +68,5 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
 
     private WORLD getWorld(UUID worldUUID) {
         return (WORLD) VoxelBase.getINSTANCE().getWorld(worldUUID).orElse(null);
-    }
-
-    private void writeBlockPalette(Kryo kryo, Output output, CHUNK chunk) {
-        ChunkBlockPalette palette = chunk.getChunkBlockPalette();
-
-        List<ResourceLocation> entries = palette.getPalette();
-        output.writeInt(entries.size(), true);
-        for (ResourceLocation block : entries) {
-            kryo.writeObject(output, block);
-        }
-        output.writeInt(palette.getBitsPerBlock(), true);
-        long[] data = palette.getData();
-        output.writeInt(data.length, true);
-        for (long word : data) {
-            output.writeLong(word);
-        }
-    }
-
-    private static void readBlockPalette(Kryo kryo, Input input, ChunkBlockPalette chunkBlockPalette) {
-        int paletteSize = input.readInt(true);
-        for (int i = 0; i < paletteSize; i++) {
-            ResourceLocation block = kryo.readObject(input, ResourceLocation.class);
-            chunkBlockPalette.setForSerialization(block, i);
-        }
-
-        int bitsPerBlock = input.readInt(true);
-        int dataLen = input.readInt(true);
-        long[] data = new long[dataLen];
-        for (int i = 0; i < dataLen; i++) {
-            data[i] = input.readLong();
-        }
-        chunkBlockPalette.setForDeserialization(bitsPerBlock, data);
     }
 }

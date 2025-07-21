@@ -3,9 +3,8 @@ package de.verdox.voxel.client.test.chunk;
 import static org.junit.jupiter.api.Assertions.*;
 
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.occupancy.ChunkOccupancyMask;
+import de.verdox.voxel.client.level.chunk.occupancy.NaiveChunkOccupancyMask;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
-import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
 import de.verdox.voxel.shared.data.types.Blocks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +35,7 @@ public class ClientChunkIntegrationTest {
      */
     @Test
     void testInitialOccupancyMaskEmpty() {
-        ChunkOccupancyMask com = chunk.getOccupancyMask();
+        NaiveChunkOccupancyMask com = chunk.getOccupancyMask();
         // All positions in a new chunk should be transparent
         for (int x = 0; x < SX; x++) {
             for (int y = 0; y < SY; y++) {
@@ -56,7 +55,7 @@ public class ClientChunkIntegrationTest {
      */
     @Test
     void testOccupancyMaskUpdateOnSetBlock() {
-        ChunkOccupancyMask com = chunk.getOccupancyMask();
+        NaiveChunkOccupancyMask com = chunk.getOccupancyMask();
         int x = 5, y = 6, z = 7;
 
         // Place a STONE block and verify occupancy
@@ -80,7 +79,7 @@ public class ClientChunkIntegrationTest {
      */
     @Test
     void testFaceMasksIntegration() {
-        ChunkOccupancyMask com = chunk.getOccupancyMask();
+        NaiveChunkOccupancyMask com = chunk.getOccupancyMask();
         // Put a block at the boundary to test neighbor retrieval as AIR
         chunk.setBlockAt(Blocks.STONE, 0, 0, 0);
 

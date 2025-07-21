@@ -93,13 +93,4 @@ class PaletteTest {
         palette.set((short) 8, (short) 8, (short) 8, "air");
         assertEquals("air", palette.get((short) 8, (short) 8, (short) 8));
     }
-
-    @Test
-    void testCopyIndependence() {
-        palette.set((short) 2, (short) 2, (short) 2, "sand");
-        ThreeDimensionalPalette<String> clone = palette.copy();
-        clone.set((short) 2, (short) 2, (short) 2, "gravel");
-        assertEquals("sand", palette.get((short) 2, (short) 2, (short) 2));
-        assertEquals("gravel", clone.get((short) 2, (short) 2, (short) 2));
-    }
 }

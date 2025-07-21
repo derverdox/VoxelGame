@@ -1,20 +1,18 @@
 package de.verdox.voxel.client.level.mesh.chunk;
 
-import com.badlogic.gdx.math.Vector3;
-import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.mesh.block.BlockFace;
+import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.shared.util.Direction;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 @Getter
 public class BlockFaceStorage implements Iterable<BlockFace> {
+    // TODO: RAM OPTIMIZATION
+    //  Too much ram used when many Block Faces are created
     private final Int2ObjectMap<List<BlockFace>> upFaces = new Int2ObjectOpenHashMap<>();
     private final Int2ObjectMap<List<BlockFace>> downFaces = new Int2ObjectOpenHashMap<>();
     private final Int2ObjectMap<List<BlockFace>> eastFaces = new Int2ObjectOpenHashMap<>();
@@ -27,6 +25,8 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
     private final int scaleZ;
 
     private int size = 0;
+    @Getter
+    private int vertices, indices;
 
     public void clear() {
         upFaces.clear();
@@ -36,6 +36,8 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
         southFaces.clear();
         northFaces.clear();
         size = 0;
+        vertices = 0;
+        indices = 0;
     }
 
     public BlockFaceStorage(int scaleX, int scaleY, int scaleZ) {
@@ -58,7 +60,6 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
     /**
      * Applies the greedy meshing algorithm to all face lists, merging adjacent faces
      * of the same direction, texture, and orientation into larger quads.
-     *
      */
     private final ExecutorService greedyMeshingService = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("Greedy Meshing Calculator Job - %d", 0).factory());
 
@@ -112,8 +113,8 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
         List<BlockFace> merged = new ArrayList<>();
 
         for (BlockFace f : faces) {
-            int u = getUCoord(f, dir);
-            int v = getVCoord(f, dir);
+            int u = f.getUCoord(dir);
+            int v = f.getVCoord(dir);
             grid[u][v] = f;
         }
 
@@ -135,7 +136,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
                 for (int quadV = v + 1; quadV < sizeV; quadV++) {
 
                     BlockFace neighbor = grid[u][quadV];
-                    if (used[u][quadV] || !areCompatible(faceAtCoordinate, neighbor, dir)) {
+                    if (used[u][quadV] || !faceAtCoordinate.isMergeable(neighbor, dir)) {
                         break;
                     }
                     quadHeight++;
@@ -146,7 +147,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
                     boolean canExtend = true;
                     for (int i = 0; i < quadHeight; i++) {
                         BlockFace neighbor = grid[quadU][v + i];
-                        if (used[quadU][v + i] || !areCompatible(faceAtCoordinate, neighbor, dir)) {
+                        if (used[quadU][v + i] || !faceAtCoordinate.isMergeable(neighbor, dir)) {
                             canExtend = false;
                             break;
                         }
@@ -183,8 +184,6 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
                     } else if (dir.equals(Direction.SOUTH)) {
                         BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
                         merged.add(newFace);
-                    } else {
-                        System.out.println("Could not add " + faceAtCoordinate);
                     }
                 }
             }
@@ -192,129 +191,14 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
         return merged;
     }
 
-    /**
-     * Builds a new BlockFace quad from the base face and dimensions,
-     * correctly applying U/V offsets to position the merged quad,
-     * and ensuring proper winding for normals.
-     */
-    public static BlockFace createQuad(BlockFace base, Direction dir,
-                                       int u, int v, int w, int h) {
-        // 1) Base face origin (corner1) already lies on the face plane
-        float x = base.corner1X;
-        float y = base.corner1Y;
-        float z = base.corner1Z;
-
-        // 2) Determine U and V axis vectors for this face direction
-        Vector3 uVec, vVec;
-        if (dir.getOffsetY() != 0) {
-            // UP or DOWN => XZ plane
-            uVec = new Vector3(1, 0, 0);
-            vVec = new Vector3(0, 0, 1);
-        } else if (dir.getOffsetX() != 0) {
-            // EAST or WEST => YZ plane
-            uVec = new Vector3(0, 0, 1);
-            vVec = new Vector3(0, 1, 0);
-        } else {
-            // NORTH or SOUTH => XY plane
-            uVec = new Vector3(1, 0, 0);
-            vVec = new Vector3(0, 1, 0);
-        }
-
-        // 3) Compute quad origin shifted by (u,v) in grid units
-        Vector3 origin = new Vector3(x, y, z)
-            .mulAdd(uVec, u)
-            .mulAdd(vVec, v);
-
-        // 4) Compute the four corners of the merged quad
-        Vector3 c1 = new Vector3(origin);
-        Vector3 c2 = new Vector3(origin).mulAdd(uVec, w);
-        Vector3 c3 = new Vector3(c2).mulAdd(vVec, h);
-        Vector3 c4 = new Vector3(origin).mulAdd(vVec, h);
-
-/*        // 6) Handle winding for UP/DOWN faces
-        if (dir == Direction.UP) {
-            // CCW when viewed from above: c1, c4, c3, c2
-            return new BlockFace(
-                c1x, c1y, c1z,
-                c4x, c4y, c4z,
-                c3x, c3y, c3z,
-                c2x, c2y, c2z,
-                dir.getOffsetX(), dir.getOffsetY(), dir.getOffsetZ(),
-                base.textureId
-            );
-        } else if (dir == Direction.DOWN) {
-            // CCW when viewed from below: c1, c2, c3, c4
-            return new BlockFace(
-                c1x, c1y, c1z,
-                c2x, c2y, c2z,
-                c3x, c3y, c3z,
-                c4x, c4y, c4z,
-                dir.getOffsetX(), dir.getOffsetY(), dir.getOffsetZ(),
-                base.textureId
-            );
-        }*/
-
-        // 7) Default CCW for other directions: c1, c2, c3, c4
-        return new BlockFace(
-            base.blockXInChunk, base.blockYInChunk, base.blockZInChunk,
-            c1.x, c1.y, c1.z,
-            c2.x, c2.y, c2.z,
-            c3.x, c3.y, c3.z,
-            c4.x, c4.y, c4.z,
-            dir.getOffsetX(), dir.getOffsetY(), dir.getOffsetZ(),
-            base.textureId
-        );
-    }
-
-    /**
-     * Extracts U coordinate index from a face based on direction.
-     */
-    public static int getUCoord(BlockFace f, Direction dir) {
-        return switch (dir) {
-            case UP, DOWN, NORTH, SOUTH -> f.getLocalX();
-            case EAST, WEST -> f.getLocalZ();
-        };
-    }
-
-    /**
-     * Extracts V coordinate index from a face based on direction.
-     */
-    public static int getVCoord(BlockFace f, Direction dir) {
-        return switch (dir) {
-            case UP, DOWN -> f.getLocalZ();
-            case EAST, WEST, NORTH, SOUTH -> f.getLocalY();
-        };
-    }
-
-    /**
-     * Checks whether two BlockFaces are eligible for merging:
-     * same texture and same normal.
-     */
-    private boolean areCompatible(BlockFace a, BlockFace b, Direction dir) {
-        if (a == null || b == null) {
-            return false;
-        }
-
-        return a.textureId.equals(b.textureId)
-            && a.normalX == b.normalX
-            && a.normalY == b.normalY
-            && a.normalZ == b.normalZ && getWCoord(a, dir) == getWCoord(b, dir);
-    }
-
-    private int getWCoord(BlockFace f, Direction dir) {
-        return (int) (f.corner1X * dir.getOffsetX()
-            + f.corner1Y * dir.getOffsetY()
-            + f.corner1Z * dir.getOffsetZ());
-    }
-
 
     public int size() {
         return size;
     }
 
-    public void addFace(BlockFace rawBlockFace) {
-        Direction direction = Direction.fromOffsets((int) rawBlockFace.normalX, (int) rawBlockFace.normalY, (int) rawBlockFace.normalZ);
-        int w = getWCoord(rawBlockFace, direction);
+    public synchronized void addFace(BlockFace rawBlockFace) {
+        Direction direction = rawBlockFace.getDirection();
+        int w = rawBlockFace.getWCord(direction);
 
         var map = getByDirection(direction);
         if (map == null) {
@@ -322,6 +206,8 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
         }
 
         map.computeIfAbsent(w, integer -> new ArrayList<>(1024)).add(rawBlockFace);
+        vertices += rawBlockFace.getFloatsPerVertex() * rawBlockFace.getVerticesPerFace();
+        indices += rawBlockFace.getIndicesPerFace();
         size++;
     }
 

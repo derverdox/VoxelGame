@@ -3,38 +3,41 @@ package de.verdox.voxel.client.level.chunk;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.occupancy.ChunkOccupancyMask;
-import de.verdox.voxel.client.level.chunk.occupancy.FaceMasks;
+import de.verdox.voxel.client.level.chunk.occupancy.BitsetBasedOccupancyMask;
+import de.verdox.voxel.client.level.chunk.occupancy.NaiveChunkOccupancyMask;
+import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.DepthMap;
+import de.verdox.voxel.shared.level.chunk.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import lombok.Getter;
 
 @Getter
 public class ClientChunk extends ChunkBase<ClientWorld> {
-    private final ChunkOccupancyMask occupancyMask;
+    private final OccupancyMask chunkOccupancyMask;
     private final BoundingBox boundingBox = new BoundingBox();
 
     public ClientChunk(ClientWorld world, int chunkX, int chunkY, int chunkZ) {
         super(world, chunkX, chunkY, chunkZ);
-        this.occupancyMask = new ChunkOccupancyMask();
-        this.occupancyMask.initFromChunk(this);
         this.updateBoundingBox();
+        this.chunkOccupancyMask = new BitsetBasedOccupancyMask();
+        this.chunkOccupancyMask.initFromChunk(this);
     }
 
-    public ClientChunk(ClientWorld world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, byte[][] heightmap, byte[][] depthMap, ChunkLightData chunkLightData) {
-        super(world, chunkX, chunkY, chunkZ, chunkBlockPalette, heightmap, depthMap, chunkLightData);
-        this.occupancyMask = new ChunkOccupancyMask();
-        this.occupancyMask.initFromChunk(this);
+    public ClientChunk(ClientWorld world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
+        super(world, chunkX, chunkY, chunkZ, chunkBlockPalette, heightMap, depthMap, chunkLightData);
         this.updateBoundingBox();
+        this.chunkOccupancyMask = new BitsetBasedOccupancyMask();
+        this.chunkOccupancyMask.initFromChunk(this);
     }
 
     @Override
     public void setBlockAt(BlockBase newBlock, int localX, int localY, int localZ) {
         boolean wasEmptyBefore = isEmpty();
         super.setBlockAt(newBlock, localX, localY, localZ);
-        this.occupancyMask.updateOccupancyMask(newBlock, localX, localY, localZ);
+        this.chunkOccupancyMask.updateOccupancyMask(newBlock, localX, localY, localZ);
         this.getWorld().chunkUpdate(this, (byte) localX, (byte) localY, (byte) localZ, wasEmptyBefore);
     }
 

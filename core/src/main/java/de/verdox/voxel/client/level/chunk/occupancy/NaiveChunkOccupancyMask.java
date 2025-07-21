@@ -7,19 +7,15 @@ import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
 
 @Getter
-public class ChunkOccupancyMask implements OccupancyMask {
+public class NaiveChunkOccupancyMask implements OccupancyMask {
     private ClientChunk gameChunk;
     private int sx, sy, sz;
 
-    /** [x][y] → bitmask über z */
     private long[][] occupancyMask;
-    /** Opaque-Count pro (x,y)-Spalte: optional für Statistiken */
-    private int[] columnOpaqueCount;
 
     private long totalOpaqueBlocks;
     private boolean chunkFullOpaque;
     private boolean chunkEmpty = true;
-    /** 6‐Bit Mask: für jede Richtung, wenn komplett occluded */
     private int sideOcclusionMask;
 
     @Override
@@ -43,16 +39,17 @@ public class ChunkOccupancyMask implements OccupancyMask {
         int newSy = chunk.getBlockSizeY();
         int newSz = chunk.getBlockSizeZ();
         if (newSx > World.MAX_CHUNK_SIZE
-            || newSy > World.MAX_CHUNK_SIZE
-            || newSz > World.MAX_CHUNK_SIZE) {
+                || newSy > World.MAX_CHUNK_SIZE
+                || newSz > World.MAX_CHUNK_SIZE) {
             throw new IllegalArgumentException("Max chunk size is " + World.MAX_CHUNK_SIZE);
         }
 
         // (Re-)Allokation, falls nötig
         if (newSx != sx || newSy != sy || newSz != sz) {
-            sx = newSx; sy = newSy; sz = newSz;
-            occupancyMask    = new long[sx][sy];
-            columnOpaqueCount = new int[sx * sy];
+            sx = newSx;
+            sy = newSy;
+            sz = newSz;
+            occupancyMask = new long[sx][sy];
         }
 
         totalOpaqueBlocks = 0;
@@ -71,7 +68,6 @@ public class ChunkOccupancyMask implements OccupancyMask {
                     }
                 }
                 occupancyMask[x][y] = mask;
-                columnOpaqueCount[x * sy + y] = count;
                 totalOpaqueBlocks += count;
                 if (count > 0) {
                     chunkEmpty = false;
@@ -85,6 +81,16 @@ public class ChunkOccupancyMask implements OccupancyMask {
         computeSideOcclusionMask();
     }
 
+    @Override
+    public long getZColumn(int x, int y) {
+        return occupancyMask[x][y];
+    }
+
+    @Override
+    public long getSideMask() {
+        return sideOcclusionMask;
+    }
+
     /**
      * Setzt sideOcclusionMask:
      * Bit i gesetzt, wenn an der entsprechenden Chunk-Seite keine Faces entstehen.
@@ -93,17 +99,17 @@ public class ChunkOccupancyMask implements OccupancyMask {
         int mask = 0;
 
         // WEST (-X): x=0 Spalten
-        if (isFaceFullyOpaqueAtX(0)) mask |= 1 << Direction.WEST .getId();
+        if (isFaceFullyOpaqueAtX(0)) mask |= 1 << Direction.WEST.getId();
         // EAST (+X): x=sx-1
-        if (isFaceFullyOpaqueAtX(sx-1)) mask |= 1 << Direction.EAST .getId();
+        if (isFaceFullyOpaqueAtX(sx - 1)) mask |= 1 << Direction.EAST.getId();
         // DOWN (-Y): y=0
-        if (isFaceFullyOpaqueAtY(0)) mask |= 1 << Direction.DOWN .getId();
+        if (isFaceFullyOpaqueAtY(0)) mask |= 1 << Direction.DOWN.getId();
         // UP (+Y): y=sy-1
-        if (isFaceFullyOpaqueAtY(sy-1)) mask |= 1 << Direction.UP   .getId();
+        if (isFaceFullyOpaqueAtY(sy - 1)) mask |= 1 << Direction.UP.getId();
         // NORTH (-Z): für jede (x,y) gilt bit 0 gesetzt
         if (isFaceFullyOpaqueAtZ(0)) mask |= 1 << Direction.NORTH.getId();
         // SOUTH (+Z): für jede (x,y) gilt bit sz-1 gesetzt
-        if (isFaceFullyOpaqueAtZ(sz-1)) mask |= 1 << Direction.SOUTH.getId();
+        if (isFaceFullyOpaqueAtZ(sz - 1)) mask |= 1 << Direction.SOUTH.getId();
 
         sideOcclusionMask = mask;
     }
@@ -146,9 +152,5 @@ public class ChunkOccupancyMask implements OccupancyMask {
     @Override
     public long getTotalOpaque() {
         return totalOpaqueBlocks;
-    }
-
-    public int getColumnOpaqueCount(int x, int y) {
-        return columnOpaqueCount[x * sy + y];
     }
 }

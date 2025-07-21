@@ -12,10 +12,9 @@ public class ClientSettings {
     public int sneakKey = Input.Keys.SHIFT_LEFT;
 
     // Rendering
-    public int horizontalViewDistance = 64;
-    public int verticalViewDistance = 64;
-    public boolean useFrustumCulling = true;
-    public boolean cpuRenderBounds = true;
+    public int horizontalViewDistance = 128;
+    public int verticalViewDistance = 16;
+    public boolean useOcclusionCulling = false;
 
     public boolean useMinMaxHeightImprovement = true;
 }

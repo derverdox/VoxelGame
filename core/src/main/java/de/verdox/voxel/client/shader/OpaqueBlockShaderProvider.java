@@ -8,6 +8,6 @@ import com.badlogic.gdx.graphics.g3d.utils.BaseShaderProvider;
 public class OpaqueBlockShaderProvider extends BaseShaderProvider {
     @Override
     protected Shader createShader(Renderable renderable) {
-        return new DefaultShader(renderable, new DefaultShader.Config(Shaders.OPAQUE_BLOCK_SHADER.getVertexShaderSource(), Shaders.OPAQUE_BLOCK_SHADER.getFragmentShaderSource()));
+        return new DefaultShader(renderable, new DefaultShader.Config(Shaders.GREEDY_OPAQUE_BLOCK_SHADER.getVertexShaderSource(), Shaders.GREEDY_OPAQUE_BLOCK_SHADER.getFragmentShaderSource()));
     }
 }

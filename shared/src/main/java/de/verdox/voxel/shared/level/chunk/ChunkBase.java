@@ -19,16 +19,17 @@ public abstract class ChunkBase<WORLD extends World> {
     private final int chunkZ;
     private final long chunkKey;
 
-    private final byte[][] heightmap;
-    private final byte[][] depthMap;
+    private final HeightMap heightmap;
+    private final DepthMap depthMap;
+
     private boolean isEmpty = true;
     private final ChunkLightData chunkLightData;
 
     public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ) {
-        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()), new byte[world.getChunkSizeX()][world.getChunkSizeZ()], new byte[world.getChunkSizeX()][world.getChunkSizeZ()], new ChunkLightData(world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()));
+        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()), new HeightMap(world.getChunkSizeX(), world.getChunkSizeZ()), new DepthMap(world.getChunkSizeX(), world.getChunkSizeZ()), new ChunkLightData(world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()));
     }
 
-    public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, byte[][] heightmap, byte[][] depthMap, ChunkLightData chunkLightData) {
+    public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
         this.world = world;
         this.chunkX = chunkX;
         this.chunkY = chunkY;
@@ -36,7 +37,7 @@ public abstract class ChunkBase<WORLD extends World> {
         this.chunkKey = computeChunkKey(chunkX, chunkY, chunkZ);
 
         this.chunkBlockPalette = chunkBlockPalette;
-        this.heightmap = heightmap;
+        this.heightmap = heightMap;
         this.depthMap = depthMap;
         isEmpty = this.chunkBlockPalette.getBlockToId().size() == 1;
         this.chunkLightData = chunkLightData;
@@ -53,16 +54,17 @@ public abstract class ChunkBase<WORLD extends World> {
         if (!newBlock.equals(Blocks.AIR)) {
             isEmpty = false;
 
-            byte maxHeight = heightmap[localX][localZ];
-            byte minHeight = depthMap[localX][localZ];
+            byte maxHeight = heightmap.get(localX, localZ);
+            byte minHeight = depthMap.get(localX, localZ);
+
             if (localY > maxHeight) {
-                heightmap[localX][localZ] = (byte) localY;
+                heightmap.set(localX, localZ, (byte) localY);
             }
             if (localY < minHeight) {
-                depthMap[localX][localZ] = (byte) localY;
+                depthMap.set(localX, localZ, (byte) localY);
             }
         } else {
-            if (heightmap[localX][localZ] == localY) {
+            if (heightmap.get(localX, localZ) == localY) {
                 int newHeight = -1;
 
                 // Find next solid block that is the highest that is not air
@@ -74,10 +76,10 @@ public abstract class ChunkBase<WORLD extends World> {
                         break;
                     }
                 }
-                heightmap[localX][localZ] = (byte) (Math.max(newHeight, 0));
+                heightmap.set(localX, localZ, (byte) Math.max(newHeight, 0));
             }
 
-            if (depthMap[localX][localZ] == localY) {
+            if (depthMap.get(localX, localZ) == localY) {
                 int newDepth = -1;
 
                 int chunkHeight = world.getChunkSizeY();
@@ -89,7 +91,8 @@ public abstract class ChunkBase<WORLD extends World> {
                     }
                 }
                 // wenn nichts gefunden: default auf 0
-                depthMap[localX][localZ] = (byte) Math.max(newDepth, 0);
+
+                depthMap.set(localX, localZ, (byte) Math.max(newDepth, 0));
             }
         }
     }
@@ -161,8 +164,8 @@ public abstract class ChunkBase<WORLD extends World> {
 
     public static long computeChunkKey(int chunkX, int chunkY, int chunkZ) {
         return (((long) chunkX & 0x1FFFFF) << 42)
-            | (((long) chunkY & 0x1FFFFF) << 21)
-            | (((long) chunkZ & 0x1FFFFF));
+                | (((long) chunkY & 0x1FFFFF) << 21)
+                | (((long) chunkZ & 0x1FFFFF));
     }
 
     public static int unpackChunkX(long key) {

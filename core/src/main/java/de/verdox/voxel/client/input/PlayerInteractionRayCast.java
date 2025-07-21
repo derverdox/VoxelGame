@@ -76,11 +76,11 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
 
     public record BlockRayCastResult(ClientWorld world, BlockBase castBlock, int globalX, int globalY, int globalZ) {
         public void render(Camera camera, ShapeRenderer shapeRenderer) {
-            Gdx.graphics.getGL20().glLineWidth(4);
-            shapeRenderer.setColor(Color.WHITE);
+            Gdx.graphics.getGL20().glLineWidth(1);
+            shapeRenderer.setColor(Color.BLACK);
             shapeRenderer.setProjectionMatrix(camera.combined);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-            shapeRenderer.box(globalX, globalY, (globalZ + 1), 1.02f, 1.02f, 1.02f);
+            shapeRenderer.box(globalX, globalY, (globalZ + 1), 1f, 1f, 1f);
             shapeRenderer.end();
         }
 

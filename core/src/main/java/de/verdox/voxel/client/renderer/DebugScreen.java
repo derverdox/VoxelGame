@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class DebugScreen {
     private final Set<DebuggableOnScreen> attached = new LinkedHashSet<>();

@@ -69,6 +69,7 @@ public class ClientRenderer implements DebuggableOnScreen {
         }
 
 
+
         benchmark.startSection("Batch");
         benchmark.startSection("Batch start");
         //renderBatch.begin(camera);
@@ -85,6 +86,8 @@ public class ClientRenderer implements DebuggableOnScreen {
             rayCastResult.render(camera, blockOutlineRenderer);
         }
         benchmark.endSection();
+
+
         camera.update();
     }
 
@@ -93,6 +96,7 @@ public class ClientRenderer implements DebuggableOnScreen {
         if (VoxelClient.getInstance().getCurrentWorld() != null) {
             var storage = VoxelClient.getInstance().getCurrentWorld().getTerrainManager().getMeshStorage();
             debugScreen.addDebugTextLine("Queues: " + storage.getAmountOfQueues());
+            debugScreen.addDebugTextLine("Terrain Graph Regions: " + VoxelClient.getInstance().getCurrentWorld().getTerrainManager().getTerrainGraph().getAmountOfRegions());
         }
     }
 }

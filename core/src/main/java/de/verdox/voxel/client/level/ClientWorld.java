@@ -1,17 +1,17 @@
 package de.verdox.voxel.client.level;
 
-import com.badlogic.gdx.math.Vector3;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.chunk.ChunkRequestManager;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.BitOcclusionBasedChunkMeshCalculator;
-import de.verdox.voxel.client.level.mesh.chunk.calculation.NaiveChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
-import de.verdox.voxel.server.level.chunk.ServerChunk;
+import de.verdox.voxel.client.level.mesh.terrain.TerrainRegion;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.DepthMap;
+import de.verdox.voxel.shared.level.chunk.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import it.unimi.dsi.fastutil.longs.*;
@@ -43,7 +43,7 @@ public class ClientWorld extends World<ClientChunk> {
             regionSizeZ = Math.min(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
         }
 
-        this.terrainManager = new TerrainManager(this, new NaiveChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
+        this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
     }
 
     public ClientWorld(UUID uuid, byte chunkSizeX, byte chunkSizeY, byte chunkSizeZ) {
@@ -125,8 +125,11 @@ public class ClientWorld extends World<ClientChunk> {
                 int regionX = ChunkBase.unpackChunkX(regionToRebuild);
                 int regionY = ChunkBase.unpackChunkY(regionToRebuild);
                 int regionZ = ChunkBase.unpackChunkZ(regionToRebuild);
-                terrainManager.updateMesh(regionX, regionY, regionZ, false);
-                regionCounter++;
+                TerrainRegion terrainRegion = terrainManager.getRegion(regionX, regionY, regionZ);
+                if(terrainRegion != null) {
+                    terrainManager.updateMesh(terrainRegion, false);
+                    regionCounter++;
+                }
             }
 
             this.maxChunk = maxChunk;
@@ -181,8 +184,8 @@ public class ClientWorld extends World<ClientChunk> {
     }
 
     @Override
-    public ClientChunk constructChunkObject(int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, byte[][] heightmap, byte[][] depthMap, ChunkLightData chunkLightData) {
-        return new ClientChunk(this, chunkX, chunkY, chunkZ, chunkBlockPalette, heightmap, depthMap, chunkLightData);
+    public ClientChunk constructChunkObject(int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
+        return new ClientChunk(this, chunkX, chunkY, chunkZ, chunkBlockPalette, heightMap, depthMap, chunkLightData);
     }
 
     public Collection<ClientChunk> getLoadedChunks() {

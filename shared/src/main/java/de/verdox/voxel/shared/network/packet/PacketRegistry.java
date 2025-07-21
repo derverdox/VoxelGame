@@ -6,17 +6,15 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.AbstractSliceMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.network.packet.serializer.ChunkSerializer;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import de.verdox.voxel.shared.network.packet.client.ClientInputPacket;
 import de.verdox.voxel.shared.network.packet.client.ClientLoadChunkPacket;
-import de.verdox.voxel.shared.network.packet.serializer.ThreeDimensionalPaletteSerializer;
 import de.verdox.voxel.shared.network.packet.server.ServerPlayerPositionPacket;
 import de.verdox.voxel.shared.network.packet.server.ServerSetPlayerWorldPacket;
 import de.verdox.voxel.shared.network.packet.server.ServerWorldExistPacket;
 import de.verdox.voxel.shared.network.packet.server.level.chunk.ServerChunkPacket;
+import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 
 import java.util.UUID;
 
@@ -45,6 +43,8 @@ public class PacketRegistry {
         kryo.register(ServerSetPlayerWorldPacket.class);
         kryo.register(ServerWorldExistPacket.class);
         kryo.register(ChunkLightData.LightState.class, new DefaultSerializers.EnumSerializer(ChunkLightData.LightState.class));
+        kryo.register(ThreeDimensionalPalette.State.class, new DefaultSerializers.EnumSerializer(ThreeDimensionalPalette.State.class));
+        kryo.register(AbstractSliceMap.State.class, new DefaultSerializers.EnumSerializer(AbstractSliceMap.State.class));
         kryo.register(UUID.class, new DefaultSerializers.UUIDSerializer());
 
         kryo.register(byte[][].class, new Serializer<byte[][]>() {
@@ -82,18 +82,6 @@ public class PacketRegistry {
                     }
                 }
                 return result;
-            }
-        });
-
-        kryo.register(ChunkBlockPalette.class, new ThreeDimensionalPaletteSerializer<ResourceLocation>() {
-            @Override
-            protected void writeData(Kryo kryo, Output output, ResourceLocation block) {
-                RESOURCE_LOCATION_SERIALIZER.write(kryo, output, block);
-            }
-
-            @Override
-            protected ResourceLocation readData(Kryo kryo, Input input) {
-                return RESOURCE_LOCATION_SERIALIZER.read(kryo, input, ResourceLocation.class);
             }
         });
 

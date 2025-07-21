@@ -10,47 +10,69 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 
 public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
-    /** Chunk-Koordinate in Y-Richtung (ganzzahlig) und X/Z-Position (Chunk-Index) */
-    record ChunkPos(int cx, int cy, int cz) {}
+    /**
+     * Chunk-Koordinate in Y-Richtung (ganzzahlig) und X/Z-Position (Chunk-Index)
+     */
+    record ChunkPos(int cx, int cy, int cz) {
+    }
 
-    /** Speichert pro Chunk das lokale Min/Max (0..chunkHeight-1) und Basis-Y */
+    /**
+     * Speichert pro Chunk das lokale Min/Max (0..chunkHeight-1) und Basis-Y
+     */
     private static class ChunkExtrema {
         int baseY;     // = cy * chunkHeight
         int localMin;  // z.B. depthMap[x][z] im Chunk
         int localMax;  // z.B. heightmap[x][z] im Chunk
 
         ChunkExtrema(int baseY, int localMin, int localMax) {
-            this.baseY    = baseY;
+            this.baseY = baseY;
             this.localMin = localMin;
             this.localMax = localMax;
         }
-        int absMin() { return baseY + localMin; }
-        int absMax() { return baseY + localMax; }
+
+        int absMin() {
+            return baseY + localMin;
+        }
+
+        int absMax() {
+            return baseY + localMax;
+        }
 
     }
 
     private final int chunkHeight;
-    /** Behalte alle geladenen Chunks und ihre Extremwerte */
+    /**
+     * Behalte alle geladenen Chunks und ihre Extremwerte
+     */
     private final Map<ChunkPos, ChunkExtrema> chunkMap = new HashMap<>();
 
-    /** Multiset: global count der absoluten Min-Y */
+    /**
+     * Multiset: global count der absoluten Min-Y
+     */
     private final Int2IntMap globalMins = new Int2IntAVLTreeMap();
-    /** Multiset: global count der absoluten Max-Y */
+    /**
+     * Multiset: global count der absoluten Max-Y
+     */
     private final Int2IntMap globalMaxs = new Int2IntAVLTreeMap();
 
     public WorldHeightMap(int chunkHeight) {
         this.chunkHeight = chunkHeight;
     }
 
-    /** Hilfsmethode: Multiset++ */
+    /**
+     * Hilfsmethode: Multiset++
+     */
     private void inc(Int2IntMap m, int key) {
         m.merge(key, 1, Integer::sum);
     }
-    /** Hilfsmethode: Multiset-- und ggf. entfernen */
+
+    /**
+     * Hilfsmethode: Multiset-- und ggf. entfernen
+     */
     private void dec(Int2IntMap m, int key) {
         int cnt = m.getOrDefault(key, 0);
         if (cnt <= 1) m.remove(key);
-        else          m.put(key, cnt - 1);
+        else m.put(key, cnt - 1);
     }
 
     /**
@@ -64,17 +86,12 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
         // 1) Basis-Y berechnen
         int baseY = cy * chunkHeight;
 
-        // 2) Scan über heightmap/depthMap des Chunks
-        byte[][] hMap = chunk.getHeightmap();
-        byte[][] dMap = chunk.getDepthMap();
-        int sizeX = hMap.length, sizeZ = hMap[0].length;
-
         int localMax = Integer.MIN_VALUE;
         int localMin = Integer.MAX_VALUE;
-        for (int x = 0; x < sizeX; x++) {
-            for (int z = 0; z < sizeZ; z++) {
-                int h = Byte.toUnsignedInt(hMap[x][z]);
-                int d = Byte.toUnsignedInt(dMap[x][z]);
+        for (int x = 0; x < chunk.getBlockSizeX(); x++) {
+            for (int z = 0; z < chunk.getBlockSizeZ(); z++) {
+                int h = Byte.toUnsignedInt(chunk.getHeightmap().get(x, z));
+                int d = Byte.toUnsignedInt(chunk.getDepthMap().get(x, z));
                 localMax = Math.max(localMax, h);
                 localMin = Math.min(localMin, d);
             }
@@ -119,12 +136,11 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
         // berechne die neuen lokalen Extrema
         int localMax = Integer.MIN_VALUE;
         int localMin = Integer.MAX_VALUE;
-        byte[][] hMap = chunk.getHeightmap();
-        byte[][] dMap = chunk.getDepthMap();
-        for (int x = 0; x < hMap.length; x++) {
-            for (int z = 0; z < hMap[0].length; z++) {
-                localMax = Math.max(localMax, Byte.toUnsignedInt(hMap[x][z]));
-                localMin = Math.min(localMin, Byte.toUnsignedInt(dMap[x][z]));
+
+        for (int x = 0; x < chunk.getBlockSizeX(); x++) {
+            for (int z = 0; z < chunk.getBlockSizeZ(); z++) {
+                localMax = Math.max(localMax, Byte.toUnsignedInt(chunk.getHeightmap().get(x, z)));
+                localMin = Math.min(localMin, Byte.toUnsignedInt(chunk.getDepthMap().get(x, z)));
             }
         }
         // aktualisiere ChunkExtrema
