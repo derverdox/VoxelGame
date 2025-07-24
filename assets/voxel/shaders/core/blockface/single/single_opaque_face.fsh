@@ -29,7 +29,7 @@ void main() {
     float blue = getNibble(light, 1.0) / 15;
 
     vec3 blockLight = vec3(red, green, blue);
-    vec4 texture = texture2D(u_texture, local);
+    vec4 texture = texture2D(u_texture, v_texCoord);
 
     //vec3 lit = texture.rgb * (mix(0.2, 0.8, sky)/** + blockLight*/);
     vec3 lit = texture.rgb * (mix(0.4, 0.8, v_ambient_occlusion));

@@ -20,7 +20,7 @@ import java.util.UUID;
 public class ServerWorld extends World<ServerChunk> {
 
     private final ChunkMap chunkMap = new ChunkMap(this);
-    private final WorldGenerator worldGenerator = new WorldGenerator(this, new BenchmarkNoiseChunkGenerator(), 4);
+    private final WorldGenerator worldGenerator = new WorldGenerator(this, new DebugChunkGenerator(), 4);
 
     public ServerWorld(UUID uuid) {
         super(uuid);

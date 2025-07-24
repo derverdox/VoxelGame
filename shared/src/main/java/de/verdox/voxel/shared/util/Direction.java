@@ -3,45 +3,67 @@ package de.verdox.voxel.shared.util;
 import lombok.Getter;
 import org.joml.Vector3f;
 
+@Getter
 public enum Direction {
-    WEST(0, -1, 0, 0),
-    EAST(1, 1, 0, 0),
-    DOWN(2, 0, -1, 0),
-    UP(3, 0, 1, 0),
-    NORTH(4, 0, 0, -1),
-    SOUTH(5, 0, 0, 1);
+    WEST(0, -1, 0, 0,
+            Constants.POS_Y,
+            Constants.POS_Z
+    ),
+    EAST(1, 1, 0, 0,
+            Constants.POS_Y,
+            Constants.POS_Z
+    ),
+    DOWN(2, 0, -1, 0,
+            Constants.POS_X,
+            Constants.POS_Z
+    ),
+    UP(3, 0, 1, 0,
+            Constants.POS_X,
+            Constants.POS_Z
+    ),
+    NORTH(4, 0, 0, -1,
+            Constants.POS_X,
+            Constants.POS_Y
+    ),
+    SOUTH(5, 0, 0, 1,
+            Constants.POS_X,
+            Constants.POS_Y
+    );
 
-    @Getter
     private final byte id;
-    private final byte dx;
-    private final byte dy;
-    private final byte dz;
+    private final byte nx;
+    private final byte ny;
+    private final byte nz;
+    private final float[] uDirection;
+    private final float[] vDirection;
 
-    Direction(int id, int dx, int dy, int dz) {
+    Direction(int id, int nx, int ny, int nz, float[] uDirection, float[] vDirection) {
         this.id = (byte) id;
-        this.dx = (byte) dx;
-        this.dy = (byte) dy;
-        this.dz = (byte) dz;
+        this.nx = (byte) nx;
+        this.ny = (byte) ny;
+        this.nz = (byte) nz;
+        this.uDirection = uDirection;
+        this.vDirection = vDirection;
     }
 
     public Direction getOpposite() {
-        return fromOffsets(dx * -1, dy * -1, dz * -1);
+        return fromOffsets(nx * -1, ny * -1, nz * -1);
     }
 
     public byte getOffsetX() {
-        return dx;
+        return nx;
     }
 
     public byte getOffsetY() {
-        return dy;
+        return ny;
     }
 
     public byte getOffsetZ() {
-        return dz;
+        return nz;
     }
 
     public Vector3f uvAxis() {
-        return new Vector3f(dx == 0 ? 1 : 0, dy == 0 ? 1 : 0, dz == 0 ? 1 : 0);
+        return new Vector3f(nx == 0 ? 1 : 0, ny == 0 ? 1 : 0, nz == 0 ? 1 : 0);
     }
 
     /**
@@ -51,12 +73,44 @@ public enum Direction {
      */
     public static Direction fromOffsets(int dx, int dy, int dz) {
         for (Direction dir : values()) {
-            if (dir.dx == dx && dir.dy == dy && dir.dz == dz) {
+            if (dir.nx == dx && dir.ny == dy && dir.nz == dz) {
                 return dir;
             }
         }
         throw new IllegalArgumentException(
-            "No direction for offsets: (" + dx + "," + dy + "," + dz + ")"
+                "No direction for offsets: (" + dx + "," + dy + "," + dz + ")"
         );
+    }
+
+    public boolean isNegative() {
+        return nx < 0 || ny < 0 || nz < 0;
+    }
+
+    public boolean isOnX() {
+        return nx != 0;
+    }
+
+    public boolean isOnY() {
+        return ny != 0;
+    }
+
+    public boolean isOnZ() {
+        return nz != 0;
+    }
+
+    @Override
+    public String toString() {
+        return this.name() + " [" + id + "]" + "(" + nx + ", " + ny + ", " + nz + ")";
+    }
+
+    private static class Constants {
+        public static final float[] POS_X = {1, 0, 0};
+        public static final float[] NEG_X = {-1, 0, 0};
+
+        public static final float[] POS_Y = {0, 1, 0};
+        public static final float[] NEG_Y = {0, -1, 0};
+
+        public static final float[] POS_Z = {0, 0, 1};
+        public static final float[] NEG_Z = {0, 0, -1};
     }
 }

@@ -1,8 +1,10 @@
 package de.verdox.voxel.client.level.mesh.block.face;
 
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import de.verdox.voxel.shared.level.block.BlockModelType;
 import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
+import org.joml.Vector3f;
 
 public interface BlockFace {
     void appendToBuffers(
@@ -15,6 +17,8 @@ public interface BlockFace {
             int floatsPerVertex,
             LightAccessor lightAccessor
     );
+
+    BlockModelType.BlockFace getFaceDefinition();
 
     BlockFace addOffset(float offsetX, float offsetY, float offsetZ);
 

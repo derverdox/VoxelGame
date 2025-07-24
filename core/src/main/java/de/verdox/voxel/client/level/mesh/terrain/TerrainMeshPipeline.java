@@ -107,7 +107,7 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
         //benchmark.end();
 
         //benchmark.printToLines("Took").forEach(System.out::println);
-        return new MeshResult(complete, blockfacesForMesh);
+        return new MeshResult(complete, blockfacesForMesh.applyGreedyMeshing());
     }
 
     /**

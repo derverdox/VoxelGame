@@ -10,7 +10,7 @@ import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.LightUtil;
 
 public class BlockRenderer {
-    public static BlockFace generateBlockFace(ChunkBase<?> chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, int localX, int localY, int localZ, int blockXInMesh, int blockYInMesh, int blockZInMesh) {
+    public static BlockFace generateBlockFace(ChunkBase<?> chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, int localX, int localY, int localZ, int blockXInMesh, int blockYInMesh, int blockZInMesh, int lodLevel) {
 
         float lightPacked = getLightValueAt(chunk, blockFace.direction(), localX, localY, localZ);
         byte c1Ao = computeCornerOcclusion(chunk, blockFace.direction(), blockFace.c1(), localX, localY, localZ);
@@ -22,9 +22,12 @@ public class BlockRenderer {
 
         // Pack all 4 values into one byte
 
+        float lodScale = 1 << lodLevel;
+
         return new SingleBlockFace(
                 blockFace,
                 (byte) blockXInMesh, (byte) blockYInMesh, (byte) blockZInMesh,
+                (byte) 0,
                 textureKey,
                 lightPacked,
                 aoPacked

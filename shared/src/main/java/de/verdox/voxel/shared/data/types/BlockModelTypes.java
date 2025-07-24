@@ -6,8 +6,8 @@ public class BlockModelTypes {
     public static final BlockModelType CUBE = new BlockModelType()
         .addFace("top", BlockModelType.BlockFace.top())
         .addFace("bottom", BlockModelType.BlockFace.bottom())
-        .addFace("back", BlockModelType.BlockFace.back())
-        .addFace("front", BlockModelType.BlockFace.front())
-        .addFace("left", BlockModelType.BlockFace.left())
-        .addFace("right", BlockModelType.BlockFace.right());
+        .addFace("back", BlockModelType.BlockFace.north())
+        .addFace("front", BlockModelType.BlockFace.south())
+        .addFace("left", BlockModelType.BlockFace.east())
+        .addFace("right", BlockModelType.BlockFace.west());
 }

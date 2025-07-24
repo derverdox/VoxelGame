@@ -25,36 +25,25 @@ import java.util.Objects;
 public class SingleBlockFace implements BlockFace {
     public static final float CUBE_BOUNDING_BOX_HALF = 0.5f;
 
-    private final BlockModelType.BlockFace blockFace;
-    private final ResourceLocation textureId;
-    private final float lightPacked;
-    private final byte aoPacked;
-    private final byte blockXInChunk;
-    private final byte blockYInChunk;
-    private final byte blockZInChunk;
+    protected final BlockModelType.BlockFace blockFace;
+    protected final byte lodLevel;
+    protected final ResourceLocation textureId;
+    protected final float lightPacked;
+    protected final byte aoPacked;
+    protected final byte blockXInChunk;
+    protected final byte blockYInChunk;
+    protected final byte blockZInChunk;
 
-    public SingleBlockFace(BlockModelType.BlockFace blockFace, byte blockXInChunk, byte blockYInChunk, byte blockZInChunk, ResourceLocation textureId, float lightPacked, byte aoPacked) {
+    public SingleBlockFace(BlockModelType.BlockFace blockFace, byte blockXInChunk, byte blockYInChunk, byte blockZInChunk, byte lodLevel, ResourceLocation textureId, float lightPacked, byte aoPacked) {
         this.blockFace = blockFace;
         this.blockXInChunk = blockXInChunk;
         this.blockYInChunk = blockYInChunk;
         this.blockZInChunk = blockZInChunk;
+        this.lodLevel = lodLevel;
         this.textureId = textureId;
         this.lightPacked = lightPacked;
         this.aoPacked = aoPacked;
     }
-
-    public int getLocalX() {
-        return (int) Math.min(getCorner1X(), Math.min(getCorner2X(), Math.min(getCorner3X(), getCorner4X())));
-    }
-
-    public int getLocalY() {
-        return (int) Math.min(getCorner1Y(), Math.min(getCorner2Y(), Math.min(getCorner3Y(), getCorner4Y())));
-    }
-
-    public int getLocalZ() {
-        return (int) Math.min(getCorner1Z(), Math.min(getCorner2Z(), Math.min(getCorner3Z(), getCorner4Z())));
-    }
-
 
     public void appendToBuffers(
             float[] vertices,
@@ -71,16 +60,10 @@ public class SingleBlockFace implements BlockFace {
         if (textureId != null) {
             region = textureAtlas.findRegion(textureId.toString());
         }
+        float lodScale = getLODScale();
 
-        float uLen = isGreedyFace() ? getULength() : 1f;
-        float vLen = isGreedyFace() ? getVLength() : 1f;
-
-        float[][] uv = {
-                {0f, 0f},
-                {uLen, 0f},
-                {uLen, vLen},
-                {0f, vLen}
-        };
+        float uLen = getULength();
+        float vLen = getVLength();
 
         float[][] corners = new float[][]{
                 {getCorner1X(), getCorner1Y(), getCorner1Z()},
@@ -89,41 +72,47 @@ public class SingleBlockFace implements BlockFace {
                 {getCorner4X(), getCorner4Y(), getCorner4Z()}
         };
 
+        float[] c0 = {0f, 0f};
+        float[] c1 = {0f, vLen};
+        float[] c2 = {uLen, 0f};
+        float[] c3 = {uLen, vLen};
+
+        float[][] uv = new float[][]{
+                c0,
+                c1,
+                c2,
+                c3,
+        };
+
+
         // Atlas-Region
         float uStart = region.getU(), vStart = region.getV();
         float tileU = region.getU2() - uStart;
         float tileV = region.getV2() - vStart;
 
         for (int i = 0; i < 4; i++) {
-            int o = vertexOffsetFloats + i * floatsPerVertex;
 
-            // Position in mesh
-            vertices[o + 0] = corners[i][0]; // Vertex x
-            vertices[o + 1] = corners[i][1]; // Vertex y
-            vertices[o + 2] = corners[i][2]; // Vertex z
-
-/*            // Normal [0-1;0-1;0-1]
-            vertices[o + 3] = getNormalX();
-            vertices[o + 4] = getNormalY();
-            vertices[o + 5] = getNormalZ();*/
-
-            // UV
-
-            if(!isGreedyFace()) {
-
-            }
-
+            int offset = vertexOffsetFloats + i * floatsPerVertex;
             float u = uv[i][0], v = uv[i][1];
-            float localU = uv[i][0] / uLen;
-            float localV = uv[i][1] / vLen;
+
+            offset = writePosition(vertices, corners, i, offset);
+            offset = writeUV(vertices, offset, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
+            offset = writeLight(vertices, offset, i);
+
+/*            vertices[o + 0] = corners[i][0];
+            vertices[o + 1] = corners[i][1];
+            vertices[o + 2] = corners[i][2];*/
+
+
+
+/*            float localU = u / uLen;
+            float localV = v / vLen;
 
             float atlasU = uStart + localU * tileU;
-            float atlasV = vStart + localV * tileV;
+            float atlasV = vStart + localV * tileV;*/
 
-            vertices[o + 3] = atlasU;
-            vertices[o + 4] = atlasV;
 
-/*            // GREEDY START
+                        /*            // GREEDY START
             vertices[o + 8] = uStart;
             vertices[o + 9] = vStart;
 
@@ -131,21 +120,83 @@ public class SingleBlockFace implements BlockFace {
             vertices[o + 10] = tileU;
             vertices[o + 11] = tileV;*/
 
-            // Sky and block light [0-15;0-15;0-15;0-15]
-            vertices[o + 5] = LightUtil.packLightToFloat((byte) 15, (byte) 0, (byte) 0, (byte) 0);
+/*            System.out.println(
+                    "\t\tU: " + u + ", V: " + v + ", \n" +
+                    "\t\tU Length: " + uLen + ", V Length: " + vLen + ",\n" +
+                    "\t\tLocal U: " + localU + ", Local V: " + localV + ",\n" +
+                    "\t\tTile U: " + tileU + ", Tile V: " + tileV + ",\n" +
+                    "\t\tAtlas U: " + atlasU + ", Atlas V: " + atlasV
+            );*/
 
-            // Compute AO [0-1]
-            float ao = (1 - (LightUtil.unpackAo(this.aoPacked, i) / 3f));
-            vertices[o + 6] = ao;
+/*            float bigU    = u * uLen;
+            float bigV    = v * vLen;
+
+            float localU   = bigU / uLen;
+            float localV   = bigV / vLen;
+
+            float atlasU  = uStart + localU * tileU;
+            float atlasV  = vStart + localV * tileV;
+
+            System.out.println("\t" +
+                    "U: " + u + ", V: " + v + ", " +
+                    "U Length: " + uLen + ", V Length: " + vLen + ", " +
+                    "Local U: " + localU + ", Local V: " + localV + ", " +
+                    "Big U: " + bigU + ", Big V: " + bigV + ", " +
+                    "Tile U: " + tileU + ", Tile V: " + tileV + ", " +
+                    "Atlas U: " + atlasU + ", Atlas V: " + atlasV);*/
+
+/*            vertices[o + 3] = atlasU;
+            vertices[o + 4] = atlasV;*/
+
+
         }
 
+        byte[] indicesByFace = getIndexOrderByFaceDirection(blockFace.direction());
+
         // Indices für 2 Triangles
-        indices[indexOffset + 0] = (short) (baseVertexIndex + 0);
-        indices[indexOffset + 1] = (short) (baseVertexIndex + 1);
-        indices[indexOffset + 2] = (short) (baseVertexIndex + 2);
-        indices[indexOffset + 3] = (short) (baseVertexIndex + 2);
-        indices[indexOffset + 4] = (short) (baseVertexIndex + 3);
-        indices[indexOffset + 5] = (short) (baseVertexIndex + 0);
+        indices[indexOffset + 0] = (short) (baseVertexIndex + indicesByFace[0]);
+        indices[indexOffset + 1] = (short) (baseVertexIndex + indicesByFace[1]);
+        indices[indexOffset + 2] = (short) (baseVertexIndex + indicesByFace[2]);
+
+        indices[indexOffset + 3] = (short) (baseVertexIndex + indicesByFace[3]);
+        indices[indexOffset + 4] = (short) (baseVertexIndex + indicesByFace[4]);
+        indices[indexOffset + 5] = (short) (baseVertexIndex + indicesByFace[5]);
+    }
+
+    protected int writePosition(float[] vertices, float[][] corners, int cornerIndex, int offsetStart) {
+        vertices[offsetStart] = corners[cornerIndex][0];
+        vertices[offsetStart + 1] = corners[cornerIndex][1];
+        vertices[offsetStart + 2] = corners[cornerIndex][2];
+        return offsetStart + 3;
+    }
+
+    protected int writeUV(
+            float[] vertices, int offsetStart,
+            float u, float v,
+            float uLen, float vLen,
+            float uStart, float vStart,
+            float tileU, float tileV
+    ) {
+        float localU = u / uLen;
+        float localV = v / vLen;
+
+        float atlasU = uStart + localU * tileU;
+        float atlasV = vStart + localV * tileV;
+
+        vertices[offsetStart] = atlasU;
+        vertices[offsetStart + 1] = atlasV;
+        return offsetStart + 2;
+    }
+
+    protected int writeLight(float[] vertices, int offset, int cornerIdx) {
+        vertices[offset] = LightUtil.packLightToFloat((byte) 15, (byte) 0, (byte) 0, (byte) 0);
+        vertices[offset + 1] = (1 - (LightUtil.unpackAo(this.aoPacked, cornerIdx) / 3f));
+        return offset + 2;
+    }
+
+    @Override
+    public BlockModelType.BlockFace getFaceDefinition() {
+        return blockFace;
     }
 
 
@@ -153,7 +204,8 @@ public class SingleBlockFace implements BlockFace {
     public BlockFace addOffset(float offsetX, float offsetY, float offsetZ) {
         return new SingleBlockFace(
                 blockFace,
-                (byte) (blockXInChunk + offsetX), (byte) (blockYInChunk + offsetY), (byte) (blockZInChunk + offsetZ),
+                (byte) (((byte) (blockXInChunk + offsetX)) << lodLevel), (byte) (((byte) (blockYInChunk + offsetY)) << lodLevel), (byte) (((byte) (blockZInChunk + offsetZ)) << lodLevel),
+                lodLevel,
                 textureId,
                 lightPacked, aoPacked
         );
@@ -202,7 +254,7 @@ public class SingleBlockFace implements BlockFace {
                 blockXInChunk, blockYInChunk, blockZInChunk,
                 textureId,
                 lightPacked, aoPacked,
-                1, 0, 0, 0
+                delta, 0, 0, 0
         );
     }
 
@@ -219,7 +271,7 @@ public class SingleBlockFace implements BlockFace {
                 blockXInChunk, blockYInChunk, blockZInChunk,
                 textureId,
                 lightPacked, aoPacked,
-                0, 0, 1, 0
+                0, 0, delta, 0
         );
     }
 
@@ -236,7 +288,7 @@ public class SingleBlockFace implements BlockFace {
                 blockXInChunk, blockYInChunk, blockZInChunk,
                 textureId,
                 lightPacked, aoPacked,
-                0, 1, 0, 0
+                0, delta, 0, 0
         );
     }
 
@@ -253,23 +305,23 @@ public class SingleBlockFace implements BlockFace {
                 blockXInChunk, blockYInChunk, blockZInChunk,
                 textureId,
                 lightPacked, aoPacked,
-                0, 0, 0, 1
+                0, 0, 0, delta
         );
     }
 
     @Override
     public int getUCoord(Direction dir) {
         return switch (dir) {
-            case UP, DOWN, NORTH, SOUTH -> getLocalX();
-            case EAST, WEST -> getLocalZ();
+            case UP, DOWN, NORTH, SOUTH -> Byte.toUnsignedInt(blockXInChunk);
+            case EAST, WEST -> Byte.toUnsignedInt(blockZInChunk);
         };
     }
 
     @Override
     public int getVCoord(Direction dir) {
         return switch (dir) {
-            case UP, DOWN -> getLocalZ();
-            case EAST, WEST, NORTH, SOUTH -> getLocalY();
+            case UP, DOWN -> Byte.toUnsignedInt(blockZInChunk);
+            case EAST, WEST, NORTH, SOUTH -> Byte.toUnsignedInt(blockYInChunk);
         };
     }
 
@@ -290,9 +342,7 @@ public class SingleBlockFace implements BlockFace {
      * @return the U-length in block units
      */
     protected float getULength() {
-        return (int) (Math.abs(getCorner2X() - getCorner1X())
-                + Math.abs(getCorner2Y() - getCorner1Y())
-                + Math.abs(getCorner2Z() - getCorner1Z()));
+        return (int) (Math.abs(getCorner2X() - getCorner1X()) + Math.abs(getCorner2Y() - getCorner1Y()) + Math.abs(getCorner2Z() - getCorner1Z()));
     }
 
     /**
@@ -301,23 +351,7 @@ public class SingleBlockFace implements BlockFace {
      * @return the V-length in block units
      */
     protected float getVLength() {
-        return Math.abs(getCorner4X() - getCorner1X())
-                + Math.abs(getCorner4Y() - getCorner1Y())
-                + Math.abs(getCorner4Z() - getCorner1Z());
-    }
-
-    /**
-     * Checks whether this face is a unit face (1×1), i.e. both U and V lengths equal 1.
-     * Useful for identifying faces that should not be merged by greedy meshing.
-     *
-     * @return {@code true} if both dimensions are 1, {@code false} otherwise
-     */
-    public boolean isUnitFace() {
-        return getULength() == 1 && getVLength() == 1;
-    }
-
-    public boolean isGreedyFace() {
-        return getULength() > 1 || getVLength() > 1;
+        return Math.abs(getCorner4X() - getCorner1X()) + Math.abs(getCorner4Y() - getCorner1Y()) + Math.abs(getCorner4Z() - getCorner1Z());
     }
 
     @Override
@@ -444,5 +478,16 @@ public class SingleBlockFace implements BlockFace {
 
     protected float getCornerZ(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
         return blockZInChunk + relativeCoordinate.z() + CUBE_BOUNDING_BOX_HALF;
+    }
+
+    private float getLODScale() {
+        return 1 << 0;
+    }
+
+    protected byte[] getIndexOrderByFaceDirection(Direction direction) {
+/*        if(getBlockFace().direction().equals(Direction.NORTH)) {
+            return new byte[]{0, 3, 1, 3, 0, 2};
+        }*/
+        return new byte[]{0, 1, 3, 3, 2, 0};
     }
 }

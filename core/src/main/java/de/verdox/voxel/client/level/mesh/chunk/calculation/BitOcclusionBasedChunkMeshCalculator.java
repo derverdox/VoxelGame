@@ -14,7 +14,7 @@ import de.verdox.voxel.shared.util.LightUtil;
 public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator {
 
     @Override
-    public BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float offsetX, float offsetY, float offsetZ) {
+    public BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float chunkOffsetX, float chunkOffsetY, float chunkOffsetZ) {
         if (chunk.isEmpty()) {
             return null;
         }
@@ -45,81 +45,94 @@ public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator
             OccupancyMask neighborOcclusionMap = neighOcc[dirId];
             int dx = d.getOffsetX(), dy = d.getOffsetY(), dz = d.getOffsetZ();
 
-            for (int localX = 0; localX < sx; localX++) {
-                for (int localY = 0; localY < sy; localY++) {
-                    long zColumn = occupancyMask.getZColumn(localX, localY);
+            for (int lightLookupX = 0; lightLookupX < sx; lightLookupX++) {
+                for (int lightLookupY = 0; lightLookupY < sy; lightLookupY++) {
+                    long zColumn = occupancyMask.getZColumn(lightLookupX, lightLookupY);
 
                     long bits = switch (d) {
                         case EAST ->
-                                zColumn & ~((localX + 1 < sx ? occupancyMask.getZColumn(localX + 1, localY) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(0, localY) : 0L)));
+                                zColumn & ~((lightLookupX + 1 < sx ? occupancyMask.getZColumn(lightLookupX + 1, lightLookupY) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(0, lightLookupY) : 0L)));
                         case WEST ->
-                                zColumn & ~((localX - 1 >= 0 ? occupancyMask.getZColumn(localX - 1, localY) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(sx - 1, localY) : 0L)));
+                                zColumn & ~((lightLookupX - 1 >= 0 ? occupancyMask.getZColumn(lightLookupX - 1, lightLookupY) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(sx - 1, lightLookupY) : 0L)));
                         case UP ->
-                                zColumn & ~((localY + 1 < sy ? occupancyMask.getZColumn(localX, localY + 1) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(localX, 0) : 0L)));
+                                zColumn & ~((lightLookupY + 1 < sy ? occupancyMask.getZColumn(lightLookupX, lightLookupY + 1) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(lightLookupX, 0) : 0L)));
                         case DOWN ->
-                                zColumn & ~((localY - 1 >= 0 ? occupancyMask.getZColumn(localX, localY - 1) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(localX, sy - 1) : 0L)));
+                                zColumn & ~((lightLookupY - 1 >= 0 ? occupancyMask.getZColumn(lightLookupX, lightLookupY - 1) : (neighborOcclusionMap != null ? neighborOcclusionMap.getZColumn(lightLookupX, sy - 1) : 0L)));
                         case SOUTH -> zColumn & ~(zColumn >>> 1);
                         case NORTH -> zColumn & ~(zColumn << 1);
                     };
 
                     // emit faces for each set bit in bits
                     while (bits != 0L) {
-                        int localZ = Long.numberOfTrailingZeros(bits);
-                        bits &= ~(1L << localZ);
+                        int lightLookupZ = Long.numberOfTrailingZeros(bits);
+                        bits &= ~(1L << lightLookupZ);
 
                         // boundary neighbor check: if at chunk edge, consult nOcc
-                        if ((localX + dx < 0 || localX + dx >= sx || localY + dy < 0 || localY + dy >= sy || localZ + dz < 0 || localZ + dz >= sz) && (neighborOcclusionMap == null || ((neighborOcclusionMap.getZColumn(chunk.localX(localX + dx), chunk.localY(localY + dy)) >>> chunk.localZ(localZ + dz)) & 1L) != 0L)) {
+                        if ((lightLookupX + dx < 0 || lightLookupX + dx >= sx || lightLookupY + dy < 0 || lightLookupY + dy >= sy || lightLookupZ + dz < 0 || lightLookupZ + dz >= sz) && (neighborOcclusionMap == null || ((neighborOcclusionMap.getZColumn(chunk.localX(lightLookupX + dx), chunk.localY(lightLookupY + dy)) >>> chunk.localZ(lightLookupZ + dz)) & 1L) != 0L)) {
                             continue;
                         }
 
                         // actually add face
-                        BlockBase block = chunk.getBlockAt(localX, localY, localZ);
+                        BlockBase block = chunk.getBlockAt(lightLookupX, lightLookupY, lightLookupZ);
                         var faces = block.getModel()
                                 .getBlockModelType()
                                 .findByNormal(dx, dy, dz);
 
                         Direction direction = Direction.fromOffsets(dx, dy, dz);
 
-                        for (var face : faces) {
+                        int lodLevel = 0;
+                        int lodStep = 1 << lodLevel;
 
-                            face.c1();
+                        boolean skip = false;
+                        switch (direction) {
+                            case UP:
+                            case DOWN:
+                                // Quad liegt in XZ-Ebene, Y konstant
+                                if (lightLookupX % lodStep != 0 || lightLookupZ % lodStep != 0)
+                                    skip = true;
+                                break;
+                            case NORTH:
+                            case SOUTH:
+                                // Quad liegt in XY-Ebene, Z konstant
+                                if (lightLookupX % lodStep != 0 || lightLookupY % lodStep != 0)
+                                    skip = true;
+                                break;
+                            case EAST:
+                            case WEST:
+                                // Quad liegt in YZ-Ebene, X konstant
+                                if (lightLookupY % lodStep != 0 || lightLookupZ % lodStep != 0)
+                                    skip = true;
+                                break;
+                        }
+                        if (skip) continue;
+
+                        for (var face : faces) {
 
                             ResourceLocation name = block == Blocks.AIR ? null
                                     : block.getModel().getTextureOfFace(
                                     block.getModel()
                                             .getBlockModelType()
                                             .getNameOfFace(face));
-                            blockFaces.addFace(BlockRenderer.generateBlockFace(chunk, name, face, localX, localY, localZ, (int) (localX + offsetX), (int) (localY + offsetY), (int) (localZ + offsetZ)));
+
+                            int faceXInMesh = (int) (lightLookupX + chunkOffsetX);
+                            int faceYInMesh = (int) (lightLookupY + chunkOffsetY);
+                            int faceZInMesh = (int) (lightLookupZ + chunkOffsetZ);
+
+
+                            blockFaces.addFace(BlockRenderer.generateBlockFace(chunk, name, face,
+                                    lightLookupX,
+                                    lightLookupY,
+                                    lightLookupZ,
+                                    faceXInMesh,
+                                    faceYInMesh,
+                                    faceZInMesh,
+                                    lodLevel)
+                            );
                         }
                     }
                 }
             }
         }
         return blockFaces;
-    }
-
-    private float getLightValueAt(Direction direction, int localX, int localY, int localZ, ChunkBase<?> chunkToAsk) {
-
-        int relX = direction.getOffsetX() + localX;
-        int relY = direction.getOffsetY() + localY;
-        int relZ = direction.getOffsetZ() + localZ;
-
-        // Get left neighbor
-        if (
-                relX < 0 || relX >= chunkToAsk.getBlockSizeX() ||
-                        relY < 0 || relY >= chunkToAsk.getBlockSizeY() ||
-                        relZ < 0 || relZ >= chunkToAsk.getBlockSizeZ()
-        ) {
-            chunkToAsk = chunkToAsk.getWorld().getChunkNow(chunkToAsk.getChunkX() + (direction.getOffsetX()), chunkToAsk.getChunkY() + (direction.getOffsetY()), chunkToAsk.getChunkZ() + (direction.getOffsetZ()));
-        }
-        relX = chunkToAsk.localX(relX);
-        relY = chunkToAsk.localY(relY);
-        relZ = chunkToAsk.localZ(relZ);
-
-        var skyLight = chunkToAsk.getChunkLightData().getSkyLight(relX, relY, relZ);
-        var blockRed = chunkToAsk.getChunkLightData().getBlockRed(relX, relY, relZ);
-        var blockGreen = chunkToAsk.getChunkLightData().getBlockGreen(relX, relY, relZ);
-        var blockBlue = chunkToAsk.getChunkLightData().getBlockBlue(relX, relY, relZ);
-        return LightUtil.packLightToFloat(skyLight, blockRed, blockGreen, blockBlue);
     }
 }

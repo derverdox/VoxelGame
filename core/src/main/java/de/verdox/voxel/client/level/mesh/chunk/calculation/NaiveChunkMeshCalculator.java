@@ -15,7 +15,7 @@ import java.util.List;
 
 public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
     @Override
-    public BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float offsetX, float offsetY, float offsetZ) {
+    public BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float chunkOffsetX, float chunkOffsetY, float chunkOffsetZ) {
         if (chunk.isEmpty()) {
             return null;
         }
@@ -28,7 +28,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
                 for (int z = 0; z < chunkSizeZ; z++) {
                     BlockBase block = chunk.getBlockAt(x, y, z);
                     if (block == Blocks.AIR) continue;
-                    drawBlock(block, chunk, x, y, z, blockFaces, offsetX, offsetY, offsetZ);
+                    drawBlock(block, chunk, x, y, z, blockFaces, chunkOffsetX, chunkOffsetY, chunkOffsetZ);
                 }
             }
         }
@@ -116,7 +116,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
             }
 
             String nameOfBlockFace = blockModel.getBlockModelType().getNameOfFace(relevantBlockFace);
-            blockFaceStorage.addFace(BlockRenderer.generateBlockFace(chunk, blockModel.getTextureOfFace(nameOfBlockFace), relevantBlockFace, localX, localY, localZ, (int) (localX + offsetX), (int) (localY + offsetY), (int) (localZ + offsetZ)));
+            blockFaceStorage.addFace(BlockRenderer.generateBlockFace(chunk, blockModel.getTextureOfFace(nameOfBlockFace), relevantBlockFace, localX, localY, localZ, (int) (localX + offsetX), (int) (localY + offsetY), (int) (localZ + offsetZ), 0));
         }
     }
 }

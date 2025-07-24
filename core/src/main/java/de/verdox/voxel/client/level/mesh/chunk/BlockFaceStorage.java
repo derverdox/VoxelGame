@@ -1,11 +1,15 @@
 package de.verdox.voxel.client.level.mesh.chunk;
 
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
+import de.verdox.voxel.client.level.mesh.block.face.GreedyBlockFace;
+import de.verdox.voxel.client.util.GridDumper;
 import de.verdox.voxel.shared.util.Direction;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -94,7 +98,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
 
     private int getSizeU(Direction direction) {
         return switch (direction) {
-            case WEST, EAST -> this.scaleY;
+            case WEST, EAST -> this.scaleZ;
             case DOWN, UP, NORTH, SOUTH -> this.scaleX;
         };
     }
@@ -116,6 +120,16 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
             int u = f.getUCoord(dir);
             int v = f.getVCoord(dir);
             grid[u][v] = f;
+        }
+
+        boolean debug = dir.equals(Direction.UP);
+
+        if (debug) {
+            try {
+                GridDumper.writeGridToFile(grid, Path.of("grid.txt"));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         for (int u = 0; u < sizeU; u++) {
@@ -140,6 +154,7 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
                         break;
                     }
                     quadHeight++;
+
                     used[u][quadV] = true;
                 }
 
@@ -167,19 +182,19 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
                     merged.add(faceAtCoordinate);
                 } else {
                     if (dir.equals(Direction.UP)) {
-                        BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandVBackward(quadHeight - 1);
+                        BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
                         merged.add(newFace);
                     } else if (dir.equals(Direction.DOWN)) {
                         BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
                         merged.add(newFace);
                     } else if (dir.equals(Direction.EAST)) {
-                        BlockFace newFace = faceAtCoordinate.expandUBackward(quadLength - 1).expandV(quadHeight - 1);
+                        BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
                         merged.add(newFace);
                     } else if (dir.equals(Direction.WEST)) {
                         BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
                         merged.add(newFace);
                     } else if (dir.equals(Direction.NORTH)) {
-                        BlockFace newFace = faceAtCoordinate.expandUBackward(quadLength - 1).expandV(quadHeight - 1);
+                        BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
                         merged.add(newFace);
                     } else if (dir.equals(Direction.SOUTH)) {
                         BlockFace newFace = faceAtCoordinate.expandU(quadLength - 1).expandV(quadHeight - 1);
@@ -272,5 +287,35 @@ public class BlockFaceStorage implements Iterable<BlockFace> {
     @Override
     public Iterator<BlockFace> iterator() {
         return new FaceIterator();
+    }
+
+    /**
+     * Debug-Ausgabe eines U×V-Blocks an Faces mit Tabs.
+     * Leere Zellen werden als „.“, belegte als „#“ ausgegeben.
+     *
+     * @param grid das 2D-Array BlockFace[u][v]
+     */
+    public static void printGrid(BlockFace[][] grid) {
+        int sizeU = grid.length;
+        int sizeV = grid[0].length;
+
+        // Header mit U-Indizes
+        System.out.print("\t");
+        for (int u = 0; u < sizeU; u++) {
+            System.out.print(u + "\t");
+        }
+        System.out.println();
+
+        // Jede Zeile für ein V
+        for (int v = 0; v < sizeV; v++) {
+            // V-Index
+            System.out.print(v + "\t");
+            // Spalten
+            for (int u = 0; u < sizeU; u++) {
+                BlockFace f = grid[u][v];
+                System.out.print((f == null ? "." : "#") + "\t");
+            }
+            System.out.println();
+        }
     }
 }
