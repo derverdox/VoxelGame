@@ -7,7 +7,7 @@ import org.joml.Vector3f;
 public enum Direction {
     WEST(0, -1, 0, 0,
             Constants.POS_Y,
-            Constants.POS_Z
+            Constants.NEG_Z
     ),
     EAST(1, 1, 0, 0,
             Constants.POS_Y,
@@ -19,10 +19,10 @@ public enum Direction {
     ),
     UP(3, 0, 1, 0,
             Constants.POS_X,
-            Constants.POS_Z
+            Constants.NEG_Z
     ),
     NORTH(4, 0, 0, -1,
-            Constants.POS_X,
+            Constants.NEG_X,
             Constants.POS_Y
     ),
     SOUTH(5, 0, 0, 1,
@@ -62,10 +62,6 @@ public enum Direction {
         return nz;
     }
 
-    public Vector3f uvAxis() {
-        return new Vector3f(nx == 0 ? 1 : 0, ny == 0 ? 1 : 0, nz == 0 ? 1 : 0);
-    }
-
     /**
      * Liefert die Direction, die genau diesen Offsets entspricht.
      *
@@ -103,7 +99,7 @@ public enum Direction {
         return this.name() + " [" + id + "]" + "(" + nx + ", " + ny + ", " + nz + ")";
     }
 
-    private static class Constants {
+    public static class Constants {
         public static final float[] POS_X = {1, 0, 0};
         public static final float[] NEG_X = {-1, 0, 0};
 

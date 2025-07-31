@@ -28,6 +28,7 @@ public interface ChunkRenderRegionStrategy {
             return;
         }
         renderRegion.setDirty(true);
+
     }
 
     int getAmountOfRegions();

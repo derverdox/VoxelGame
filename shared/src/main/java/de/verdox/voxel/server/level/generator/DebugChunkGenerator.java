@@ -7,13 +7,17 @@ public class DebugChunkGenerator implements ChunkGenerator {
     @Override
     public void generateNoise(ServerChunk gameChunk) {
 
-        if(gameChunk.getChunkX() % 10 == 0 && gameChunk.getChunkY() == 10 && gameChunk.getChunkZ() % 10 == 0) {
-            fillChunk(gameChunk, Blocks.STONE);
-        }
-
         if (gameChunk.getChunkX() == 1 && gameChunk.getChunkY() == 4 && gameChunk.getChunkZ() == 0) {
             fillChunk(gameChunk, Blocks.STONE);
         }
+
+/*        if(gameChunk.getChunkX() % 2 == 0 && gameChunk.getChunkY() % 4 == 0 && gameChunk.getChunkZ() % 2 == 0) {
+            fillChunk(gameChunk, Blocks.STONE);
+        }
+
+        if(gameChunk.getChunkX() % 3 == 0 && gameChunk.getChunkY() % 4 == 0 && gameChunk.getChunkZ() % 3 == 0) {
+            fillChunk(gameChunk, Blocks.STONE);
+        }*/
 
         //gameChunk.setBlockAt(Blocks.STONE, 0, 0, 1);
 /*

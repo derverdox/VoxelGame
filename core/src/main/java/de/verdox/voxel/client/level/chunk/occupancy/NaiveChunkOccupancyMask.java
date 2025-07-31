@@ -3,12 +3,15 @@ package de.verdox.voxel.client.level.chunk.occupancy;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 public class NaiveChunkOccupancyMask implements OccupancyMask {
-    private ClientChunk gameChunk;
+    @Getter @Setter
+    private ChunkBase<?> owner;
     private int sx, sy, sz;
 
     private long[][] occupancyMask;
@@ -32,12 +35,10 @@ public class NaiveChunkOccupancyMask implements OccupancyMask {
      * Initial befüllen der occupancyMask und der Side‐Occlusion‐Mask.
      */
     @Override
-    public void initFromChunk(ClientChunk chunk) {
-        this.gameChunk = chunk;
-
-        int newSx = chunk.getBlockSizeX();
-        int newSy = chunk.getBlockSizeY();
-        int newSz = chunk.getBlockSizeZ();
+    public void initFromOwner() {
+        int newSx = owner.getBlockSizeX();
+        int newSy = owner.getBlockSizeY();
+        int newSz = owner.getBlockSizeZ();
         if (newSx > World.MAX_CHUNK_SIZE
                 || newSy > World.MAX_CHUNK_SIZE
                 || newSz > World.MAX_CHUNK_SIZE) {
@@ -61,7 +62,7 @@ public class NaiveChunkOccupancyMask implements OccupancyMask {
                 long mask = 0L;
                 int count = 0;
                 for (int z = 0; z < sz; z++) {
-                    BlockBase b = gameChunk.getBlockAt(x, y, z);
+                    BlockBase b = owner.getBlockAt(x, y, z);
                     if (!b.isTransparent()) {
                         mask |= 1L << z;
                         count++;

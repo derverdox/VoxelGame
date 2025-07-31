@@ -69,6 +69,7 @@ public abstract class WorldRenderPipeline implements DebuggableOnScreen {
 
         renderBenchmark.startSection("Render Visible regions");
         world.getTerrainManager().getTerrainGraph().bsfRenderVisibleRegions(camera, world, batch, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
+        //world.getTerrainManager().getTerrainGraph().bsfBufferRender(camera, world, batch);
         renderBenchmark.endSection();
 
         renderBenchmark.startSection("Profiler Reset");

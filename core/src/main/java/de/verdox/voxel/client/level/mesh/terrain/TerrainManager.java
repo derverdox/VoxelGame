@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
+import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.lighting.ChunkLightEngine;
 import de.verdox.voxel.shared.util.Direction;
@@ -30,6 +31,10 @@ public class TerrainManager {
     private final Long2IntMap highestRegions = new Long2IntOpenHashMap();
     private final Long2IntMap lowestRegions = new Long2IntOpenHashMap();
 
+    private int centerRegionX = 0;
+    private int centerRegionY = 0;
+    private int centerRegionZ = 0;
+
     public TerrainManager(ClientWorld world, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
         this.world = world;
         this.meshPipeline = new TerrainMeshPipeline(world, chunkMeshCalculator, regionSizeX, regionSizeY, regionSizeZ);
@@ -39,13 +44,19 @@ public class TerrainManager {
         Gdx.app.log("Terrain Manager", "Initialized terrain manager with size [" + regionSizeX + ", " + regionSizeY + ", " + regionSizeZ + "]");
     }
 
+    public void setCenterChunk(int chunkX, int chunkY, int chunkZ) {
+        centerRegionX = getMeshPipeline().getRegionBounds().getRegionX(chunkX);
+        centerRegionY = getMeshPipeline().getRegionBounds().getRegionY(chunkY);
+        centerRegionZ = getMeshPipeline().getRegionBounds().getRegionZ(chunkZ);
+    }
+
     public void addChunk(ClientChunk chunk) {
         var bounds = this.meshPipeline.getRegionBounds();
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
         long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
-        if(!chunk.isEmpty()) {
+        if (!chunk.isEmpty()) {
             terrainGraph.addRegion(regionX, regionY, regionZ);
         }
 
@@ -106,6 +117,7 @@ public class TerrainManager {
                 }
 
                 terrainGraph.removeRegion(regionX, regionY, regionZ);
+                getMeshStorage().getRegionMeshIfAvailable(regionX, regionY, regionZ).dispose();
             }
         }
 
@@ -134,8 +146,15 @@ public class TerrainManager {
     }
 
     public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors) {
-        this.meshStorage.recalculateMesh(terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ(), terrainRegion, true);
-        if (!updateNeighbors) return;
+        int lodLevelOfRegion = world.computeLodLevel(centerRegionX, centerRegionY, centerRegionZ, terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
+        updateMesh(terrainRegion, updateNeighbors, lodLevelOfRegion);
+    }
+
+    public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors, int lodLevel) {
+        this.meshStorage.               recalculateMeshForLodLevel(terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ(), true, lodLevel);
+        if (!updateNeighbors) {
+            return;
+        }
         for (int i = 0; i < Direction.values().length; i++) {
             Direction direction = Direction.values()[i];
 
@@ -143,8 +162,7 @@ public class TerrainManager {
             if (neighbor == null) {
                 continue;
             }
-
-            this.meshStorage.recalculateMesh(neighbor.getRegionX() + direction.getOffsetX(), neighbor.getRegionY() + direction.getOffsetY(), neighbor.getRegionZ() + direction.getOffsetZ(), neighbor, true);
+            updateMesh(neighbor, false);
         }
     }
 

@@ -14,7 +14,6 @@ import de.verdox.voxel.client.input.ClientSettings;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.shader.Shaders;
-import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.client.network.ClientConnectionListener;
 import de.verdox.voxel.client.renderer.ClientRenderer;
@@ -52,7 +51,7 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
     private int chunkZ;
 
     private static int frameCounter = 0;
-    private static int benchmarkWindow = 60;
+    private static int benchmarkWindow = 60 * 30;
     private final Benchmark benchmark = new Benchmark(benchmarkWindow);
     private List<String> benchmarkInfoSampled = new ArrayList<>();
     private GLProfiler worldRendererProfiler;

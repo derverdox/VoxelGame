@@ -27,10 +27,9 @@ public class ChunkRequestManager implements DebuggableOnScreen {
     private static final int CHUNKS_PER_TICK = 150;
 
     private final LongQueue pendingQueue = new LongQueue();
-    private final Long2FloatMap requestedChunks = new Long2FloatOpenHashMap();
 
-    private final LongSet received = LongSets.synchronize(new LongOpenHashSet());
-    private final LongSet requested = LongSets.synchronize(new LongOpenHashSet());
+    private long received = 0;
+    private long requested = 0;
 
     private int requestedChunksThisTick;
 
@@ -67,12 +66,11 @@ public class ChunkRequestManager implements DebuggableOnScreen {
     public void update() {
         if (needRebuild.get()) {
 
-            received.clear();
-            requested.clear();
+            received = 0;
+            requested = 0;
 
             Gdx.app.log("ChunkRequestManager", "Rebuilding queue");
             pendingQueue.clear();
-            requestedChunks.clear();
 
             int horizontalRadius = ClientBase.clientSettings.horizontalViewDistance;
             int verticalRadius = ClientBase.clientSettings.verticalViewDistance;
@@ -95,8 +93,8 @@ public class ChunkRequestManager implements DebuggableOnScreen {
 
                             // nur innerhalb der erlaubten View‐Distanz
                             if (Math.abs(dx) > horizontalRadius ||
-                                Math.abs(dy) > verticalRadius ||
-                                Math.abs(dz) > horizontalRadius) {
+                                    Math.abs(dy) > verticalRadius ||
+                                    Math.abs(dz) > horizontalRadius) {
                                 continue;
                             }
 
@@ -131,7 +129,7 @@ public class ChunkRequestManager implements DebuggableOnScreen {
                 continue;
             }
             sendRequest(key, chunkX, chunkY, chunkZ, now);
-            requested.add(key);
+            requested++;
             requestCounter--;
         }
     }
@@ -140,7 +138,7 @@ public class ChunkRequestManager implements DebuggableOnScreen {
      * Muss aufgerufen werden, wenn ein Chunk vom Server empfangen wurde.
      */
     public void notifyChunkReceived(long key) {
-        received.add(key);
+        received++;
     }
 
     private boolean isChunkLoaded(long key) {
@@ -163,7 +161,6 @@ public class ChunkRequestManager implements DebuggableOnScreen {
 
     private void sendRequest(long chunkKey, int chunkX, int chunkY, int chunkZ, float time) {
         client.sendTCP(new ClientLoadChunkPacket(clientWorld.getUuid(), chunkX, chunkY, chunkZ));
-        //requestedChunks.put(chunkKey, time);
         requestedChunksThisTick++;
     }
 
@@ -174,7 +171,7 @@ public class ChunkRequestManager implements DebuggableOnScreen {
     @Override
     public void debugText(DebugScreen debugScreen) {
         debugScreen.addDebugTextLine("Requested chunks per tick: " + requestedChunksThisTick);
-        debugScreen.addDebugTextLine("Request status: [" + requested.size() + " / " + received.size() + "]");
+        debugScreen.addDebugTextLine("Request status: [" + requested + " / " + received + "]");
     }
 }
 

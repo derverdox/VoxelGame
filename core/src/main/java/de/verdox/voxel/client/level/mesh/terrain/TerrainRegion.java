@@ -61,9 +61,15 @@ public class TerrainRegion implements LightAccessor {
             airRegions += 1;
         }
 
+
         if (isComplete()) {
             terrainManager.updateMesh(this, true);
             computeRegionSideMask(chunk.getWorld());
+        }
+        else {
+            if(!chunk.isEmpty()) {
+                terrainManager.updateMesh(this, false);
+            }
         }
 
         TerrainRegion highest = terrainManager.getHighestRegion(regionX, regionZ);
@@ -278,16 +284,7 @@ public class TerrainRegion implements LightAccessor {
     }
 
     private int getIndexInRegion(int chunkX, int chunkY, int chunkZ) {
-        int xIndex = chunkX - bounds.getMinChunkX(regionX);
-        int yIndex = chunkY - bounds.getMinChunkY(regionY);
-        int zIndex = chunkZ - bounds.getMinChunkZ(regionZ);
-
-        int sizeX = bounds.regionSizeX();
-        int sizeZ = bounds.regionSizeZ();
-
-        return xIndex
-                + zIndex * sizeX
-                + yIndex * (sizeX * sizeZ);
+        return bounds.getIndexInRegion(chunkX, chunkY, chunkZ);
     }
 
     private int getIndexInHeightMap(int chunkX, int chunkZ) {

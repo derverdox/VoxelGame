@@ -4,18 +4,18 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import de.verdox.voxel.shared.level.block.BlockModelType;
 import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
-import org.joml.Vector3f;
 
 public interface BlockFace {
     void appendToBuffers(
             float[] vertices,
-            short[] indices,
+            short[] shortIndices,
+            int[] intIndices,
             int vertexOffsetFloats,
             int indexOffset,
-            short baseVertexIndex,
+            int baseVertexIndex,
             TextureAtlas textureAtlas,
             int floatsPerVertex,
-            LightAccessor lightAccessor
+            int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
     );
 
     BlockModelType.BlockFace getFaceDefinition();
@@ -24,9 +24,9 @@ public interface BlockFace {
 
     BlockFace addOffset(int offsetX, int offsetY, int offsetZ);
 
-    BlockFace expandU(int i);
+    BlockFace addOffset(int u, int v);
 
-    BlockFace expandUBackward(int i);
+    BlockFace expandU(int i);
 
     int getFloatsPerVertex();
 
@@ -34,11 +34,9 @@ public interface BlockFace {
 
     int getIndicesPerFace();
 
-    int getWCord(Direction dir);
+    int getWCoord(Direction dir);
 
     Direction getDirection();
-
-    BlockFace expandVBackward(int i);
 
     BlockFace expandV(int i);
 
@@ -46,5 +44,55 @@ public interface BlockFace {
 
     int getVCoord(Direction dir);
 
-    boolean isMergeable(BlockFace other, Direction direction);
+    boolean isGreedyGroup(BlockFace other, Direction direction);
+
+    boolean isLodGroup(BlockFace other, Direction direction, int lodStep);
+
+    float getCorner1X();
+
+    float getCorner1Y();
+
+    float getCorner1Z();
+
+    float getCorner2X();
+
+    float getCorner2Y();
+
+    float getCorner2Z();
+
+    float getCorner3X();
+
+    float getCorner3Y();
+
+    float getCorner3Z();
+
+    float getCorner4X();
+
+    float getCorner4Y();
+
+    float getCorner4Z();
+
+    byte getBlockXInChunk();
+
+    byte getBlockYInChunk();
+
+    byte getBlockZInChunk();
+
+    static int getUCoord(Direction direction, short x, short y, short z) {
+        return switch (direction) {
+            case UP, DOWN, NORTH, SOUTH -> Short.toUnsignedInt(x);
+            case EAST, WEST -> Short.toUnsignedInt(z);
+        };
+    }
+
+    static int getVCoord(Direction direction, short x, short y, short z) {
+        return switch (direction) {
+            case UP, DOWN -> Short.toUnsignedInt(z);
+            case EAST, WEST, NORTH, SOUTH -> Short.toUnsignedInt(y);
+        };
+    }
+
+    static int getWCoord(Direction direction, short x, short y, short z) {
+        return (int) (x * direction.getOffsetX() + y * direction.getOffsetY() + z * direction.getOffsetZ());
+    }
 }

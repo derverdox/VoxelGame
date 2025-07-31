@@ -6,14 +6,11 @@ import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.BitOcclusionBasedChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainRegion;
+import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
-import de.verdox.voxel.shared.level.chunk.DepthMap;
-import de.verdox.voxel.shared.level.chunk.HeightMap;
-import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
 import it.unimi.dsi.fastutil.longs.*;
 import lombok.Getter;
 
@@ -21,7 +18,7 @@ import java.util.*;
 
 @Getter
 public class ClientWorld extends World<ClientChunk> {
-    private static final int SCALE_FACTOR = 4;
+    private static final int SCALE_FACTOR = 8;
 
     private final Long2ObjectMap<ClientChunk> chunks = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
     private final ChunkRequestManager chunkRequestManager = new ChunkRequestManager(ClientBase.client, this);
@@ -33,14 +30,14 @@ public class ClientWorld extends World<ClientChunk> {
 
     public ClientWorld(UUID uuid) {
         super(uuid);
-        int regionSizeX = 4;
-        int regionSizeY = 4;
-        int regionSizeZ = 4;
+        int regionSizeX = 1;
+        int regionSizeY = 1;
+        int regionSizeZ = 1;
 
         if (ClientBase.clientSettings != null) {
-            regionSizeX = Math.min(regionSizeX, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
-            regionSizeY = Math.min(regionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR);
-            regionSizeZ = Math.min(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
+            regionSizeX = Math.max(regionSizeX, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
+            regionSizeY = Math.max(regionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR);
+            regionSizeZ = Math.max(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
         }
 
         this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
@@ -49,14 +46,14 @@ public class ClientWorld extends World<ClientChunk> {
     public ClientWorld(UUID uuid, byte chunkSizeX, byte chunkSizeY, byte chunkSizeZ) {
         super(uuid, chunkSizeX, chunkSizeY, chunkSizeZ);
 
-        int regionSizeX = 4;
-        int regionSizeY = 4;
-        int regionSizeZ = 4;
+        int regionSizeX = 1;
+        int regionSizeY = 1;
+        int regionSizeZ = 1;
 
         if (ClientBase.clientSettings != null) {
-            regionSizeX = Math.min(regionSizeX, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
-            regionSizeY = Math.min(regionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR);
-            regionSizeZ = Math.min(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
+            regionSizeX = Math.max(regionSizeX, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
+            regionSizeY = Math.max(regionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR);
+            regionSizeZ = Math.max(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
         }
 
         this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
@@ -73,6 +70,7 @@ public class ClientWorld extends World<ClientChunk> {
     }
 
     public void onCenterChange(int chunkX, int chunkY, int chunkZ) {
+        this.terrainManager.setCenterChunk(chunkX, chunkY, chunkZ);
         int renderDistanceX = ClientBase.clientSettings.horizontalViewDistance;
         int renderDistanceY = ClientBase.clientSettings.verticalViewDistance;
         int renderDistanceZ = ClientBase.clientSettings.horizontalViewDistance;
@@ -106,8 +104,8 @@ public class ClientWorld extends World<ClientChunk> {
                     for (long z = Math.min(oldMinChunkZ, newMinChunkZ); z <= Math.max(oldMaxChunkZ, newMaxChunkZ); z++) {
 
                         if (x < newMinChunkX || x > newMaxChunkX
-                            || y < newMinChunkY || y > newMaxChunkY
-                            || z < newMinChunkZ || z > newMaxChunkZ) {
+                                || y < newMinChunkY || y > newMaxChunkY
+                                || z < newMinChunkZ || z > newMaxChunkZ) {
                             long chunkOutOfViewDistance = ChunkBase.computeChunkKey((int) x, (int) y, (int) z);
                             ClientChunk clientChunk = chunks.get(chunkOutOfViewDistance);
                             if (clientChunk != null) {
@@ -126,7 +124,7 @@ public class ClientWorld extends World<ClientChunk> {
                 int regionY = ChunkBase.unpackChunkY(regionToRebuild);
                 int regionZ = ChunkBase.unpackChunkZ(regionToRebuild);
                 TerrainRegion terrainRegion = terrainManager.getRegion(regionX, regionY, regionZ);
-                if(terrainRegion != null) {
+                if (terrainRegion != null) {
                     terrainManager.updateMesh(terrainRegion, false);
                     regionCounter++;
                 }
@@ -184,8 +182,8 @@ public class ClientWorld extends World<ClientChunk> {
     }
 
     @Override
-    public ClientChunk constructChunkObject(int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
-        return new ClientChunk(this, chunkX, chunkY, chunkZ, chunkBlockPalette, heightMap, depthMap, chunkLightData);
+    public ClientChunk constructChunkObject(int chunkX, int chunkY, int chunkZ) {
+        return new ClientChunk(this, chunkX, chunkY, chunkZ);
     }
 
     public Collection<ClientChunk> getLoadedChunks() {
@@ -194,5 +192,23 @@ public class ClientWorld extends World<ClientChunk> {
 
     public ClientChunk getChunk(int chunkX, int chunkY, int chunkZ) {
         return chunks.getOrDefault(ChunkBase.computeChunkKey(chunkX, chunkY, chunkZ), null);
+    }
+
+    public int computeLodLevel(
+            int centerRegionX, int centerRegionY, int centerRegionZ,
+            int targetRegionX, int targetRegionY, int targetRegionZ
+    ) {
+
+
+        return LODUtil.computeLodLevel(
+                terrainManager.getMeshPipeline().getRegionBounds(),
+                ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance,
+                getChunkSizeX(),
+                getChunkSizeY(),
+                getChunkSizeZ(),
+                centerRegionX, centerRegionY, centerRegionZ,
+                targetRegionX, targetRegionY, targetRegionZ,
+                LODUtil.getMaxLod(this)
+        );
     }
 }

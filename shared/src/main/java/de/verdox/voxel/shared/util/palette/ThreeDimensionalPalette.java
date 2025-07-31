@@ -3,6 +3,8 @@ package de.verdox.voxel.shared.util.palette;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import de.verdox.voxel.shared.level.chunk.Box;
+import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.network.packet.serializer.NetworkSerializable;
 import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
@@ -11,7 +13,7 @@ import lombok.Setter;
 import java.util.*;
 
 @Getter
-public class ThreeDimensionalPalette<T> implements NetworkSerializable {
+public abstract class ThreeDimensionalPalette<T> implements NetworkSerializable, Box {
     @Override
     public void write(Kryo kryo, Output output) {
         kryo.writeObject(output, state);
@@ -22,7 +24,7 @@ public class ThreeDimensionalPalette<T> implements NetworkSerializable {
     public void readAndUpdate(Kryo kryo, Input input) {
         this.state = kryo.readObject(input, State.class);
         this.strategy = switch (this.state) {
-            case EMPTY -> new PaletteStrategy.Empty<>(this);
+            case EMPTY -> new PaletteStrategy.Empty<>();
             case UNIFORM -> new PaletteStrategy.Uniform<>(null);
             case PALETTED -> new PaletteStrategy.Paletted<>(this);
         };
@@ -31,33 +33,24 @@ public class ThreeDimensionalPalette<T> implements NetworkSerializable {
 
     public enum State {EMPTY, UNIFORM, PALETTED}
 
+    @Getter
     private State state = State.EMPTY;
 
     @Getter
     private PaletteStrategy<T> strategy;
-    @Getter
-    private final short dimensionX, dimensionY, dimensionZ;
-    @Getter
-    private final int totalSize;
-    private final T defaultValue;
 
-    private final Map<T, Integer> blockToId = new HashMap<>();
-    private final List<T> idToBlock = new ArrayList<>();
+    private final T defaultValue;
 
     /**
      * Create a palette region of given dimensions, all initialized to defaultValue.
      */
-    public ThreeDimensionalPalette(T defaultValue, short dx, short dy, short dz) {
+    public ThreeDimensionalPalette(T defaultValue) {
         this.defaultValue = defaultValue;
-        this.strategy = new PaletteStrategy.Empty<>(this);
-        this.dimensionX = dx;
-        this.dimensionY = dy;
-        this.dimensionZ = dz;
-        this.totalSize = dx * dy * dz;
+        this.strategy = new PaletteStrategy.Empty<>();
     }
 
     public T get(short x, short y, short z) {
-        return strategy.get(x, y, z);
+        return strategy.get(x, y, z, this);
     }
 
     public void set(short x, short y, short z, T block) {
@@ -69,38 +62,29 @@ public class ThreeDimensionalPalette<T> implements NetworkSerializable {
         this.state = state;
     }
 
-    /**
-     * Returns an unmodifiable view of the palette (ID → block).
-     */
     public List<T> getPalette() {
-        return Collections.unmodifiableList(idToBlock);
+        if (this.strategy instanceof PaletteStrategy.Empty<T>) {
+            return List.of(defaultValue);
+        } else if (this.strategy instanceof PaletteStrategy.Uniform<T> uniform) {
+            return List.of(defaultValue, uniform.getUniformValue());
+        } else {
+            PaletteStrategy.Paletted<T> paletted = (PaletteStrategy.Paletted<T>) this.strategy;
+            return Collections.unmodifiableList(paletted.getIdToBlock());
+        }
     }
 
-    // --- internal methods ---
-
-    public void checkBounds(short x, short y, short z) {
-        if (x < 0 || x >= dimensionX || y < 0 || y >= dimensionY || z < 0 || z >= dimensionZ) {
-            throw new IndexOutOfBoundsException(
-                    "Coordinates out of bounds: (" + x + "," + y + "," + z + ")");
+    public int getPaletteSize() {
+        if (this.strategy instanceof PaletteStrategy.Empty<T>) {
+            return 1; // ONLY AIR
+        } else if (this.strategy instanceof PaletteStrategy.Uniform<T>) {
+            return 2; // AIR + UNIFORM
+        } else {
+            PaletteStrategy.Paletted<T> paletted = (PaletteStrategy.Paletted<T>) this.strategy;
+            return paletted.getCtx().getPalette().size();
         }
     }
 
     public int computeIndex(short x, short y, short z) {
-        return x + dimensionX * (y + dimensionY * z);
-    }
-
-    @Override
-    public String toString() {
-        return "ThreeDimensionalPalette{" +
-                "state=" + state +
-                ", strategy=" + strategy +
-                ", dimensionX=" + dimensionX +
-                ", dimensionY=" + dimensionY +
-                ", dimensionZ=" + dimensionZ +
-                ", totalSize=" + totalSize +
-                ", defaultValue=" + defaultValue +
-                ", blockToId=" + blockToId +
-                ", idToBlock=" + idToBlock +
-                '}';
+        return x + getSizeX() * (y + getSizeY() * z);
     }
 }

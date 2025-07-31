@@ -6,7 +6,7 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
-import de.verdox.voxel.shared.level.chunk.AbstractSliceMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.AbstractSliceMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.network.packet.client.ClientInputPacket;
 import de.verdox.voxel.shared.network.packet.client.ClientLoadChunkPacket;

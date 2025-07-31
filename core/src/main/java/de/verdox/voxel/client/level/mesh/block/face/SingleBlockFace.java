@@ -2,9 +2,9 @@ package de.verdox.voxel.client.level.mesh.block.face;
 
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
-import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.LightUtil;
 import lombok.Getter;
@@ -34,11 +34,15 @@ public class SingleBlockFace implements BlockFace {
     protected final byte blockYInChunk;
     protected final byte blockZInChunk;
 
-    public SingleBlockFace(BlockModelType.BlockFace blockFace, byte blockXInChunk, byte blockYInChunk, byte blockZInChunk, byte lodLevel, ResourceLocation textureId, float lightPacked, byte aoPacked) {
+    public SingleBlockFace(
+            BlockModelType.BlockFace blockFace,
+            byte blockXInMesh, byte blockYInMesh, byte blockZInMesh,
+            byte lodLevel, ResourceLocation textureId, float lightPacked, byte aoPacked
+    ) {
         this.blockFace = blockFace;
-        this.blockXInChunk = blockXInChunk;
-        this.blockYInChunk = blockYInChunk;
-        this.blockZInChunk = blockZInChunk;
+        this.blockXInChunk = blockXInMesh;
+        this.blockYInChunk = blockYInMesh;
+        this.blockZInChunk = blockZInMesh;
         this.lodLevel = lodLevel;
         this.textureId = textureId;
         this.lightPacked = lightPacked;
@@ -47,13 +51,14 @@ public class SingleBlockFace implements BlockFace {
 
     public void appendToBuffers(
             float[] vertices,
-            short[] indices,
+            short[] shortIndices,
+            int[] intIndices,
             int vertexOffsetFloats,
             int indexOffset,
-            short baseVertexIndex,
+            int baseVertexIndex,
             TextureAtlas textureAtlas,
             int floatsPerVertex,
-            LightAccessor lightAccessor
+            int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
     ) {
         // Hole Texturregion
         TextureRegion region = null;
@@ -95,7 +100,7 @@ public class SingleBlockFace implements BlockFace {
             int offset = vertexOffsetFloats + i * floatsPerVertex;
             float u = uv[i][0], v = uv[i][1];
 
-            offset = writePosition(vertices, corners, i, offset);
+            offset = writePosition(vertices, corners, i, offset, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
             offset = writeUV(vertices, offset, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
             offset = writeLight(vertices, offset, i);
 
@@ -154,19 +159,30 @@ public class SingleBlockFace implements BlockFace {
         byte[] indicesByFace = getIndexOrderByFaceDirection(blockFace.direction());
 
         // Indices für 2 Triangles
-        indices[indexOffset + 0] = (short) (baseVertexIndex + indicesByFace[0]);
-        indices[indexOffset + 1] = (short) (baseVertexIndex + indicesByFace[1]);
-        indices[indexOffset + 2] = (short) (baseVertexIndex + indicesByFace[2]);
 
-        indices[indexOffset + 3] = (short) (baseVertexIndex + indicesByFace[3]);
-        indices[indexOffset + 4] = (short) (baseVertexIndex + indicesByFace[4]);
-        indices[indexOffset + 5] = (short) (baseVertexIndex + indicesByFace[5]);
+        if (intIndices != null) {
+            intIndices[indexOffset + 0] = (baseVertexIndex + indicesByFace[0]);
+            intIndices[indexOffset + 1] = (baseVertexIndex + indicesByFace[1]);
+            intIndices[indexOffset + 2] = (baseVertexIndex + indicesByFace[2]);
+
+            intIndices[indexOffset + 3] = (baseVertexIndex + indicesByFace[3]);
+            intIndices[indexOffset + 4] = (baseVertexIndex + indicesByFace[4]);
+            intIndices[indexOffset + 5] = (baseVertexIndex + indicesByFace[5]);
+        } else {
+            shortIndices[indexOffset + 0] = (short) (baseVertexIndex + indicesByFace[0]);
+            shortIndices[indexOffset + 1] = (short) (baseVertexIndex + indicesByFace[1]);
+            shortIndices[indexOffset + 2] = (short) (baseVertexIndex + indicesByFace[2]);
+
+            shortIndices[indexOffset + 3] = (short) (baseVertexIndex + indicesByFace[3]);
+            shortIndices[indexOffset + 4] = (short) (baseVertexIndex + indicesByFace[4]);
+            shortIndices[indexOffset + 5] = (short) (baseVertexIndex + indicesByFace[5]);
+        }
     }
 
-    protected int writePosition(float[] vertices, float[][] corners, int cornerIndex, int offsetStart) {
-        vertices[offsetStart] = corners[cornerIndex][0];
-        vertices[offsetStart + 1] = corners[cornerIndex][1];
-        vertices[offsetStart + 2] = corners[cornerIndex][2];
+    protected int writePosition(float[] vertices, float[][] corners, int cornerIndex, int offsetStart, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+        vertices[offsetStart] = corners[cornerIndex][0] + offsetXInBlocks;
+        vertices[offsetStart + 1] = corners[cornerIndex][1] + offsetYInBlocks;
+        vertices[offsetStart + 2] = corners[cornerIndex][2] + offsetZInBlocks;
         return offsetStart + 3;
     }
 
@@ -189,9 +205,9 @@ public class SingleBlockFace implements BlockFace {
     }
 
     protected int writeLight(float[] vertices, int offset, int cornerIdx) {
-        vertices[offset] = LightUtil.packLightToFloat((byte) 15, (byte) 0, (byte) 0, (byte) 0);
-        vertices[offset + 1] = (1 - (LightUtil.unpackAo(this.aoPacked, cornerIdx) / 3f));
-        return offset + 2;
+        byte aoAtCorner = LightUtil.unpackAo(this.aoPacked, cornerIdx);
+        vertices[offset] = LightUtil.packLightAndAoToFloat((byte) 15, (byte) 0, (byte) 0, (byte) 0, aoAtCorner);
+        return offset + 1;
     }
 
     @Override
@@ -204,7 +220,7 @@ public class SingleBlockFace implements BlockFace {
     public BlockFace addOffset(float offsetX, float offsetY, float offsetZ) {
         return new SingleBlockFace(
                 blockFace,
-                (byte) (((byte) (blockXInChunk + offsetX)) << lodLevel), (byte) (((byte) (blockYInChunk + offsetY)) << lodLevel), (byte) (((byte) (blockZInChunk + offsetZ)) << lodLevel),
+                ((byte) (blockXInChunk + offsetX)), ((byte) (blockYInChunk + offsetY)), ((byte) (blockZInChunk + offsetZ)),
                 lodLevel,
                 textureId,
                 lightPacked, aoPacked
@@ -217,8 +233,37 @@ public class SingleBlockFace implements BlockFace {
     }
 
     @Override
+    public BlockFace addOffset(int u, int v) {
+        int offsetX = 0;
+        int offsetY = 0;
+        int offsetZ = 0;
+
+        if (u == 0 && v == 0) {
+            return this;
+        }
+
+        if (u != 0) {
+            switch (blockFace.direction()) {
+                case UP, DOWN, SOUTH -> offsetX = u;
+                case NORTH -> offsetX = -u;
+                case EAST -> offsetZ = u;
+                case WEST -> offsetZ = -u;
+            }
+            ;
+        }
+
+        if (v != 0) {
+            switch (blockFace.direction()) {
+                case UP, DOWN -> offsetZ = v;
+                case EAST, WEST, NORTH, SOUTH -> offsetY = v;
+            }
+        }
+        return addOffset(offsetX, offsetY, offsetZ);
+    }
+
+    @Override
     public int getFloatsPerVertex() {
-        return 7;
+        return 6;
     }
 
     @Override
@@ -229,11 +274,6 @@ public class SingleBlockFace implements BlockFace {
     @Override
     public int getIndicesPerFace() {
         return 6;
-    }
-
-    @Override
-    public int getWCord(Direction dir) {
-        return (int) (getCorner1X() * dir.getOffsetX() + getCorner1Y() * dir.getOffsetY() + getCorner1Z() * dir.getOffsetZ());
     }
 
     @Override
@@ -249,12 +289,19 @@ public class SingleBlockFace implements BlockFace {
     public SingleBlockFace expandU(int delta) {
         float lengthU = getULength();
         if (lengthU == 0) return this;
+
+        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction().equals(Direction.WEST);
+
+        int deltaU = flip ? 0 : delta;
+        int deltaV = flip ? delta : 0;
+
         return new GreedyBlockFace(
                 blockFace,
                 blockXInChunk, blockYInChunk, blockZInChunk,
+                lodLevel,
                 textureId,
                 lightPacked, aoPacked,
-                delta, 0, 0, 0
+                deltaU, deltaV
         );
     }
 
@@ -266,74 +313,55 @@ public class SingleBlockFace implements BlockFace {
     public SingleBlockFace expandV(int delta) {
         float lengthV = getVLength();
         if (lengthV == 0) return this;
-        return new GreedyBlockFace(
-                blockFace,
-                blockXInChunk, blockYInChunk, blockZInChunk,
-                textureId,
-                lightPacked, aoPacked,
-                0, 0, delta, 0
-        );
-    }
 
-    /**
-     * Expands this face by {@code delta} blocks in the opposite U direction
-     * (from corner2 back towards corner1).
-     */
-    @Override
-    public SingleBlockFace expandUBackward(int delta) {
-        float lengthU = getULength();
-        if (lengthU == 0) return this;
-        return new GreedyBlockFace(
-                blockFace,
-                blockXInChunk, blockYInChunk, blockZInChunk,
-                textureId,
-                lightPacked, aoPacked,
-                0, delta, 0, 0
-        );
-    }
+        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction().equals(Direction.WEST);
 
-    /**
-     * Expands this face by {@code delta} blocks in the opposite V direction
-     * (from corner4 back towards corner1).
-     */
-    @Override
-    public SingleBlockFace expandVBackward(int delta) {
-        float lengthV = getVLength();
-        if (lengthV == 0) return this;
+        int deltaU = flip ? delta : 0;
+        int deltaV = flip ? 0 : delta;
+
         return new GreedyBlockFace(
                 blockFace,
                 blockXInChunk, blockYInChunk, blockZInChunk,
+                lodLevel,
                 textureId,
                 lightPacked, aoPacked,
-                0, 0, 0, delta
+                deltaU, deltaV
         );
     }
 
     @Override
     public int getUCoord(Direction dir) {
-        return switch (dir) {
-            case UP, DOWN, NORTH, SOUTH -> Byte.toUnsignedInt(blockXInChunk);
-            case EAST, WEST -> Byte.toUnsignedInt(blockZInChunk);
-        };
+        return BlockFace.getUCoord(dir, blockXInChunk, blockYInChunk, blockZInChunk);
     }
 
     @Override
     public int getVCoord(Direction dir) {
-        return switch (dir) {
-            case UP, DOWN -> Byte.toUnsignedInt(blockZInChunk);
-            case EAST, WEST, NORTH, SOUTH -> Byte.toUnsignedInt(blockYInChunk);
-        };
+        return BlockFace.getVCoord(dir, blockXInChunk, blockYInChunk, blockZInChunk);
     }
 
     @Override
-    public boolean isMergeable(BlockFace other, Direction direction) {
+    public int getWCoord(Direction dir) {
+        return BlockFace.getWCoord(dir, (short) getCorner1X(), (short) getCorner1Y(), (short) getCorner1Z());
+    }
+
+    @Override
+    public boolean isGreedyGroup(BlockFace other, Direction direction) {
         if (other == null) {
             return false;
         }
         if (!(other instanceof SingleBlockFace singleBlockFace)) {
             return false;
         }
-        return this.blockFace.equals(singleBlockFace.blockFace) && this.getWCord(direction) == singleBlockFace.getWCord(direction);
+        return this.blockFace.equals(singleBlockFace.blockFace) && this.aoPacked == singleBlockFace.aoPacked && this.lightPacked == singleBlockFace.lightPacked && this.getWCoord(direction) == singleBlockFace.getWCoord(direction);
+    }
+
+    @Override
+    public boolean isLodGroup(BlockFace other, Direction direction, int lodStep) {
+        if (other == null) {
+            return false;
+        }
+
+        return this.getWCoord(direction) / lodStep == other.getWCoord(direction) / lodStep;
     }
 
     /**
@@ -469,25 +497,22 @@ public class SingleBlockFace implements BlockFace {
     }
 
     protected float getCornerX(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
-        return blockXInChunk + relativeCoordinate.x() + CUBE_BOUNDING_BOX_HALF;
+        return ((blockXInChunk + relativeCoordinate.x() + CUBE_BOUNDING_BOX_HALF) * getLODScale());
     }
 
     protected float getCornerY(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
-        return blockYInChunk + relativeCoordinate.y() + CUBE_BOUNDING_BOX_HALF;
+        return ((blockYInChunk + relativeCoordinate.y() + CUBE_BOUNDING_BOX_HALF) * getLODScale());
     }
 
     protected float getCornerZ(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
-        return blockZInChunk + relativeCoordinate.z() + CUBE_BOUNDING_BOX_HALF;
+        return ((blockZInChunk + relativeCoordinate.z() + CUBE_BOUNDING_BOX_HALF) * getLODScale());
     }
 
-    private float getLODScale() {
-        return 1 << 0;
+    protected float getLODScale() {
+        return LODUtil.getLodScale(lodLevel);
     }
 
     protected byte[] getIndexOrderByFaceDirection(Direction direction) {
-/*        if(getBlockFace().direction().equals(Direction.NORTH)) {
-            return new byte[]{0, 3, 1, 3, 0, 2};
-        }*/
         return new byte[]{0, 1, 3, 3, 2, 0};
     }
 }

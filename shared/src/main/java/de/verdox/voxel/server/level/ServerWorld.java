@@ -4,14 +4,13 @@ import de.verdox.voxel.server.level.chunk.ChunkMap;
 import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.server.level.generator.BenchmarkNoiseChunkGenerator;
 import de.verdox.voxel.server.level.generator.DebugChunkGenerator;
-import de.verdox.voxel.server.level.generator.NoiseChunkGenerator;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.server.level.generator.WorldGenerator;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
-import de.verdox.voxel.shared.level.chunk.DepthMap;
-import de.verdox.voxel.shared.level.chunk.HeightMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
+import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
 import lombok.Getter;
 
 import java.util.UUID;
@@ -20,7 +19,7 @@ import java.util.UUID;
 public class ServerWorld extends World<ServerChunk> {
 
     private final ChunkMap chunkMap = new ChunkMap(this);
-    private final WorldGenerator worldGenerator = new WorldGenerator(this, new DebugChunkGenerator(), 4);
+    private final WorldGenerator worldGenerator = new WorldGenerator(this, new BenchmarkNoiseChunkGenerator(), 4);
 
     public ServerWorld(UUID uuid) {
         super(uuid);
@@ -56,7 +55,7 @@ public class ServerWorld extends World<ServerChunk> {
     }
 
     @Override
-    public ServerChunk constructChunkObject(int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
-        return new ServerChunk(this, chunkX, chunkY, chunkZ, chunkBlockPalette, heightMap, depthMap, chunkLightData);
+    public ServerChunk constructChunkObject(int chunkX, int chunkY, int chunkZ) {
+        return new ServerChunk(this, chunkX, chunkY, chunkZ);
     }
 }

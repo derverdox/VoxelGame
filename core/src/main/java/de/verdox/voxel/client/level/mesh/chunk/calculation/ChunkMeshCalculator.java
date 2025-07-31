@@ -1,8 +1,8 @@
 package de.verdox.voxel.client.level.mesh.chunk.calculation;
 
 import de.verdox.voxel.client.level.chunk.ClientChunk;
-import de.verdox.voxel.client.level.mesh.chunk.BlockFaceStorage;
+import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorage;
 
 public interface ChunkMeshCalculator {
-    BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float chunkOffsetX, float chunkOffsetY, float chunkOffsetZ);
+    void calculateChunkMesh(TerrainFaceStorage.ChunkFaceStorage blockFaces, ClientChunk chunk, int lodLevel);
 }

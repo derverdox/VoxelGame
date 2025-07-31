@@ -37,8 +37,8 @@ public class ChunkMap {
 
     public CompletableFuture<ServerChunk> getOrCreateChunkAsync(int chunkX, int chunkY, int chunkZ, Consumer<ServerChunk> whenDone) {
         return getChunk(chunkX, chunkY, chunkZ)
-            .map(chunk -> CompletableFuture.completedFuture(chunk).whenComplete((chunk1, throwable) -> whenDone.accept(chunk1)))
-            .orElseGet(() -> world.getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
+                .map(chunk -> CompletableFuture.completedFuture(chunk).whenComplete((chunk1, throwable) -> whenDone.accept(chunk1)))
+                .orElseGet(() -> world.getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
     }
 
     public Optional<ServerChunk> getChunk(int chunkX, int chunkY, int chunkZ) {

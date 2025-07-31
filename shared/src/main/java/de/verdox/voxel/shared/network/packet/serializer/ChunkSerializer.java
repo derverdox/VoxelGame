@@ -5,16 +5,14 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import de.verdox.voxel.shared.VoxelBase;
-import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
-import de.verdox.voxel.shared.level.chunk.DepthMap;
-import de.verdox.voxel.shared.level.chunk.HeightMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
+import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
 
-import java.util.List;
 import java.util.UUID;
 
 public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase<WORLD>> extends Serializer<CHUNK> {
@@ -48,22 +46,20 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
         int chunkZ = input.readInt();
         boolean isEmpty = input.readBoolean();
 
+        CHUNK chunk = world.constructChunkObject(chunkX, chunkY, chunkZ);
 
-        ChunkLightData chunkLightData = new ChunkLightData(world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
-        chunkLightData.readAndUpdate(kryo, input);
-        HeightMap heightMap = new HeightMap(world.getChunkSizeX(), world.getChunkSizeZ());
-        heightMap.readAndUpdate(kryo, input);
-        DepthMap depthMap = new DepthMap(world.getChunkSizeX(), world.getChunkSizeZ());
-        depthMap.readAndUpdate(kryo, input);
-
-        ChunkBlockPalette chunkBlockPalette = new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
+        chunk.getChunkLightData().readAndUpdate(kryo, input);
+        chunk.getHeightmap().readAndUpdate(kryo, input);
+        chunk.getDepthMap().readAndUpdate(kryo, input);
 
 
         if (!isEmpty) {
-            chunkBlockPalette.readAndUpdate(kryo, input);
+            chunk.getChunkBlockPalette().readAndUpdate(kryo, input);
         }
 
-        return world.constructChunkObject(chunkX, chunkY, chunkZ, chunkBlockPalette, heightMap, depthMap, chunkLightData);
+        chunk.init();
+
+        return chunk;
     }
 
     private WORLD getWorld(UUID worldUUID) {

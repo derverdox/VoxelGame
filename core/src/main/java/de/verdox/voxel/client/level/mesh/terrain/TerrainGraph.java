@@ -5,18 +5,19 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import de.verdox.voxel.client.ClientBase;
-import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
-import de.verdox.voxel.client.renderer.ClientRenderer;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
+import de.verdox.voxel.shared.util.ThreadUtil;
 import de.verdox.voxel.shared.util.datastructure.LongQueue;
 import it.unimi.dsi.fastutil.longs.*;
 
 import java.util.*;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class TerrainGraph {
     private final Long2ObjectOpenHashMap<RegionNode> regions = new Long2ObjectOpenHashMap<>();
@@ -30,6 +31,7 @@ public class TerrainGraph {
     private final int chunkSizeX;
     private final int chunkSizeY;
     private final int chunkSizeZ;
+    private final Executor service = Executors.newSingleThreadExecutor(ThreadUtil.createFactoryForName("Terrain Graph Calculation Thread", true));
 
     public TerrainGraph(TerrainManager terrainManager, RegionBounds bounds, TerrainMeshStorage storage, int chunkSizeX, int chunkSizeY, int chunkSizeZ) {
         this.terrainManager = terrainManager;
@@ -38,6 +40,21 @@ public class TerrainGraph {
         this.chunkSizeX = chunkSizeX;
         this.chunkSizeY = chunkSizeY;
         this.chunkSizeZ = chunkSizeZ;
+
+/*        service.execute(() -> {
+            while (true) {
+                Camera camera = ClientBase.clientRenderer.getCamera();
+                if (camera == null) {
+                    continue;
+                }
+                ClientWorld currentWorld = VoxelClient.getInstance().getCurrentWorld();
+                if (currentWorld == null) {
+                    continue;
+                }
+
+                bsfRenderVisibleRegions(camera, currentWorld, null, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
+            }
+        });*/
     }
 
     public int getAmountOfRegions() {
@@ -127,7 +144,8 @@ public class TerrainGraph {
     /**
      * Adds a chunk at (x,y,z). Updates neighbor pointers in O(log n).
      */
-    public RegionNode addRegion(int x, int y, int z) {
+    //TODO: DO NOT SYNCHRONIZE -> FIND A BETTER WAY
+    public synchronized RegionNode addRegion(int x, int y, int z) {
         long pos = ChunkBase.computeChunkKey(x, y, z);
         if (regions.containsKey(pos)) return regions.get(pos);
         RegionNode newRegionNode = new RegionNode(x, y, z);
@@ -282,8 +300,37 @@ public class TerrainGraph {
 
     private final LongSet visited = new LongOpenHashSet();
     private final LongQueue queue = new LongQueue();
+    private List<Long> frontBuffer = new ArrayList<>();
+    private List<Long> backBuffer = new ArrayList<>();
+    private final Object lock = new Object();
 
-    public int bsfRenderVisibleRegions(Camera camera, ClientWorld world, ModelBatch batch, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
+    public int bsfBufferRender(Camera camera, ClientWorld world, ModelBatch batch) {
+        synchronized (lock) {
+            List<Long> temp = frontBuffer;
+            frontBuffer.addAll(backBuffer);
+            backBuffer = temp;
+            backBuffer.clear();
+        }
+
+        for (int i = 0; i < frontBuffer.size(); i++) {
+            long regionKey = frontBuffer.get(i);
+
+            int nx = ChunkBase.unpackChunkX(regionKey);
+            int ny = ChunkBase.unpackChunkY(regionKey);
+            int nz = ChunkBase.unpackChunkZ(regionKey);
+            TerrainRegion terrainRegion = terrainManager.getRegion(nx, ny, nz);
+            var terrainMesh = terrainManager.getMeshStorage().getRegionMeshIfAvailable(nx, ny, nz);
+            if (terrainRegion == null || terrainMesh == null) {
+                continue;
+            }
+
+            var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, nx, ny, nz);
+            mesh.render(camera, batch);
+        }
+        return 0;
+    }
+
+    public synchronized int bsfRenderVisibleRegions(Camera camera, ClientWorld world, ModelBatch batch, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
         visited.clear();
         queue.clear();
 
@@ -339,13 +386,28 @@ public class TerrainGraph {
 
             TerrainMesh terrainMesh = world.getTerrainManager().getMeshStorage().getRegionMeshIfAvailable(nx, ny, nz);
 
-            if (terrainMesh != null && terrainMesh.getAmountOfBlockFaces() != 0 && terrainMesh.isComplete()) {
+            if (terrainMesh != null && terrainMesh.getAmountOfBlockFaces() != 0 /*&& terrainMesh.isComplete()*/) {
 
-                var mesh = terrainMesh.getOrGenerateMeshFromFaces(TextureAtlasManager.getInstance().getBlockTextureAtlas(), world, nx, ny, nz, terrainRegion);
-                mesh.render(camera, batch);
+                int lodLevel = world.computeLodLevel(regionX, regionY, regionZ, nx, ny, nz);
+                if (terrainMesh.getLodLevel() != lodLevel) {
+                    terrainManager.updateMesh(terrainRegion, false, lodLevel);
+                    continue;
+                }
 
+                if (batch != null) {
+                    var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, nx, ny, nz);
+                    if (mesh == null) {
+                        continue;
+                    }
+                    mesh.render(camera, batch);
+                } else {
+                    synchronized (lock) {
+                        backBuffer.add(key);
+                    }
+                }
                 amountOfRenderedBlockFaces += terrainMesh.getAmountOfBlockFaces();
             }
+
 
             if (!node.hasLinkedNeighbors()) {
                 continue;

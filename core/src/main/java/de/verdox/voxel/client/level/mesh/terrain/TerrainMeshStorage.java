@@ -44,7 +44,11 @@ public class TerrainMeshStorage {
         this.regionSizeZ = regionSizeZ;
     }
 
-    public void recalculateMesh(int regionX, int regionY, int regionZ, LightAccessor lightAccessor, boolean force) {
+    public void recalculateMesh(int regionX, int regionY, int regionZ, boolean force) {
+        recalculateMeshForLodLevel(regionX, regionY, regionZ, force, -1);
+    }
+
+    public void recalculateMeshForLodLevel(int regionX, int regionY, int regionZ, boolean force, int lodLevel) {
         long keyOfRegion = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
 
         RegionQueue q = queues.computeIfAbsent(keyOfRegion, k -> new RegionQueue());
@@ -52,20 +56,27 @@ public class TerrainMeshStorage {
         MeshCalculationTicket oldTicket = q.getLastTicket(keyOfRegion);
         MeshCalculationTicket newTicket = createRegionTicket(force, regionSizeX, regionSizeY, regionSizeZ);
 
+
         if (oldTicket == null || newTicket.isBetterThan(oldTicket)) {
             TerrainMesh mesh = renderedRegions.computeIfAbsent(keyOfRegion, k -> new TerrainMesh());
             q.addTicket(keyOfRegion, newTicket);
-            q.enqueue(() -> doRecalculate(keyOfRegion, regionX, regionY, regionZ, mesh));
+            q.enqueue(() -> doRecalculate(keyOfRegion, regionX, regionY, regionZ, mesh, lodLevel == -1 ? mesh.getLodLevel() : lodLevel));
         }
     }
 
-    private void doRecalculate(long chunkKey, int regionX, int regionY, int regionZ, TerrainMesh terrainMesh) {
+    private void doRecalculate(long regionKey, int regionX, int regionY, int regionZ, TerrainMesh terrainMesh, int lodLevel) {
         long start = System.nanoTime();
         try {
-            var result = terrainManager.getMeshPipeline().buildMesh(world, regionX, regionY, regionZ);
-            terrainMesh.setRawBlockFaces(result.faces(), result.completeMesh(), terrainManager.getRegion(regionX, regionY, regionZ));
+            var result = terrainManager.getMeshPipeline().buildMesh(world, regionX, regionY, regionZ, lodLevel);
+            terrainMesh.setRawBlockFaces(result.storage(), result.completeMesh(), lodLevel);
+            boolean remove = terrainMesh.getAmountOfBlockFaces() == 0;
+            Gdx.app.postRunnable(() -> {
+                if (remove) {
+                    removeMesh(regionX, regionY, regionZ);
+                }
+            });
         } catch (Throwable t) {
-            Gdx.app.error("MeshMaster", "Error while generating mesh for chunk " + chunkKey, t);
+            Gdx.app.error("MeshMaster", "Error while generating mesh for region " + regionKey + " with lod level " + lodLevel, t);
         } finally {
             long elapsed = System.nanoTime() - start;
             meshTimeSumNs.addAndGet(elapsed);

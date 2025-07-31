@@ -70,7 +70,7 @@ public class BlockModelType {
             var c3 = new Vector3f(c0).add(new Vector3f(uDir).mul(uGrowth)).add(new Vector3f(vDir).mul(vGrowth));
 
 
-            BlockFace blockFace = new BlockFace(
+            return new BlockFace(
                     new RelativeCoordinate(c0.x, c0.y, c0.z),
                     new RelativeCoordinate(c1.x, c1.y, c1.z),
                     new RelativeCoordinate(c2.x, c2.y, c2.z),
@@ -79,8 +79,6 @@ public class BlockModelType {
                     Direction.fromOffsets((int) direction.getUDirection()[0], (int) direction.getUDirection()[1], (int) direction.getUDirection()[2]),
                     Direction.fromOffsets((int) direction.getVDirection()[0], (int) direction.getVDirection()[1], (int) direction.getVDirection()[2])
             );
-
-            return blockFace;
         }
 
         public static BlockFace of(

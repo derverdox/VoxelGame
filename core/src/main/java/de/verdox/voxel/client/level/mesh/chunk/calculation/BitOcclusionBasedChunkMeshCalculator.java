@@ -2,42 +2,63 @@ package de.verdox.voxel.client.level.mesh.chunk.calculation;
 
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
-import de.verdox.voxel.client.level.mesh.block.BlockRenderer;
-import de.verdox.voxel.client.level.mesh.chunk.BlockFaceStorage;
+import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorage;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.util.Benchmark;
 import de.verdox.voxel.shared.util.Direction;
-import de.verdox.voxel.shared.util.LightUtil;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator {
+    private static final long startTime = System.nanoTime();
+    private static final AtomicLong chunksProcessed = new AtomicLong();
 
     @Override
-    public BlockFaceStorage calculateChunkMesh(BlockFaceStorage blockFaces, ClientChunk chunk, float chunkOffsetX, float chunkOffsetY, float chunkOffsetZ) {
-        if (chunk.isEmpty()) {
-            return null;
+    public void calculateChunkMesh(TerrainFaceStorage.ChunkFaceStorage blockFaces, ClientChunk chunkBase, int lodLevel) {
+        if (chunkBase.isEmpty()) {
+            return;
+        }
+        Benchmark benchmark = new Benchmark(1);
+        benchmark.start();
+
+        ChunkBase<?> lookupChunk = chunkBase;
+        int sx = chunkBase.getBlockSizeX();
+        int sy = chunkBase.getBlockSizeY();
+        int sz = chunkBase.getBlockSizeZ();
+
+        if (lodLevel > 0) {
+            lookupChunk = chunkBase.getLodChunk(1);
+            sx = lookupChunk.getBlockSizeX();
+            sy = lookupChunk.getBlockSizeY();
+            sz = lookupChunk.getBlockSizeZ();
         }
 
-        int sx = chunk.getWorld().getChunkSizeX();
-        int sy = chunk.getWorld().getChunkSizeY();
-        int sz = chunk.getWorld().getChunkSizeZ();
 
-        OccupancyMask occupancyMask = chunk.getChunkOccupancyMask();
+        OccupancyMask occupancyMask = lodLevel == 0 ? chunkBase.getChunkOccupancyMask() : chunkBase.getLodChunk(lodLevel).getChunkOccupancyMask();
 
+        benchmark.startSection("Extract occupancy masks");
         OccupancyMask[] neighOcc = new OccupancyMask[6];
         for (int i = 0; i < Direction.values().length; i++) {
             Direction d = Direction.values()[i];
-            ClientChunk nc = chunk.getWorld().getChunk(chunk.getChunkX() + d.getOffsetX(), chunk.getChunkY() + d.getOffsetY(), chunk.getChunkZ() + d.getOffsetZ());
+            ClientChunk nc = chunkBase.getWorld().getChunk(chunkBase.getChunkX() + d.getOffsetX(), chunkBase.getChunkY() + d.getOffsetY(), chunkBase.getChunkZ() + d.getOffsetZ());
             if (nc != null) {
-                neighOcc[i] = nc.getChunkOccupancyMask();
+                neighOcc[i] = lodLevel == 0 ? nc.getChunkOccupancyMask() : nc.getLodChunk(lodLevel).getChunkOccupancyMask();
             } else {
                 neighOcc[i] = null;
             }
         }
+        benchmark.endSection();
 
+        long total = 0;
+
+        benchmark.startSection("Calculate faces");
         // 3) Main mesh loop with early‐outs and inline bit‐ops
+
         for (int dirId = 0; dirId < Direction.values().length; dirId++) {
+            int counter = 0;
             // skip entire face‐direction if fully occluded
             /*            if ((occupancyMask.getSideMask() & (1L << dirId)) != 0) continue;*/
 
@@ -45,8 +66,8 @@ public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator
             OccupancyMask neighborOcclusionMap = neighOcc[dirId];
             int dx = d.getOffsetX(), dy = d.getOffsetY(), dz = d.getOffsetZ();
 
-            for (int lightLookupX = 0; lightLookupX < sx; lightLookupX++) {
-                for (int lightLookupY = 0; lightLookupY < sy; lightLookupY++) {
+            for (int lightLookupX = 0; lightLookupX < sx; lightLookupX += 1) {
+                for (int lightLookupY = 0; lightLookupY < sy; lightLookupY += 1) {
                     long zColumn = occupancyMask.getZColumn(lightLookupX, lightLookupY);
 
                     long bits = switch (d) {
@@ -62,77 +83,74 @@ public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator
                         case NORTH -> zColumn & ~(zColumn << 1);
                     };
 
-                    // emit faces for each set bit in bits
+                    // emit lod0 for each set bit in bits
+
+                    long start = System.currentTimeMillis();
+
                     while (bits != 0L) {
                         int lightLookupZ = Long.numberOfTrailingZeros(bits);
                         bits &= ~(1L << lightLookupZ);
 
                         // boundary neighbor check: if at chunk edge, consult nOcc
-                        if ((lightLookupX + dx < 0 || lightLookupX + dx >= sx || lightLookupY + dy < 0 || lightLookupY + dy >= sy || lightLookupZ + dz < 0 || lightLookupZ + dz >= sz) && (neighborOcclusionMap == null || ((neighborOcclusionMap.getZColumn(chunk.localX(lightLookupX + dx), chunk.localY(lightLookupY + dy)) >>> chunk.localZ(lightLookupZ + dz)) & 1L) != 0L)) {
+                        if ((lightLookupX + dx < 0 ||
+                                lightLookupX + dx >= sx ||
+                                lightLookupY + dy < 0 ||
+                                lightLookupY + dy >= sy ||
+                                lightLookupZ + dz < 0 ||
+                                lightLookupZ + dz >= sz)
+                                && (neighborOcclusionMap == null ||
+                                ((neighborOcclusionMap.getZColumn(lookupChunk.localX(lightLookupX + dx), lookupChunk.localY(lightLookupY + dy))
+                                        >>> lookupChunk.localZ(lightLookupZ + dz)) & 1L) != 0L)) {
                             continue;
                         }
 
                         // actually add face
-                        BlockBase block = chunk.getBlockAt(lightLookupX, lightLookupY, lightLookupZ);
-                        var faces = block.getModel()
-                                .getBlockModelType()
-                                .findByNormal(dx, dy, dz);
+                        BlockBase block = lookupChunk.getBlockAt(lightLookupX, lightLookupY, lightLookupZ);
+                        var faces = block.getModel().getBlockModelType().findByNormal(dx, dy, dz);
 
-                        Direction direction = Direction.fromOffsets(dx, dy, dz);
 
-                        int lodLevel = 0;
-                        int lodStep = 1 << lodLevel;
-
-                        boolean skip = false;
-                        switch (direction) {
-                            case UP:
-                            case DOWN:
-                                // Quad liegt in XZ-Ebene, Y konstant
-                                if (lightLookupX % lodStep != 0 || lightLookupZ % lodStep != 0)
-                                    skip = true;
-                                break;
-                            case NORTH:
-                            case SOUTH:
-                                // Quad liegt in XY-Ebene, Z konstant
-                                if (lightLookupX % lodStep != 0 || lightLookupY % lodStep != 0)
-                                    skip = true;
-                                break;
-                            case EAST:
-                            case WEST:
-                                // Quad liegt in YZ-Ebene, X konstant
-                                if (lightLookupY % lodStep != 0 || lightLookupZ % lodStep != 0)
-                                    skip = true;
-                                break;
+                        if (block.equals(Blocks.AIR)) {
+                            continue;
                         }
-                        if (skip) continue;
+
+
 
                         for (var face : faces) {
-
-                            ResourceLocation name = block == Blocks.AIR ? null
-                                    : block.getModel().getTextureOfFace(
+                            ResourceLocation name = block.getModel().getTextureOfFace(
                                     block.getModel()
                                             .getBlockModelType()
                                             .getNameOfFace(face));
 
-                            int faceXInMesh = (int) (lightLookupX + chunkOffsetX);
-                            int faceYInMesh = (int) (lightLookupY + chunkOffsetY);
-                            int faceZInMesh = (int) (lightLookupZ + chunkOffsetZ);
-
-
-                            blockFaces.addFace(BlockRenderer.generateBlockFace(chunk, name, face,
+                            blockFaces.generateFace(lookupChunk, name, face,
+                                    (byte) lodLevel,
                                     lightLookupX,
                                     lightLookupY,
-                                    lightLookupZ,
-                                    faceXInMesh,
-                                    faceYInMesh,
-                                    faceZInMesh,
-                                    lodLevel)
-                            );
+                                    lightLookupZ);
+                            counter++;
+
                         }
                     }
+                    long end = System.currentTimeMillis() - start;
+                    total += end;
                 }
             }
         }
-        return blockFaces;
+
+        benchmark.endSection();
+
+        // 1) Chunk‑Zähler hochzählen
+        long processed = chunksProcessed.incrementAndGet();
+
+        // 2) Alle 50 Chunks einmal pro Sekunde loggen
+/*        if (processed % 50 == 0) {
+            long elapsedNs = System.nanoTime() - startTime;
+            double elapsedSec = elapsedNs / 1_000_000_000.0;
+            double throughput = processed / elapsedSec;
+            System.out.printf(
+                    "[MeshCalculator] Chunks: %d, Time: %.1fs, Throughput: %.1f chunks/s%n",
+                    processed, elapsedSec, throughput);
+        }*/
+
+        benchmark.end();
     }
 }

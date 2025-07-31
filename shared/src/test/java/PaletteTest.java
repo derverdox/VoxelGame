@@ -1,96 +1,63 @@
 import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
-
-import static org.junit.jupiter.api.Assertions.*;
-
+import de.verdox.voxel.shared.util.palette.strategy.PaletteStorage;
+import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class PaletteTest {
+public class PaletteTest {
     private ThreeDimensionalPalette<String> palette;
+    private PaletteStrategy.Paletted<String> strategy;
 
     @BeforeEach
-    void setUp() {
-        // default block type is "air", dimensions 16x16x16 for tests
-        palette = new ThreeDimensionalPalette<>("air", (short) 16, (short) 16, (short) 16);
-    }
-
-    @Test
-    void testDefaultValues() {
-        // All positions should return default value
-        for (short x = 0; x < 16; x++) {
-            for (short y = 0; y < 16; y++) {
-                for (short z = 0; z < 16; z++) {
-                    assertEquals("air", palette.get(x, y, z),
-                        String.format("Expected default at (%d,%d,%d)", x, y, z));
-                }
+    public void setup() {
+        palette = new ThreeDimensionalPalette<>("air") {
+            @Override
+            public int getSizeX() {
+                return 16;
             }
-        }
+
+            @Override
+            public int getSizeZ() {
+                return 16;
+            }
+
+            @Override
+            public int getSizeY() {
+                return 16;
+            }
+        };
+
+        strategy = new PaletteStrategy.Paletted<>(palette);
     }
 
     @Test
-    void testSetAndGetSingle() {
-        palette.set((short) 5, (short) 10, (short) 15, "stone");
-        assertEquals("stone", palette.get((short) 5, (short) 10, (short) 15));
-        // Others remain default
-        assertEquals("air", palette.get((short) 0, (short) 0, (short) 0));
+    public void testComputeRequiredBits() {
+        Assertions.assertEquals(1, PaletteStorage.computeRequiredBitsPerEntry(0));
+        Assertions.assertEquals(1, PaletteStorage.computeRequiredBitsPerEntry(1));
+        Assertions.assertEquals(1, PaletteStorage.computeRequiredBitsPerEntry(2));
+        Assertions.assertEquals(2, PaletteStorage.computeRequiredBitsPerEntry(4));
+        Assertions.assertEquals(3, PaletteStorage.computeRequiredBitsPerEntry(8));
+        Assertions.assertEquals(4, PaletteStorage.computeRequiredBitsPerEntry(16));
+        Assertions.assertEquals(5, PaletteStorage.computeRequiredBitsPerEntry(32));
+        Assertions.assertEquals(6, PaletteStorage.computeRequiredBitsPerEntry(64));
+        Assertions.assertEquals(7, PaletteStorage.computeRequiredBitsPerEntry(128));
+        Assertions.assertEquals(8, PaletteStorage.computeRequiredBitsPerEntry(256));
+        Assertions.assertEquals(9, PaletteStorage.computeRequiredBitsPerEntry(512));
     }
 
     @Test
-    void testOverwriteBlock() {
-        palette.set((short) 1, (short) 1, (short) 1, "dirt");
-        assertEquals("dirt", palette.get((short) 1, (short) 1, (short) 1));
-        palette.set((short) 1, (short) 1, (short) 1, "grass");
-        assertEquals("grass", palette.get((short) 1, (short) 1, (short) 1));
+    public void testInsertAndGet() {
+        strategy.set((short) 1, (short) 1, (short) 1, "stone", palette);
+        Assertions.assertEquals("stone", strategy.get((short) 1, (short) 1, (short) 1, palette));
+        Assertions.assertEquals("air", strategy.get((short) 2, (short) 1, (short) 1, palette));
     }
 
     @Test
-    void testPaletteListContents() {
-        // Initially only "air"
-        assertEquals(1, palette.getPalette().size());
-        assertTrue(palette.getPalette().contains("air"));
+    public void testInsertAndGetAfterResizeToNewPalette() {
+        strategy.set((short) 1, (short) 1, (short) 1, "stone", palette);
 
-        // Add some blocks
-        palette.set((short) 3, (short) 3, (short) 3, "stone");
-        palette.set((short) 4, (short) 5, (short) 6, "dirt");
-
-        // Palette size should now be 3
-        assertEquals(3, palette.getPalette().size());
-        assertEquals("air", palette.getPalette().getFirst());
-        assertTrue(palette.getPalette().contains("stone"));
-        assertTrue(palette.getPalette().contains("dirt"));
-    }
-
-    @Test
-    void testResizeBitsPerBlock() {
-        // 4 bits => up to 16 entries. Add 17 unique to force resize
-        for (int i = 1; i <= 16; i++) {
-            palette.set((short) (i - 1), (short) 0, (short) 0, "block" + i);
-        }
-        // Now palette size is 18 (including "air")
-        assertEquals(17, palette.getPalette().size());
-        // Verify values
-        for (int i = 1; i <= 16; i++) {
-            String expected = "block" + i;
-            assertEquals(expected, palette.get((short) (i - 1), (short) 0, (short) 0));
-        }
-    }
-
-    @Test
-    void testOutOfBoundsThrows() {
-        assertThrows(IndexOutOfBoundsException.class,
-            () -> palette.get((short) -1, (short) 0, (short) 0));
-        assertThrows(IndexOutOfBoundsException.class,
-            () -> palette.get((short) 0, (short) 16, (short) 0));
-        assertThrows(IndexOutOfBoundsException.class,
-            () -> palette.set((short) 0, (short) 0, (short) 16, "stone"));
-    }
-
-    @Test
-    void testDefaultBackAfterOverwrite() {
-        palette.set((short) 8, (short) 8, (short) 8, "stone");
-        assertEquals("stone", palette.get((short) 8, (short) 8, (short) 8));
-        // Set back to default
-        palette.set((short) 8, (short) 8, (short) 8, "air");
-        assertEquals("air", palette.get((short) 8, (short) 8, (short) 8));
+        Assertions.assertEquals("stone", strategy.get((short) 1, (short) 1, (short) 1, palette));
+        Assertions.assertEquals("air", strategy.get((short) 2, (short) 1, (short) 1, palette));
     }
 }

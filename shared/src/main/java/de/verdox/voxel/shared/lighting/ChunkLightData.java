@@ -3,12 +3,15 @@ package de.verdox.voxel.shared.lighting;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.data.ChunkData;
 import de.verdox.voxel.shared.network.packet.serializer.NetworkSerializable;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Arrays;
 
-public class ChunkLightData implements NetworkSerializable {
+public class ChunkLightData implements NetworkSerializable, ChunkData<ChunkBase<?>> {
     @Override
     public void write(Kryo kryo, Output output) {
         kryo.writeObject(output, state);
@@ -34,29 +37,25 @@ public class ChunkLightData implements NetworkSerializable {
 
     public enum LightState {UNINITIALIZED, UNIFORM, DETAILED}
 
-    private final int sizeX, sizeY, sizeZ, totalSize;
+    @Getter
+    @Setter
+    private ChunkBase<?> owner;
     @Getter
     private LightState state = LightState.UNINITIALIZED;
+    @Getter
     private short uniformPacked = 0;
     private short[] data;
 
-    public ChunkLightData(int sizeX, int sizeY, int sizeZ) {
-        this.sizeX = sizeX;
-        this.sizeY = sizeY;
-        this.sizeZ = sizeZ;
-        this.totalSize = sizeX * sizeY * sizeZ;
-    }
-
     private int idx(int x, int y, int z) {
-        return x + sizeX * (y + sizeY * z);
+        return x + owner.getSizeX() * (y + owner.getSizeY() * z);
     }
 
     private short pack(int sky, int r, int g, int b) {
         return (short) (
-            ((sky & 0xF) << 12) |
-                ((r & 0xF) << 8) |
-                ((g & 0xF) << 4) |
-                (b & 0xF)
+                ((sky & 0xF) << 12) |
+                        ((r & 0xF) << 8) |
+                        ((g & 0xF) << 4) |
+                        (b & 0xF)
         );
     }
 
@@ -76,11 +75,9 @@ public class ChunkLightData implements NetworkSerializable {
         return packed & 0xF;
     }
 
-    // --- State-Handling ---
     private void ensureDetailed() {
         if (state == LightState.DETAILED) return;
-        // von UNIFORM → DETAILED: Daten allokieren und füllen
-        data = new short[totalSize];
+        data = new short[owner.getSizeX() * owner.getSizeY() * owner.getSizeZ()];
         Arrays.fill(data, uniformPacked);
         state = LightState.DETAILED;
     }
@@ -109,6 +106,16 @@ public class ChunkLightData implements NetworkSerializable {
                 data[idx(x, y, z)] = packed;
                 break;
         }
+    }
+
+    public void setUniform(byte sky, byte red, byte green, byte blue) {
+        setUniform(pack(sky, red, green, blue));
+    }
+
+    public void setUniform(short uniformPacked) {
+        this.state = LightState.UNIFORM;
+        this.data = null;
+        this.uniformPacked = uniformPacked;
     }
 
     public void setSkyLight(int x, int y, int z, byte sky) {

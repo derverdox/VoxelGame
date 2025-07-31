@@ -1,10 +1,10 @@
 package de.verdox.voxel.shared.level;
 
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
-import de.verdox.voxel.shared.level.chunk.DepthMap;
-import de.verdox.voxel.shared.level.chunk.HeightMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
+import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
 import lombok.Getter;
 
 import java.util.UUID;
@@ -24,9 +24,9 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
     public World(UUID uuid) {
         this.uuid = uuid;
 
-        chunkSizeX = 16;
-        chunkSizeY = 16;
-        chunkSizeZ = 16;
+        chunkSizeX = 64;
+        chunkSizeY = 64;
+        chunkSizeZ = 64;
     }
 
     // For packets only
@@ -62,5 +62,5 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
 
     protected abstract void onChunkUpdate(CHUNK chunk, byte localX, byte localY, byte localZ, boolean wasEmptyBefore);
 
-    public abstract CHUNK constructChunkObject(int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData);
+    public abstract CHUNK constructChunkObject(int chunkX, int chunkY, int chunkZ);
 }

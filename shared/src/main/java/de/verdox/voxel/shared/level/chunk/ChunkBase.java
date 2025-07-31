@@ -5,42 +5,53 @@ import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.data.types.Registries;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.util.palette.ChunkBlockPalette;
+import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
 import lombok.Getter;
 
 @Getter
-public abstract class ChunkBase<WORLD extends World> {
-
-    private final WORLD world;
+public abstract class ChunkBase<WORLD extends World<?>> implements Box {
     private final ChunkBlockPalette chunkBlockPalette;
-    private final int chunkX;
-    private final int chunkY;
-    private final int chunkZ;
-    private final long chunkKey;
-
     private final HeightMap heightmap;
     private final DepthMap depthMap;
-
-    private boolean isEmpty = true;
     private final ChunkLightData chunkLightData;
 
     public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ) {
-        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR.findKey(), world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()), new HeightMap(world.getChunkSizeX(), world.getChunkSizeZ()), new DepthMap(world.getChunkSizeX(), world.getChunkSizeZ()), new ChunkLightData(world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ()));
+        this(new ChunkBlockPalette(Blocks.AIR.findKey()), new HeightMap(), new DepthMap(), new ChunkLightData());
     }
 
-    public ChunkBase(WORLD world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
-        this.world = world;
-        this.chunkX = chunkX;
-        this.chunkY = chunkY;
-        this.chunkZ = chunkZ;
-        this.chunkKey = computeChunkKey(chunkX, chunkY, chunkZ);
-
+    private ChunkBase(ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {
         this.chunkBlockPalette = chunkBlockPalette;
         this.heightmap = heightMap;
         this.depthMap = depthMap;
-        isEmpty = this.chunkBlockPalette.getBlockToId().size() == 1;
         this.chunkLightData = chunkLightData;
+
+        this.chunkBlockPalette.setOwner(this);
+        this.heightmap.setOwner(this);
+        this.depthMap.setOwner(this);
+        this.chunkLightData.setOwner(this);
+    }
+
+    public abstract int getChunkX();
+
+    public abstract int getChunkY();
+
+    public abstract int getChunkZ();
+
+    public abstract WORLD getWorld();
+
+    public boolean isEmpty() {
+        return this.chunkBlockPalette.getPaletteSize() == 1;
+    }
+
+    public long getChunkKey() {
+        return computeChunkKey(getChunkX(), getChunkY(), getChunkZ());
+    }
+
+    public void init() {
+
     }
 
     public BlockBase getBlockAt(int localX, int localY, int localZ) {
@@ -52,19 +63,23 @@ public abstract class ChunkBase<WORLD extends World> {
         chunkBlockPalette.set((short) localX, (short) localY, (short) localZ, newBlock.findKey());
 
         if (!newBlock.equals(Blocks.AIR)) {
-            isEmpty = false;
 
-            byte maxHeight = heightmap.get(localX, localZ);
-            byte minHeight = depthMap.get(localX, localZ);
-
-            if (localY > maxHeight) {
-                heightmap.set(localX, localZ, (byte) localY);
+            if (heightmap != null) {
+                byte maxHeight = heightmap.get(localX, localZ);
+                if (localY > maxHeight) {
+                    heightmap.set(localX, localZ, (byte) localY);
+                }
             }
-            if (localY < minHeight) {
-                depthMap.set(localX, localZ, (byte) localY);
+
+
+            if (depthMap != null) {
+                byte minHeight = depthMap.get(localX, localZ);
+                if (localY < minHeight) {
+                    depthMap.set(localX, localZ, (byte) localY);
+                }
             }
         } else {
-            if (heightmap.get(localX, localZ) == localY) {
+            if (heightmap != null && heightmap.get(localX, localZ) == localY) {
                 int newHeight = -1;
 
                 // Find next solid block that is the highest that is not air
@@ -79,10 +94,10 @@ public abstract class ChunkBase<WORLD extends World> {
                 heightmap.set(localX, localZ, (byte) Math.max(newHeight, 0));
             }
 
-            if (depthMap.get(localX, localZ) == localY) {
+            if (depthMap != null && depthMap.get(localX, localZ) == localY) {
                 int newDepth = -1;
 
-                int chunkHeight = world.getChunkSizeY();
+                int chunkHeight = getBlockSizeY();
                 for (int y = localY + 1; y < chunkHeight; y++) {
                     BlockBase above = getBlockAt(localX, y, localZ);
                     if (!above.equals(Blocks.AIR)) {
@@ -98,27 +113,27 @@ public abstract class ChunkBase<WORLD extends World> {
     }
 
     public int getBlockSizeX() {
-        return world.getChunkSizeX();
+        return getWorld().getChunkSizeX();
     }
 
     public int getBlockSizeY() {
-        return world.getChunkSizeY();
+        return getWorld().getChunkSizeY();
     }
 
     public int getBlockSizeZ() {
-        return world.getChunkSizeZ();
+        return getWorld().getChunkSizeZ();
     }
 
     public int localX(int globalX) {
-        return Math.floorMod(globalX, world.getChunkSizeX());
+        return Math.floorMod(globalX, getBlockSizeX());
     }
 
     public int localY(int globalY) {
-        return Math.floorMod(globalY, world.getChunkSizeY());
+        return Math.floorMod(globalY, getBlockSizeY());
     }
 
     public int localZ(int globalZ) {
-        return Math.floorMod(globalZ, world.getChunkSizeZ());
+        return Math.floorMod(globalZ, getBlockSizeZ());
     }
 
     public static int chunkX(World<?> world, int globalX) {
@@ -146,20 +161,20 @@ public abstract class ChunkBase<WORLD extends World> {
     }
 
     public int globalX(int localX) {
-        return chunkX * world.getChunkSizeX() + localX;
+        return getChunkX() * getBlockSizeX() + localX(localX);
     }
 
     public int globalY(int localY) {
-        return chunkY * world.getChunkSizeY() + localY;
+        return getChunkY() * getBlockSizeY() + localY(localY);
     }
 
     public int globalZ(int localZ) {
-        return chunkZ * world.getChunkSizeZ() + localZ;
+        return getChunkZ() * getBlockSizeZ() + localZ(localZ);
     }
 
     @Override
     public String toString() {
-        return "{" + chunkX + ", " + chunkY + ", " + chunkZ + "}";
+        return "{" + getChunkX() + ", " + getChunkY() + ", " + getChunkZ() + "}";
     }
 
     public static long computeChunkKey(int chunkX, int chunkY, int chunkZ) {
@@ -191,5 +206,20 @@ public abstract class ChunkBase<WORLD extends World> {
             z |= ~0x1FFFFF;
         }
         return z;
+    }
+
+    @Override
+    public int getSizeX() {
+        return getBlockSizeX();
+    }
+
+    @Override
+    public int getSizeY() {
+        return getBlockSizeY();
+    }
+
+    @Override
+    public int getSizeZ() {
+        return getBlockSizeZ();
     }
 }

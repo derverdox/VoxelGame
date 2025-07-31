@@ -49,4 +49,17 @@ public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
     public long getRegionKey(int chunkX, int chunkY, int chunkZ) {
         return ChunkBase.computeChunkKey(getRegionX(chunkX), getRegionY(chunkY), getRegionZ(chunkZ));
     }
+
+    public int getIndexInRegion(int chunkX, int chunkY, int chunkZ) {
+        int xIndex = chunkX - getMinChunkX(getRegionX(chunkX));
+        int yIndex = chunkY - getMinChunkY(getRegionY(chunkY));
+        int zIndex = chunkZ - getMinChunkZ(getRegionZ(chunkZ));
+
+        int sizeX = regionSizeX();
+        int sizeZ = regionSizeZ();
+
+        return xIndex
+                + zIndex * sizeX
+                + yIndex * (sizeX * sizeZ);
+    }
 }

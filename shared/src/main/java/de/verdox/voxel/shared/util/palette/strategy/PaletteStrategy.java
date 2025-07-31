@@ -4,11 +4,15 @@ import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.*;
 
 public interface PaletteStrategy<T> {
-    T get(short x, short y, short z);
+    T get(short x, short y, short z, ThreeDimensionalPalette<T> context);
 
     void set(short x, short y, short z, T block, ThreeDimensionalPalette<T> context);
 
@@ -17,21 +21,18 @@ public interface PaletteStrategy<T> {
     void read(Kryo kryo, Input input, ThreeDimensionalPalette<T> context);
 
     class Empty<T> implements PaletteStrategy<T> {
-        private final ThreeDimensionalPalette<T> parent;
 
-        public Empty(ThreeDimensionalPalette<T> parent) {
-            this.parent = parent;
+        public Empty() {
         }
 
         @Override
-        public T get(short x, short y, short z) {
-            return parent.getDefaultValue();
+        public T get(short x, short y, short z, ThreeDimensionalPalette<T> context) {
+            return context.getDefaultValue();
         }
 
         @Override
         public void set(short x, short y, short z, T block, ThreeDimensionalPalette<T> ctx) {
-            if (!block.equals(parent.getDefaultValue())) {
-                // erster Nicht-Default → direkt in die Paletted-Strategie
+            if (!block.equals(ctx.getDefaultValue())) {
                 ctx.setStrategy(new Paletted<>(ctx), ThreeDimensionalPalette.State.PALETTED);
                 ctx.getStrategy().set(x, y, z, block, ctx);
             }
@@ -43,11 +44,12 @@ public interface PaletteStrategy<T> {
 
         @Override
         public void read(Kryo kryo, Input input, ThreeDimensionalPalette<T> ctx) {
-            ctx.setStrategy(new Empty<>(ctx), ThreeDimensionalPalette.State.EMPTY);
+            ctx.setStrategy(new Empty<>(), ThreeDimensionalPalette.State.EMPTY);
         }
     }
 
     class Uniform<T> implements PaletteStrategy<T> {
+        @Getter
         private final T uniformValue;
 
         public Uniform(T uniformValue) {
@@ -55,15 +57,17 @@ public interface PaletteStrategy<T> {
         }
 
         @Override
-        public T get(short x, short y, short z) {
+        public T get(short x, short y, short z, ThreeDimensionalPalette<T> ctx) {
             return uniformValue;
         }
 
         @Override
         public void set(short x, short y, short z, T block, ThreeDimensionalPalette<T> ctx) {
             if (!block.equals(uniformValue)) {
-                ctx.setStrategy(new Paletted<>(ctx), ThreeDimensionalPalette.State.PALETTED);
-                ctx.getStrategy().set(x, y, z, block, ctx);
+                Paletted<T> paletted = new Paletted<>(ctx);
+                ctx.setStrategy(paletted, ThreeDimensionalPalette.State.PALETTED);
+                paletted.fill(uniformValue);
+                paletted.set(x, y, z, block, ctx);
             }
         }
 
@@ -80,57 +84,105 @@ public interface PaletteStrategy<T> {
     }
 
     class Paletted<T> implements PaletteStrategy<T> {
+        @Getter
         private final ThreeDimensionalPalette<T> ctx;
-        private final int totalSize;
+        @Getter
+        private int totalSize;
+        @Getter
+        private PaletteStorage storage;
 
         private Map<T, Integer> blockToId;
+        @Getter
         private List<T> idToBlock;
+        @Getter
+        @Setter
         private int bitsPerBlock;
-        private long[] data;
         private int nonDefaultCount;
 
         public Paletted(ThreeDimensionalPalette<T> ctx) {
             this.ctx = ctx;
-            this.totalSize = ctx.getTotalSize();
             initFromContext();
+        }
+
+        public int getPaletteSize() {
+            return idToBlock.size();
         }
 
         /**
          * Initialisiert die Palette mit ctx.defaultValue (ID 0).
          */
         private void initFromContext() {
-            blockToId = new HashMap<>();
-            idToBlock = new ArrayList<>();
+            blockToId = new Object2IntOpenHashMap<>();
+            idToBlock = new ObjectArrayList<>();
             // Default-Wert immer ID 0
             blockToId.put(ctx.getDefaultValue(), 0);
             idToBlock.add(ctx.getDefaultValue());
-            bitsPerBlock = 4;
-            data = new long[((totalSize * bitsPerBlock) + 63) >>> 6];
-            // alles default
-            Arrays.fill(data, 0L);
+            bitsPerBlock = 1;
+            totalSize = ctx.getSizeX() * ctx.getSizeY() * ctx.getSizeZ();
+            storage = PaletteStorage.create(this);
             nonDefaultCount = 0;
         }
 
         @Override
-        public T get(short x, short y, short z) {
+        public T get(short x, short y, short z, ThreeDimensionalPalette<T> ctx) {
             int idx = ctx.computeIndex(x, y, z);
-            int id = readPaletteIndex(idx);
+            int id = storage.read(idx);
             return idToBlock.get(id);
+        }
+
+        public void fill(T block) {
+            blockToId.clear();
+            idToBlock.clear();
+            nonDefaultCount = totalSize;
+
+            blockToId.put(ctx.getDefaultValue(), 0);
+            idToBlock.add(ctx.getDefaultValue());
+
+            int id = idToBlock.size();
+            idToBlock.add(block);
+            blockToId.put(block, id);
+            storage.fill(id);
+        }
+
+        public void remap() {
+            int oldSize = idToBlock.size();
+            List<T> newIdToBlock = new ArrayList<>();
+            int[] reMap = new int[oldSize];
+            for (int oldId = 0; oldId < oldSize; oldId++) {
+                T oldEntry = idToBlock.get(oldId);
+                if (oldEntry == null) {
+                    continue;
+                }
+                int newId = newIdToBlock.size();
+                newIdToBlock.add(oldEntry);
+                reMap[oldId] = newId;
+            }
+
+            for (int i = 0; i < totalSize; i++) {
+                int oldId = storage.read(i);
+                storage.write(i, reMap[oldId]);
+            }
+
+            blockToId.clear();
+            this.idToBlock = newIdToBlock;
+            for (int i = 0; i < this.idToBlock.size(); i++) {
+                T value = this.idToBlock.get(i);
+                blockToId.put(value, i);
+            }
         }
 
         @Override
         public void set(short x, short y, short z, T block, ThreeDimensionalPalette<T> ctx) {
             int idx = ctx.computeIndex(x, y, z);
-            int oldId = readPaletteIndex(idx);
+            int oldId = storage.read(idx);
             final int defaultId = 0;
 
-            // neue ID holen/erzeugen
             Integer id = blockToId.get(block);
             if (id == null) {
                 id = idToBlock.size();
                 idToBlock.add(block);
                 blockToId.put(block, id);
-                resizeIfNeeded();
+                storage = PaletteStorage.resizeIfNeeded(this, storage);
             }
 
             boolean wasDefault = (oldId == defaultId);
@@ -138,9 +190,8 @@ public interface PaletteStrategy<T> {
             if (wasDefault && !nowDefault) nonDefaultCount++;
             else if (!wasDefault && nowDefault) nonDefaultCount--;
 
-            writePaletteIndex(idx, id);
+            storage.write(idx, id);
 
-            // Falls jetzt wirklich alle Zellen non-default sind, zurück in UNIFORM
             if (nonDefaultCount == totalSize) {
                 ctx.setStrategy(new Uniform<>(block), ThreeDimensionalPalette.State.UNIFORM);
             }
@@ -148,15 +199,13 @@ public interface PaletteStrategy<T> {
 
         @Override
         public void write(Kryo kryo, Output output) {
+            remap();
             output.writeInt(idToBlock.size(), true);
             for (T entry : idToBlock) {
                 kryo.writeClassAndObject(output, entry);
             }
             output.writeInt(bitsPerBlock, true);
-            output.writeInt(data.length, true);
-            for (long word : data) {
-                output.writeLong(word);
-            }
+            storage.write(kryo, output);
         }
 
         @Override
@@ -175,65 +224,16 @@ public interface PaletteStrategy<T> {
                 idToBlock.add(block);
             }
             bitsPerBlock = input.readInt(true);
-            int len = input.readInt(true);
-            data = new long[len];
-            for (int i = 0; i < len; i++) {
-                data[i] = input.readLong();
-            }
+
+            storage = PaletteStorage.create(this, bitsPerBlock);
+            storage.read(kryo, input);
 
             // nonDefaultCount neu berechnen
             nonDefaultCount = 0;
             for (int i = 0; i < totalSize; i++) {
-                if (readPaletteIndex(i) != 0) {
+                if (storage.read(i) != 0) {
                     nonDefaultCount++;
                 }
-            }
-        }
-
-        // --- Hilfsmethoden für bit-gepackten Zugriff ---
-
-        private void resizeIfNeeded() {
-            int requiredBits = Math.max(4, 32 - Integer.numberOfLeadingZeros(idToBlock.size() - 1));
-            if (requiredBits != bitsPerBlock) {
-                long[] newData = new long[((totalSize * requiredBits) + 63) >>> 6];
-                // alte Werte neu packen
-                for (int i = 0; i < totalSize; i++) {
-                    int oldId = readPaletteIndex(i);
-                    writeBits(newData, i, oldId, requiredBits);
-                }
-                bitsPerBlock = requiredBits;
-                data = newData;
-            }
-        }
-
-        private int readPaletteIndex(int cellIndex) {
-            int bitPos = cellIndex * bitsPerBlock;
-            int longPos = bitPos >>> 6;
-            int offset = bitPos & 63;
-            long segment = data[longPos] >>> offset;
-            if (offset + bitsPerBlock > 64) {
-                int overflow = offset + bitsPerBlock - 64;
-                segment |= data[longPos + 1] << (64 - offset);
-            }
-            return (int) (segment & ((1L << bitsPerBlock) - 1));
-        }
-
-        private void writePaletteIndex(int cellIndex, int id) {
-            writeBits(data, cellIndex, id, bitsPerBlock);
-        }
-
-        private void writeBits(long[] target, int cellIndex, int value, int width) {
-            int bitPos = cellIndex * width;
-            int longPos = bitPos >>> 6;
-            int offset = bitPos & 63;
-            long mask = ((1L << width) - 1L) << offset;
-            target[longPos] = (target[longPos] & ~mask) |
-                    (((long) value << offset) & mask);
-            int overflow = offset + width - 64;
-            if (overflow > 0) {
-                long mask2 = (1L << overflow) - 1L;
-                target[longPos + 1] = (target[longPos + 1] & ~mask2) |
-                        ((long) value >>> (width - overflow) & mask2);
             }
         }
     }
