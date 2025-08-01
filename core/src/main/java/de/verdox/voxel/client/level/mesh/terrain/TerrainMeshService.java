@@ -1,10 +1,13 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
+import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorage;
 import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorageImpl;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.client.renderer.ClientRenderer;
+import de.verdox.voxel.client.renderer.DebugScreen;
+import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
 import de.verdox.voxel.shared.util.ThreadUtil;
@@ -16,8 +19,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class TerrainMeshService {
-    private final ExecutorService executor = Executors.newFixedThreadPool(4, ThreadUtil.createFactoryForName("Meshing Thread", true));
+public class TerrainMeshService implements DebuggableOnScreen {
+    private final ExecutorService executor = Executors.newFixedThreadPool(1, ThreadUtil.createFactoryForName("Meshing Thread", true));
     private final TerrainManager terrainManager;
     private final ChunkMeshCalculator chunkMeshCalculator;
     private final Long2ObjectMap<TerrainMeshJob> jobs = new Long2ObjectOpenHashMap<>();
@@ -25,10 +28,14 @@ public class TerrainMeshService {
     public TerrainMeshService(TerrainManager terrainManager, ChunkMeshCalculator chunkMeshCalculator) {
         this.terrainManager = terrainManager;
         this.chunkMeshCalculator = chunkMeshCalculator;
+
+        if(ClientBase.clientRenderer != null) {
+            ClientBase.clientRenderer.getDebugScreen().attach(this);
+        }
     }
 
     public RegionBounds getBounds() {
-        return terrainManager.getMeshPipeline().getRegionBounds();
+        return terrainManager.getBounds();
     }
 
     public void createChunkMesh(TerrainRegion terrainRegion, ClientChunk chunk) {
@@ -36,7 +43,6 @@ public class TerrainMeshService {
 
         int regionLodLevel = chunk.getWorld()
                                   .computeLodLevel(terrainManager.getCenterRegionX(), terrainManager.getCenterRegionY(), terrainManager.getCenterRegionZ(), terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
-        
 
         if (!jobs.containsKey(regionKey) || jobs.get(regionKey).lodLevel != regionLodLevel) {
             jobs.put(regionKey, new TerrainMeshJob(terrainRegion, regionLodLevel));
@@ -48,6 +54,11 @@ public class TerrainMeshService {
 
     public void removeChunkMesh(TerrainRegion terrainRegion, ClientChunk chunk) {
 
+    }
+
+    @Override
+    public void debugText(DebugScreen debugScreen) {
+        debugScreen.addDebugTextLine(ChunkMeshCalculator.chunkCalculatorThroughput.format());
     }
 
     @Getter
@@ -68,9 +79,12 @@ public class TerrainMeshService {
         }
 
         public void addChunk(ClientChunk chunk) {
+            terrainRegion.checkIfChunkInRegion(chunk);
             if (skip(chunk)) {
                 return;
             }
+
+
             int offsetX = (byte) getBounds().getOffsetX(chunk.getChunkX());
             int offsetY = (byte) getBounds().getOffsetY(chunk.getChunkY());
             int offsetZ = (byte) getBounds().getOffsetZ(chunk.getChunkZ());
@@ -80,24 +94,15 @@ public class TerrainMeshService {
             }
 
             computedChunks.getAndIncrement();
-            storageOfJob.getRegionalLock().withLock(offsetX, offsetY, offsetZ, 1, () -> {
-                computeChunk(chunk, lodLevel);
 
-                for (int i = 0; i < Direction.values().length; i++) {
-                    Direction direction = Direction.values()[i];
-                    ClientChunk neighborChunk = chunk.getWorld().getChunkNeighborNow(chunk, direction);
-
-                    if (neighborChunk == null) {
-                        continue;
-                    }
-                    computeChunk(neighborChunk, lodLevel);
-                }
+            executor.submit(() -> {
+                recomputeChunksAndNeighbors(chunk, offsetX, offsetY, offsetZ);
+                terrainRegion.getOrCreateMesh().setRawBlockFaces(getStorageOfJob(), true, lodLevel);
             });
-
-            terrainRegion.getOrCreateMesh().setRawBlockFaces(getStorageOfJob(), true, lodLevel);
         }
 
         public void updateChunk(ClientChunk chunk) {
+            terrainRegion.checkIfChunkInRegion(chunk);
             if (skip(chunk)) {
                 return;
             }
@@ -106,6 +111,21 @@ public class TerrainMeshService {
             int offsetY = (byte) getBounds().getOffsetY(chunk.getChunkY());
             int offsetZ = (byte) getBounds().getOffsetZ(chunk.getChunkZ());
 
+            recomputeChunksAndNeighbors(chunk, offsetX, offsetY, offsetZ);
+        }
+
+        public void removeChunk(ClientChunk chunk) {
+            terrainRegion.checkIfChunkInRegion(chunk);
+            if (skip(chunk)) {
+                return;
+            }
+            computedChunks.getAndDecrement();
+
+            //TODO
+        }
+
+        private void recomputeChunksAndNeighbors(ClientChunk chunk, int offsetX, int offsetY, int offsetZ) {
+
             storageOfJob.getRegionalLock().withLock(offsetX, offsetY, offsetZ, 1, () -> {
                 computeChunk(chunk, lodLevel);
 
@@ -113,21 +133,12 @@ public class TerrainMeshService {
                     Direction direction = Direction.values()[i];
                     ClientChunk neighborChunk = chunk.getWorld().getChunkNeighborNow(chunk, direction);
 
-                    if (neighborChunk == null) {
+                    if (neighborChunk == null || skip(neighborChunk)) {
                         continue;
                     }
                     computeChunk(neighborChunk, lodLevel);
                 }
             });
-        }
-
-        public void removeChunk(ClientChunk chunk) {
-            if (skip(chunk)) {
-                return;
-            }
-            computedChunks.getAndDecrement();
-
-            //TODO
         }
 
         private void computeChunk(ClientChunk chunk, int lodLevel) {
@@ -140,11 +151,26 @@ public class TerrainMeshService {
         }
 
         public boolean skip(ClientChunk chunk) {
+            if (chunk.isEmpty()) {
+                return true;
+            }
+            int regionX = getBounds().getRegionX(chunk.getChunkX());
+            int regionY = getBounds().getRegionY(chunk.getChunkY());
+            int regionZ = getBounds().getRegionZ(chunk.getChunkZ());
+
+            if (regionX != terrainRegion.getRegionX() || regionY != terrainRegion.getRegionY() || regionZ != terrainRegion.getRegionZ()) {
+                return true;
+            }
+
             int offsetX = (byte) getBounds().getOffsetX(chunk.getChunkX());
             int offsetY = (byte) getBounds().getOffsetY(chunk.getChunkY());
             int offsetZ = (byte) getBounds().getOffsetZ(chunk.getChunkZ());
 
-            return chunk.isEmpty() || offsetX < 0 || offsetX >= getBounds().regionSizeX() || offsetY < 0 || offsetY >= getBounds().regionSizeY() || offsetZ < 0 || offsetZ >= getBounds().regionSizeZ();
+            if (!chunk.getWorld().hasNeighborsToAllSides(chunk)) {
+                return true;
+            }
+
+            return offsetX < 0 || offsetX >= getBounds().regionSizeX() || offsetY < 0 || offsetY >= getBounds().regionSizeY() || offsetZ < 0 || offsetZ >= getBounds().regionSizeZ();
         }
     }
 

@@ -14,7 +14,6 @@ public class TerrainRegion implements LightAccessor {
     private final TerrainManager terrainManager;
     @Getter
     private final int regionX, regionY, regionZ;
-    private final RegionBounds bounds;
     private final ClientChunk[] chunksInRegion;
     private final ClientChunk[] chunkHeighMap;
     private final ClientChunk[] chunkDepthMap;
@@ -27,16 +26,19 @@ public class TerrainRegion implements LightAccessor {
     @Setter
     private TerrainMesh terrainMesh;
 
-    public TerrainRegion(TerrainManager terrainManager, int regionX, int regionY, int regionZ, RegionBounds bounds) {
+    public TerrainRegion(TerrainManager terrainManager, int regionX, int regionY, int regionZ) {
         this.terrainManager = terrainManager;
         this.regionX = regionX;
         this.regionY = regionY;
         this.regionZ = regionZ;
-        this.bounds = bounds;
-        this.chunksInRegion = new ClientChunk[bounds.regionSizeX() * bounds.regionSizeY() * bounds.regionSizeZ()];
-        this.chunkHeighMap = new ClientChunk[bounds.regionSizeX() * bounds.regionSizeZ()];
-        this.chunkDepthMap = new ClientChunk[bounds.regionSizeX() * bounds.regionSizeZ()];
+        this.chunksInRegion = new ClientChunk[getBounds().regionSizeX() * getBounds().regionSizeY() * getBounds().regionSizeZ()];
+        this.chunkHeighMap = new ClientChunk[getBounds().regionSizeX() * getBounds().regionSizeZ()];
+        this.chunkDepthMap = new ClientChunk[getBounds().regionSizeX() * getBounds().regionSizeZ()];
         this.neighbors = new TerrainRegion[Direction.values().length];
+    }
+
+    public RegionBounds getBounds() {
+        return terrainManager.getBounds();
     }
 
     public void disposeMesh() {
@@ -71,7 +73,21 @@ public class TerrainRegion implements LightAccessor {
             airRegions += 1;
         }
 
-        terrainManager.getMeshService().createChunkMesh(this, chunk);
+        if (chunk.getWorld().hasNeighborsToAllSides(chunk)) {
+            terrainManager.getMeshService().createChunkMesh(this, chunk);
+        } else {
+            for (int i = 0; i < Direction.values().length; i++) {
+                Direction direction = Direction.values()[i];
+                ClientChunk neighbor = chunk.getWorld().getChunkNeighborNow(chunk, direction);
+                if (neighbor == null) {
+                    continue;
+                }
+                TerrainRegion neighborRegion = terrainManager.getRegionOfChunk(neighbor.getChunkX(), neighbor.getChunkY(), neighbor.getChunkZ());
+                terrainManager.getMeshService().createChunkMesh(neighborRegion, neighbor);
+            }
+        }
+
+
         computeRegionSideMask(chunk.getWorld());
 
         TerrainRegion highest = terrainManager.getHighestRegion(regionX, regionZ);
@@ -131,17 +147,17 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public int sizeX() {
-        return this.bounds.regionSizeX() * terrainManager.getWorld().getChunkSizeX();
+        return this.getBounds().regionSizeX() * terrainManager.getWorld().getChunkSizeX();
     }
 
     @Override
     public int sizeY() {
-        return this.bounds.regionSizeY() * terrainManager.getWorld().getChunkSizeY();
+        return this.getBounds().regionSizeY() * terrainManager.getWorld().getChunkSizeY();
     }
 
     @Override
     public int sizeZ() {
-        return this.bounds.regionSizeZ() * terrainManager.getWorld().getChunkSizeZ();
+        return this.getBounds().regionSizeZ() * terrainManager.getWorld().getChunkSizeZ();
     }
 
     @Override
@@ -287,10 +303,10 @@ public class TerrainRegion implements LightAccessor {
         neighbor.neighbors[direction.getOpposite().getId()] = null;
     }
 
-    private void checkIfChunkInRegion(ClientChunk chunk) {
-        int regionX = bounds.getRegionX(chunk.getChunkX());
-        int regionY = bounds.getRegionY(chunk.getChunkY());
-        int regionZ = bounds.getRegionZ(chunk.getChunkZ());
+    public void checkIfChunkInRegion(ClientChunk chunk) {
+        int regionX = getBounds().getRegionX(chunk.getChunkX());
+        int regionY = getBounds().getRegionY(chunk.getChunkY());
+        int regionZ = getBounds().getRegionZ(chunk.getChunkZ());
 
         if (regionX != this.regionX || regionY != this.regionY || regionZ != this.regionZ) {
             throw new IllegalArgumentException("The chunk " + chunk + " does not belong to this region.");
@@ -302,14 +318,14 @@ public class TerrainRegion implements LightAccessor {
     }
 
     private int getIndexInRegion(int chunkX, int chunkY, int chunkZ) {
-        return bounds.getIndexInRegion(chunkX, chunkY, chunkZ);
+        return getBounds().getIndexInRegion(chunkX, chunkY, chunkZ);
     }
 
     private int getIndexInHeightMap(int chunkX, int chunkZ) {
-        int xIndex = chunkX - bounds.getMinChunkX(regionX);
-        int zIndex = chunkZ - bounds.getMinChunkZ(regionZ);
+        int xIndex = chunkX - getBounds().getMinChunkX(regionX);
+        int zIndex = chunkZ - getBounds().getMinChunkZ(regionZ);
 
-        int sizeX = bounds.regionSizeX();
+        int sizeX = getBounds().regionSizeX();
         return xIndex + zIndex * sizeX;
     }
 
@@ -341,9 +357,9 @@ public class TerrainRegion implements LightAccessor {
         int shiftY = Math.floorDiv(regionCordY, terrainManager.getWorld().getChunkSizeY());
         int shiftZ = Math.floorDiv(regionCordZ, terrainManager.getWorld().getChunkSizeZ());
 
-        int chunkX = this.bounds.getMinChunkX(regionX) + shiftX;
-        int chunkY = this.bounds.getMinChunkY(regionY) + shiftY;
-        int chunkZ = this.bounds.getMinChunkZ(regionZ) + shiftZ;
+        int chunkX = this.getBounds().getMinChunkX(regionX) + shiftX;
+        int chunkY = this.getBounds().getMinChunkY(regionY) + shiftY;
+        int chunkZ = this.getBounds().getMinChunkZ(regionZ) + shiftZ;
 
         int idx = getIndexInRegion(chunkX, chunkY, chunkZ);
         return chunksInRegion[idx];
@@ -353,8 +369,8 @@ public class TerrainRegion implements LightAccessor {
         int shiftX = Math.floorDiv(regionCordX, terrainManager.getWorld().getChunkSizeX());
         int shiftZ = Math.floorDiv(regionCordZ, terrainManager.getWorld().getChunkSizeZ());
 
-        int chunkX = this.bounds.getMinChunkX(regionX) + shiftX;
-        int chunkZ = this.bounds.getMinChunkZ(regionZ) + shiftZ;
+        int chunkX = this.getBounds().getMinChunkX(regionX) + shiftX;
+        int chunkZ = this.getBounds().getMinChunkZ(regionZ) + shiftZ;
 
         int idx = getIndexInHeightMap(chunkX, chunkZ);
         if (getLowest) {
@@ -368,37 +384,37 @@ public class TerrainRegion implements LightAccessor {
 
 
         if (isRegionFaceFullyOpaque(
-                bounds.getMinChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                getBounds().getMinChunkX(regionX), getBounds().getMinChunkY(regionY), getBounds().getMaxChunkY(regionY), getBounds().getMinChunkZ(regionZ), getBounds().getMaxChunkZ(regionZ),
                 Direction.WEST, chunkProvider))
             sideOcclusionMask |= 1 << Direction.WEST.getId();
 
         // X-Pos Face (EAST) an maxChunkX
         if (isRegionFaceFullyOpaque(
-                bounds.getMaxChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                getBounds().getMaxChunkX(regionX), getBounds().getMinChunkY(regionY), getBounds().getMaxChunkY(regionY), getBounds().getMinChunkZ(regionZ), getBounds().getMaxChunkZ(regionZ),
                 Direction.EAST, chunkProvider))
             sideOcclusionMask |= 1 << Direction.EAST.getId();
 
         // Y-Neg Face (DOWN) an minChunkY
         if (isRegionFaceFullyOpaque(
-                bounds.getMinChunkY(regionY), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                getBounds().getMinChunkY(regionY), getBounds().getMinChunkX(regionX), getBounds().getMaxChunkX(regionX), getBounds().getMinChunkZ(regionZ), getBounds().getMaxChunkZ(regionZ),
                 Direction.DOWN, chunkProvider, true, false))
             sideOcclusionMask |= 1 << Direction.DOWN.getId();
 
         // Y-Pos Face (UP) an maxChunkY
         if (isRegionFaceFullyOpaque(
-                bounds.getMaxChunkY(regionY), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkZ(regionZ), bounds.getMaxChunkZ(regionZ),
+                getBounds().getMaxChunkY(regionY), getBounds().getMinChunkX(regionX), getBounds().getMaxChunkX(regionX), getBounds().getMinChunkZ(regionZ), getBounds().getMaxChunkZ(regionZ),
                 Direction.UP, chunkProvider, true, false))
             sideOcclusionMask |= 1 << Direction.UP.getId();
 
         // Z-Neg Face (NORTH) an minChunkZ
         if (isRegionFaceFullyOpaque(
-                bounds.getMinChunkZ(regionZ), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY),
+                getBounds().getMinChunkZ(regionZ), getBounds().getMinChunkX(regionX), getBounds().getMaxChunkX(regionX), getBounds().getMinChunkY(regionY), getBounds().getMaxChunkY(regionY),
                 Direction.NORTH, chunkProvider, false, true))
             sideOcclusionMask |= 1 << Direction.NORTH.getId();
 
         // Z-Pos Face (SOUTH) an maxChunkZ
         if (isRegionFaceFullyOpaque(
-                bounds.getMaxChunkZ(regionZ), bounds.getMinChunkX(regionX), bounds.getMaxChunkX(regionX), bounds.getMinChunkY(regionY), bounds.getMaxChunkY(regionY),
+                getBounds().getMaxChunkZ(regionZ), getBounds().getMinChunkX(regionX), getBounds().getMaxChunkX(regionX), getBounds().getMinChunkY(regionY), getBounds().getMaxChunkY(regionY),
                 Direction.SOUTH, chunkProvider, false, true))
             sideOcclusionMask |= 1 << Direction.SOUTH.getId();
     }

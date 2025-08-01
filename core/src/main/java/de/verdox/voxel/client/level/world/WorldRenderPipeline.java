@@ -9,6 +9,8 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
+import de.verdox.voxel.client.level.mesh.MeshWithBounds;
+import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.client.shader.Shaders;
@@ -69,8 +71,30 @@ public abstract class WorldRenderPipeline implements DebuggableOnScreen {
         renderBenchmark.endSection();
 
         renderBenchmark.startSection("Render Visible regions");
-        world.getTerrainManager().getTerrainGraph().bsfRenderVisibleRegions(camera, world, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
-        //world.getTerrainManager().getTerrainGraph().bsfBufferRender(camera, world, batch);
+        world.getTerrainManager().getOctreeTerrainGraph().queryVisibleRegions(camera, terrainRegion -> {
+            TerrainMesh terrainMesh = terrainRegion.getTerrainMesh();
+
+            if (terrainMesh == null || terrainMesh.getAmountOfBlockFaces() == 0) {
+                return;
+            }
+
+            int lodLevel = world.computeLodLevel(world.getTerrainManager().getCenterRegionX(), world.getTerrainManager()
+                                                                                                    .getCenterRegionY(), world
+                    .getTerrainManager()
+                    .getCenterRegionZ(), terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
+
+            if (terrainMesh.getLodLevel() != lodLevel) {
+                //TODO: Recompute
+                return;
+            }
+            MeshWithBounds mesh = terrainMesh.getOrGenerateMeshFromFaces(world, terrainRegion);
+            if(mesh == null) {
+                return;
+            }
+
+            mesh.render(camera);
+        });
+        //world.getTerrainManager().getTerrainGraph().renderTerrain(camera, world, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
         renderBenchmark.endSection();
 
         renderBenchmark.startSection("Profiler Reset");

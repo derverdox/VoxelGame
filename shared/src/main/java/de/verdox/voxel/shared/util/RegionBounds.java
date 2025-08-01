@@ -4,6 +4,8 @@ import de.verdox.voxel.shared.level.chunk.ChunkBase;
 
 public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
 
+
+
     public int getOffsetX(int chunkX) {
         int regionX = getRegionX(chunkX);
         int minChunkX = getMinChunkX(regionX);
@@ -87,5 +89,65 @@ public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
         return xIndex
                 + zIndex * sizeX
                 + yIndex * (sizeX * sizeZ);
+    }
+
+    /**
+     * Calculate the minimum block X coordinate for a given region.
+     * @param regionX region index in X
+     * @param chunkSizeX size of one chunk in blocks along X
+     * @return global minimum block X coordinate of the region
+     */
+    public int getMinBlockX(int regionX, int chunkSizeX) {
+        return getMinChunkX(regionX) * chunkSizeX;
+    }
+
+    /**
+     * Calculate the maximum block X coordinate for a given region.
+     * @param regionX region index in X
+     * @param chunkSizeX size of one chunk in blocks along X
+     * @return global maximum block X coordinate of the region
+     */
+    public int getMaxBlockX(int regionX, int chunkSizeX) {
+        return getMaxChunkX(regionX) * chunkSizeX + (chunkSizeX - 1);
+    }
+
+    /**
+     * Calculate the minimum block Y coordinate for a given region.
+     * @param regionY region index in Y
+     * @param chunkSizeY size of one chunk in blocks along Y
+     * @return global minimum block Y coordinate of the region
+     */
+    public int getMinBlockY(int regionY, int chunkSizeY) {
+        return getMinChunkY(regionY) * chunkSizeY;
+    }
+
+    /**
+     * Calculate the maximum block Y coordinate for a given region.
+     * @param regionY region index in Y
+     * @param chunkSizeY size of one chunk in blocks along Y
+     * @return global maximum block Y coordinate of the region
+     */
+    public int getMaxBlockY(int regionY, int chunkSizeY) {
+        return getMaxChunkY(regionY) * chunkSizeY + (chunkSizeY - 1);
+    }
+
+    /**
+     * Calculate the minimum block Z coordinate for a given region.
+     * @param regionZ region index in Z
+     * @param chunkSizeZ size of one chunk in blocks along Z
+     * @return global minimum block Z coordinate of the region
+     */
+    public int getMinBlockZ(int regionZ, int chunkSizeZ) {
+        return getMinChunkZ(regionZ) * chunkSizeZ;
+    }
+
+    /**
+     * Calculate the maximum block Z coordinate for a given region.
+     * @param regionZ region index in Z
+     * @param chunkSizeZ size of one chunk in blocks along Z
+     * @return global maximum block Z coordinate of the region
+     */
+    public int getMaxBlockZ(int regionZ, int chunkSizeZ) {
+        return getMaxChunkZ(regionZ) * chunkSizeZ + (chunkSizeZ - 1);
     }
 }

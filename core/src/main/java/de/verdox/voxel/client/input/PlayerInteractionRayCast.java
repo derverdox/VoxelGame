@@ -63,14 +63,9 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
     public void debugText(DebugScreen debugScreen) {
         if (lastHit != null) {
             debugScreen.addDebugTextLine("Block [" + lastHit.globalX + ", " + lastHit.globalY + ", " + lastHit.globalZ + "]: " + lastHit.castBlock.findKey());
+            debugScreen.addDebugTextLine(" ".repeat(4) + "Chunk: "+ ChunkBase.chunkX(lastHit.world, lastHit.globalX)+", "+ChunkBase.chunkY(lastHit.world, lastHit.globalY)+", "+ChunkBase.chunkZ(lastHit.world, lastHit.globalZ));
             debugScreen.addDebugTextLine(" ".repeat(4) + "Sky Light: "+ lastHit.getSkyLightOfHitBlock());
             debugScreen.addDebugTextLine(" ".repeat(4) + "Block Light: ("+ lastHit.getBlockLightRedOfHitBlock()+", "+lastHit.getBlockLightGreenOfHitBlock()+", "+lastHit.getBlockLightBlueOfHitBlock()+")");
-        }
-        if(blockOfPlayerPos != null) {
-            debugScreen.addDebugTextLine("Block of player [" + blockOfPlayerPos.globalX + ", " + blockOfPlayerPos.globalY + ", " + blockOfPlayerPos.globalZ + "]: " + blockOfPlayerPos.castBlock.findKey());
-            debugScreen.addDebugTextLine(" ".repeat(4) + "Sky Light: "+ blockOfPlayerPos.getSkyLightOfHitBlock());
-            debugScreen.addDebugTextLine(" ".repeat(4) + "Block Light: ("+ blockOfPlayerPos.getBlockLightRedOfHitBlock()+", "+blockOfPlayerPos.getBlockLightGreenOfHitBlock()+", "+blockOfPlayerPos.getBlockLightBlueOfHitBlock()+")");
-
         }
     }
 

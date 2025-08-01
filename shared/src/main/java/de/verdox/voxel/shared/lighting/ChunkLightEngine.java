@@ -14,13 +14,8 @@ import java.util.logging.Logger;
 public class ChunkLightEngine {
     private static final Logger LOGGER = Logger.getLogger(ChunkLightEngine.class.getSimpleName());
 
-    private final RegionBounds regionBounds;
     private volatile LongQueue longQueue = new LongQueue(512);
     private final Executor service = Executors.newSingleThreadExecutor(ThreadUtil.createFactoryForName("Chunk Light Engine", true));
-
-    public ChunkLightEngine(RegionBounds regionBounds) {
-        this.regionBounds = regionBounds;
-    }
 
     public void scheduleSkylightUpdateInSlice(World<?> world, int regionSliceX, int regionSliceZ, LightAccessor startAccessor, int stepsToCalculateDown, LightUpdateCallback onDone) {
 /*        service.execute(() -> {

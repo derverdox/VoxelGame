@@ -42,12 +42,24 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
 
     public abstract CHUNK getChunkNow(long chunkKey);
 
-    public CHUNK getChunkNeighborNow(long chunkX, long chunkY, long chunkZ, Direction direction) {
-        return getChunkNow((int) (chunkX + direction.getOffsetX()), (int) (chunkY + direction.getOffsetY()), (int) (chunkZ + direction.getOffsetZ()));
+    public CHUNK getChunkNeighborNow(int chunkX, int chunkY, int chunkZ, Direction direction) {
+        return getChunkNow(chunkX + direction.getOffsetX(), chunkY + direction.getOffsetY(), chunkZ + direction.getOffsetZ());
     }
 
     public CHUNK getChunkNeighborNow(CHUNK chunk, Direction direction) {
-        return getChunkNow(chunk.getChunkX() + direction.getOffsetX(), chunk.getChunkY() + direction.getOffsetY(), chunk.getChunkZ() + direction.getOffsetZ());
+        return getChunkNeighborNow(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ(), direction);
+    }
+
+    public boolean hasNeighborsToAllSides(CHUNK chunk) {
+        boolean result = true;
+        for (int i = 0; i < Direction.values().length; i++) {
+            Direction direction = Direction.values()[i];
+
+            if(getChunkNeighborNow(chunk, direction) == null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public final void addChunk(CHUNK chunk) {

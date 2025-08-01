@@ -72,16 +72,14 @@ public class TerrainMesh {
         AtomicInteger baseVertex = new AtomicInteger();
         AtomicInteger amountVertices = new AtomicInteger();
 
-        blockFaces.forEachChunkFace((storage, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks) -> {
-            storage.forEachFace(face -> {
-                face.appendToBuffers(floats, shortIndices, intIndices, vertexOffset.get(), indexOffset.get(), baseVertex.get(), textureAtlas, face.getFloatsPerVertex(), offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+        blockFaces.forEachChunkFace((storage, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks) -> storage.forEachFace(face -> {
+            face.appendToBuffers(floats, shortIndices, intIndices, vertexOffset.get(), indexOffset.get(), baseVertex.get(), textureAtlas, face.getFloatsPerVertex(), offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
 
-                vertexOffset.addAndGet(face.getVerticesPerFace() * face.getFloatsPerVertex());
-                indexOffset.addAndGet(face.getIndicesPerFace());
-                baseVertex.addAndGet(face.getVerticesPerFace());
-                amountVertices.addAndGet(face.getVerticesPerFace());
-            });
-        });
+            vertexOffset.addAndGet(face.getVerticesPerFace() * face.getFloatsPerVertex());
+            indexOffset.addAndGet(face.getIndicesPerFace());
+            baseVertex.addAndGet(face.getVerticesPerFace());
+            amountVertices.addAndGet(face.getVerticesPerFace());
+        }));
 
         lock.writeLock().lock();
         try {
@@ -131,9 +129,9 @@ public class TerrainMesh {
         if (amountBlockFaces == 0 || vertices == null || (shortIndices == null && intIndices == null)) {
             return null;
         }
-        int minChunkX = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkX(terrainRegion.getRegionX());
-        int minChunkY = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkY(terrainRegion.getRegionY());
-        int minChunkZ = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkZ(terrainRegion.getRegionZ());
+        int minChunkX = world.getTerrainManager().getBounds().getMinChunkX(terrainRegion.getRegionX());
+        int minChunkY = world.getTerrainManager().getBounds().getMinChunkY(terrainRegion.getRegionY());
+        int minChunkZ = world.getTerrainManager().getBounds().getMinChunkZ(terrainRegion.getRegionZ());
 
         lock.writeLock().lock();
         try {
@@ -153,7 +151,8 @@ public class TerrainMesh {
                 mesh.setVertices(vertices, 0, verticesCount);
                 mesh.setIndices(intIndices, 0, indicesCount);
 
-                calculatedMesh = new MeshWithBounds.IntRawMeshBased(mesh, Shaders.SINGLE_OPAQUE_BLOCK_SHADER, TextureAtlasManager.getInstance().getBlockTextureAtlas(), 0);
+                calculatedMesh = new MeshWithBounds.IntRawMeshBased(mesh, Shaders.SINGLE_OPAQUE_BLOCK_SHADER, TextureAtlasManager
+                        .getInstance().getBlockTextureAtlas(), 0);
                 calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
                 return calculatedMesh;
             } else if (shortIndices != null) {
@@ -167,7 +166,8 @@ public class TerrainMesh {
                 mesh.setVertices(vertices, 0, verticesCount);
                 mesh.setIndices(shortIndices, 0, indicesCount);
 
-                calculatedMesh = new MeshWithBounds.ShortRawMeshBased(mesh, Shaders.SINGLE_OPAQUE_BLOCK_SHADER, TextureAtlasManager.getInstance().getBlockTextureAtlas(), 0);
+                calculatedMesh = new MeshWithBounds.ShortRawMeshBased(mesh, Shaders.SINGLE_OPAQUE_BLOCK_SHADER, TextureAtlasManager
+                        .getInstance().getBlockTextureAtlas(), 0);
                 calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
                 return calculatedMesh;
             } else {

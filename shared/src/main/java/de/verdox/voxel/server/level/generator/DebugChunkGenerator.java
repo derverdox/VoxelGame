@@ -7,7 +7,11 @@ public class DebugChunkGenerator implements ChunkGenerator {
     @Override
     public void generateNoise(ServerChunk gameChunk) {
 
-        if (gameChunk.getChunkX() == 1 && gameChunk.getChunkY() == 4 && gameChunk.getChunkZ() == 0) {
+        if (gameChunk.getChunkX() == 1 && gameChunk.getChunkY() == 4 && gameChunk.getChunkZ() == 1) {
+            fillChunk(gameChunk, Blocks.STONE);
+        }
+
+        if (gameChunk.getChunkX() == -2 && gameChunk.getChunkY() == 4 && gameChunk.getChunkZ() == -3) {
             fillChunk(gameChunk, Blocks.STONE);
         }
 

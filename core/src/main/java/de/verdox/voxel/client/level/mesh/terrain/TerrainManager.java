@@ -1,26 +1,24 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
 import com.badlogic.gdx.Gdx;
+import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
-import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.client.level.mesh.terrain.graph.NaiveTerrainGraph;
+import de.verdox.voxel.client.level.mesh.terrain.graph.OctreeTerrainGraph;
+import de.verdox.voxel.client.level.mesh.terrain.graph.TerrainGraph;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.lighting.ChunkLightEngine;
 import de.verdox.voxel.shared.util.Direction;
+import de.verdox.voxel.shared.util.RegionBounds;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 
-import java.util.function.LongFunction;
-
 public class TerrainManager {
-    @Getter
-    private final TerrainMeshPipeline meshPipeline;
-    @Getter
-    private final TerrainMeshStorage meshStorage;
     @Getter
     private final TerrainGraph terrainGraph;
     @Getter
@@ -32,35 +30,43 @@ public class TerrainManager {
     private final Long2ObjectMap<TerrainRegion> terrainRegions = new Long2ObjectOpenHashMap<>();
     private final Long2IntMap highestRegions = new Long2IntOpenHashMap();
     private final Long2IntMap lowestRegions = new Long2IntOpenHashMap();
+    @Getter
+    private final OctreeTerrainGraph octreeTerrainGraph;
 
     @Getter
-    private int centerRegionX = 0;
+    private final RegionBounds bounds;
+
     @Getter
-    private int centerRegionY = 0;
+    private int centerRegionX, centerRegionY, centerRegionZ;
+
     @Getter
-    private int centerRegionZ = 0;
+    private int centerChunkX, centerChunkY, centerChunkZ;
 
     public TerrainManager(ClientWorld world, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
         this.world = world;
-        this.meshPipeline = new TerrainMeshPipeline(world, chunkMeshCalculator, regionSizeX, regionSizeY, regionSizeZ);
-        this.meshStorage = new TerrainMeshStorage(world, this, regionSizeX, regionSizeY, regionSizeZ);
+        this.bounds = new RegionBounds(regionSizeX, regionSizeY, regionSizeZ);
         this.meshService = new TerrainMeshService(this, chunkMeshCalculator);
-        this.terrainGraph = new TerrainGraph(this, this.meshPipeline.getRegionBounds(), this.meshStorage, world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
-        this.lightEngine = new ChunkLightEngine(this.meshPipeline.getRegionBounds());
+        this.terrainGraph = new NaiveTerrainGraph(this, world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
+        this.lightEngine = new ChunkLightEngine();
+        this.octreeTerrainGraph = new OctreeTerrainGraph(this, 4, 8, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
         Gdx.app.log("Terrain Manager", "Initialized terrain manager with size [" + regionSizeX + ", " + regionSizeY + ", " + regionSizeZ + "]");
     }
 
     public void setCenterChunk(int chunkX, int chunkY, int chunkZ) {
-        centerRegionX = getMeshPipeline().getRegionBounds().getRegionX(chunkX);
-        centerRegionY = getMeshPipeline().getRegionBounds().getRegionY(chunkY);
-        centerRegionZ = getMeshPipeline().getRegionBounds().getRegionZ(chunkZ);
+        centerChunkX = chunkX;
+        centerChunkY = chunkY;
+        centerChunkZ = chunkZ;
+
+        centerRegionX = bounds.getRegionX(chunkX);
+        centerRegionY = bounds.getRegionY(chunkY);
+        centerRegionZ = bounds.getRegionZ(chunkZ);
     }
 
     public void addChunk(ClientChunk chunk) {
-        var bounds = this.meshPipeline.getRegionBounds();
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
+
         long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
         if (!chunk.isEmpty()) {
             terrainGraph.addRegion(regionX, regionY, regionZ);
@@ -68,14 +74,14 @@ public class TerrainManager {
 
         TerrainRegion terrainRegion;
         if (!terrainRegions.containsKey(regionKey)) {
-            TerrainRegion newRegion = new TerrainRegion(this, regionX, regionY, regionZ, bounds);
+            TerrainRegion newRegion = new TerrainRegion(this, regionX, regionY, regionZ);
 
             for (int i = 0; i < Direction.values().length; i++) {
                 Direction dir = Direction.values()[i];
                 long neighborKey = ChunkBase.computeChunkKey(regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ());
 
                 if (!terrainRegions.containsKey(neighborKey)) {
-                    terrainRegions.put(neighborKey, new TerrainRegion(this, regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ(), bounds));
+                    terrainRegions.put(neighborKey, new TerrainRegion(this, regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ()));
                 }
                 TerrainRegion neighborRegion = terrainRegions.get(neighborKey);
                 newRegion.linkNeighbor(dir, neighborRegion);
@@ -100,7 +106,6 @@ public class TerrainManager {
     }
 
     public void removeChunk(ClientChunk chunk) {
-        var bounds = this.meshPipeline.getRegionBounds();
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
@@ -123,7 +128,7 @@ public class TerrainManager {
                 }
 
                 terrainGraph.removeRegion(regionX, regionY, regionZ);
-                if(terrainRegion.getTerrainMesh() != null) {
+                if (terrainRegion.getTerrainMesh() != null) {
                     terrainRegion.disposeMesh();
                 }
             }
@@ -140,8 +145,6 @@ public class TerrainManager {
     }
 
     public void afterChunkUpdate(ClientChunk chunk, boolean wasEmptyBefore) {
-        var bounds = this.meshPipeline.getRegionBounds();
-
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
@@ -172,6 +175,11 @@ public class TerrainManager {
             }
             updateMesh(neighbor, false);
         }*/
+    }
+
+    public TerrainRegion getRegionOfChunk(int chunkX, int chunkY, int chunkZ) {
+        long regionKey = bounds.getRegionKeyFromChunk(chunkX, chunkY, chunkZ);
+        return terrainRegions.get(regionKey);
     }
 
     public TerrainRegion getRegion(int regionX, int regionY, int regionZ) {

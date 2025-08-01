@@ -10,7 +10,7 @@ import de.verdox.voxel.shared.util.Direction;
 
 import java.util.function.Consumer;
 
-public interface TerrainFaceStorage extends Iterable<BlockFace> {
+public interface TerrainFaceStorage {
     int getScaleX();
 
     int getScaleY();
@@ -32,12 +32,6 @@ public interface TerrainFaceStorage extends Iterable<BlockFace> {
     RegionalLock getRegionalLock();
 
     boolean hasFacesForChunk(int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ);
-
-    void generateFace(
-            ChunkBase<?> chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
-            int localX, int localY, int localZ,
-            int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ
-    );
 
     default int getSizeU(Direction direction) {
         return switch (direction) {

@@ -1,6 +1,7 @@
 package de.verdox.voxel.client.level;
 
 import de.verdox.voxel.client.ClientBase;
+import de.verdox.voxel.client.input.ClientSettings;
 import de.verdox.voxel.client.level.chunk.ChunkRequestManager;
 import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.BitOcclusionBasedChunkMeshCalculator;
@@ -11,6 +12,7 @@ import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.util.Direction;
 import it.unimi.dsi.fastutil.longs.*;
 import lombok.Getter;
 
@@ -43,6 +45,30 @@ public class ClientWorld extends World<ClientChunk> {
         this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
     }
 
+    @Override
+    public boolean hasNeighborsToAllSides(ClientChunk chunk) {
+        for (int i = 0; i < Direction.values().length; i++) {
+            Direction direction = Direction.values()[i];
+
+            int rX = chunk.getChunkX() + direction.getOffsetX();
+            int rY = chunk.getChunkY() + direction.getOffsetY();
+            int rZ = chunk.getChunkZ() + direction.getOffsetZ();
+
+            int chunkOffsetX = Math.abs(terrainManager.getCenterChunkX() - rX);
+            int chunkOffsetY = Math.abs(terrainManager.getCenterChunkY() - rY);
+            int chunkOffsetZ = Math.abs(terrainManager.getCenterChunkZ() - rZ);
+
+            if (chunkOffsetX > ClientBase.clientSettings.horizontalViewDistance || chunkOffsetY > ClientBase.clientSettings.verticalViewDistance || chunkOffsetZ > ClientBase.clientSettings.horizontalViewDistance) {
+                continue;
+            }
+
+            if (getChunkNeighborNow(chunk, direction) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public ClientWorld(UUID uuid, byte chunkSizeX, byte chunkSizeY, byte chunkSizeZ) {
         super(uuid, chunkSizeX, chunkSizeY, chunkSizeZ);
 
@@ -55,10 +81,6 @@ public class ClientWorld extends World<ClientChunk> {
             regionSizeY = Math.max(regionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR);
             regionSizeZ = Math.max(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
         }
-
-        regionSizeX = 1;
-        regionSizeY = 1;
-        regionSizeZ = 1;
 
         this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
     }
@@ -116,7 +138,7 @@ public class ClientWorld extends World<ClientChunk> {
                                 chunkCounter++;
                                 chunks.remove(chunkOutOfViewDistance);
 
-                                regionsToRebuild.add(terrainManager.getMeshPipeline().getRegionBounds()
+                                regionsToRebuild.add(terrainManager.getBounds()
                                                                    .getRegionKeyFromChunk((int) x, (int) y, (int) z));
                             }
                         }
@@ -206,7 +228,7 @@ public class ClientWorld extends World<ClientChunk> {
 
 
         return LODUtil.computeLodLevel(
-                terrainManager.getMeshPipeline().getRegionBounds(),
+                terrainManager.getBounds(),
                 ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance,
                 getChunkSizeX(),
                 getChunkSizeY(),

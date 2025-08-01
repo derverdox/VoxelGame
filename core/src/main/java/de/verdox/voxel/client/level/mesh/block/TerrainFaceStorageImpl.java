@@ -45,7 +45,7 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
     }
 
     private RegionBounds getBounds() {
-        return world.getTerrainManager().getMeshPipeline().getRegionBounds();
+        return world.getTerrainManager().getBounds();
     }
 
     @Override
@@ -80,31 +80,12 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
 
     @Override
     public TerrainFaceStorage createGreedyMeshedCopy(int lodLevel) {
-        return null;
-    }
-
-    @Override
-    public void generateFace(ChunkBase<?> chunk, ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel, int localX, int localY, int localZ, int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ) {
-        BlockFace generateBlockFace = BlockRenderer.generateBlockFace(chunk, textureKey, blockFace, lodLevel, localX, localY, localZ);
-        addBlockFace(generateBlockFace, chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
-    }
-
-    @Override
-    public Iterator<BlockFace> iterator() {
-        List<BlockFace> snapshot = new ArrayList<>();
-        for (ChunkFaces cf : chunkFacesInRegion.values()) {
-            for (FacesOfDirection fod : cf.directions.values()) {
-                for (FacesOfDirection.FaceSlice slice : fod.slicesPerW.values()) {
-                    snapshot.addAll(slice.blockFaces.values());
-                }
-            }
-        }
-        return snapshot.iterator();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public ChunkFaces getOrCreateChunkFaces(int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ) {
-        long offsetKey = ChunkBase.computeChunkKey(chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
+        long offsetKey = computeOffsetKey(chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
 
         ChunkFaces chunkFaces;
         if (!chunkFacesInRegion.containsKey(offsetKey)) {
@@ -118,19 +99,18 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
 
     @Override
     public void forEachChunkFace(ChunkFaceStorageConsumer consumer) {
-        RegionBounds bounds = getWorld().getTerrainManager().getMeshService().getBounds();
-        for (Long2ObjectMap.Entry<ChunkFaces> chunkFacesEntry : this.chunkFacesInRegion.long2ObjectEntrySet()) {
-            long offsetKey = chunkFacesEntry.getLongKey();
+        getRegionalLock().withMasterLock(() -> {
+            for (Long2ObjectMap.Entry<ChunkFaces> chunkFacesEntry : this.chunkFacesInRegion.long2ObjectEntrySet()) {
+                long offsetKey = chunkFacesEntry.getLongKey();
 
-            int offsetX = ChunkBase.unpackChunkX(offsetKey) * world.getChunkSizeX();
-            int offsetY = ChunkBase.unpackChunkY(offsetKey) * world.getChunkSizeY();
-            int offsetZ = ChunkBase.unpackChunkZ(offsetKey) * world.getChunkSizeZ();
+                int offsetX = ChunkBase.unpackChunkX(offsetKey) * world.getChunkSizeX();
+                int offsetY = ChunkBase.unpackChunkY(offsetKey) * world.getChunkSizeY();
+                int offsetZ = ChunkBase.unpackChunkZ(offsetKey) * world.getChunkSizeZ();
 
-            ChunkFaces chunkFaces = chunkFacesEntry.getValue();
-            getRegionalLock().withLock(offsetX, offsetY, offsetZ, 0, () -> {
+                ChunkFaces chunkFaces = chunkFacesEntry.getValue();
                 consumer.consume(chunkFaces, offsetX, offsetY, offsetZ);
-            });
-        }
+            }
+        });
     }
 
     @Override
@@ -139,57 +119,10 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
         return chunkFacesInRegion.containsKey(offsetKey);
     }
 
-    public void addBlockFace(BlockFace blockFace, int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ) {
-        long offsetKey = ChunkBase.computeChunkKey(chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
-
-        // Double locks
-        ChunkFaces chunkFaces = null;
-        if (!chunkFacesInRegion.containsKey(offsetKey)) {
-            synchronized (chunkFacesInRegion) {
-                if (!chunkFacesInRegion.containsKey(offsetKey)) {
-                    chunkFaces = new ChunkFaces();
-                    chunkFacesInRegion.put(offsetKey, chunkFaces);
-                }
-            }
-        }
-        if (chunkFaces == null) {
-            chunkFaces = chunkFacesInRegion.get(offsetKey);
-        }
-        chunkFaces.addBlockFace(blockFace);
-    }
-
-    public void removeBlockFace(Direction direction, short localX, short localY, short localZ) {
-        int chunkCoordinateInRegionX = localX / (short) getScaleX();
-        int chunkCoordinateInRegionY = localY / (short) getScaleY();
-        int chunkCoordinateInRegionZ = localZ / (short) getScaleZ();
-
-        localX %= (short) getScaleX();
-        localY %= (short) getScaleY();
-        localZ %= (short) getScaleZ();
-
-        short u = (short) BlockFace.getUCoord(direction, localX, localY, localZ);
-        short v = (short) BlockFace.getVCoord(direction, localX, localY, localZ);
-        short w = (short) BlockFace.getWCoord(direction, localX, localY, localZ);
-
-        long key = ChunkBase.computeChunkKey(chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
-
-        if (chunkFacesInRegion.containsKey(key)) {
-            ChunkFaces cf = chunkFacesInRegion.get(key);
-            cf.removeBlockFace(direction, u, v, w);
-
-            if (cf.isEmpty()) {
-                synchronized (chunkFacesInRegion) {
-                    if (cf.isEmpty()) chunkFacesInRegion.remove(key);
-                }
-            }
-        }
-    }
-
     public class ChunkFaces implements ChunkFaceStorage, Iterable<BlockFace> {
         private final Object2ObjectMap<Direction, FacesOfDirection> directions = new Object2ObjectOpenHashMap<>(6);
 
-        public ChunkFaces() {
-        }
+        public ChunkFaces() {}
 
         public void addBlockFace(BlockFace blockFace) {
             FacesOfDirection facesOfDirection = directions.getOrDefault(blockFace.getDirection(), null);
@@ -238,7 +171,10 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
 
         @Override
         public Iterator<BlockFace> iterator() {
-            return directions.values().stream().flatMap(blockFaces -> blockFaces.slicesPerW.values().stream().flatMap(blockFaces1 -> blockFaces1.blockFaces.values().stream())).iterator();
+            return directions.values().stream().flatMap(blockFaces -> blockFaces.slicesPerW.values().stream()
+                                                                                           .flatMap(blockFaces1 -> blockFaces1.blockFaces
+                                                                                                   .values().stream()))
+                             .iterator();
         }
     }
 
@@ -296,13 +232,13 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
 
         @Override
         public Iterator<BlockFace> iterator() {
-            return slicesPerW.values().stream().flatMap(blockFaces -> blockFaces.blockFaces.values().stream()).iterator();
+            return slicesPerW.values().stream().flatMap(blockFaces -> blockFaces.blockFaces.values().stream())
+                             .iterator();
         }
 
         @Getter
         private class FaceSlice implements Iterable<BlockFace> {
             private short w;
-            private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
             private final Short2ShortMap facesInSlice = new Short2ShortOpenHashMap();
             private final Short2ObjectMap<BlockFace> blockFaces = new Short2ObjectOpenHashMap<>();
             private short idCounter = Short.MIN_VALUE;
@@ -392,5 +328,9 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
                 return blockFaces.values().iterator();
             }
         }
+    }
+
+    private long computeOffsetKey(int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ) {
+        return ChunkBase.computeChunkKey(chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
     }
 }
