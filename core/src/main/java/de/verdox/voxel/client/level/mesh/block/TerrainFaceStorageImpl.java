@@ -118,11 +118,14 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
 
     @Override
     public void forEachChunkFace(ChunkFaceStorageConsumer consumer) {
+        RegionBounds bounds = getWorld().getTerrainManager().getMeshService().getBounds();
         for (Long2ObjectMap.Entry<ChunkFaces> chunkFacesEntry : this.chunkFacesInRegion.long2ObjectEntrySet()) {
-            long key = chunkFacesEntry.getLongKey();
-            int offsetX = ChunkBase.unpackChunkX(key) * world.getChunkSizeX();
-            int offsetY = ChunkBase.unpackChunkY(key) * world.getChunkSizeY();
-            int offsetZ = ChunkBase.unpackChunkZ(key) * world.getChunkSizeZ();
+            long offsetKey = chunkFacesEntry.getLongKey();
+
+            int offsetX = ChunkBase.unpackChunkX(offsetKey) * world.getChunkSizeX();
+            int offsetY = ChunkBase.unpackChunkY(offsetKey) * world.getChunkSizeY();
+            int offsetZ = ChunkBase.unpackChunkZ(offsetKey) * world.getChunkSizeZ();
+
             ChunkFaces chunkFaces = chunkFacesEntry.getValue();
             getRegionalLock().withLock(offsetX, offsetY, offsetZ, 0, () -> {
                 consumer.consume(chunkFaces, offsetX, offsetY, offsetZ);

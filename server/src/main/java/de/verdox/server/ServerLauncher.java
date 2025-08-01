@@ -29,7 +29,7 @@ public class ServerLauncher {
         server.getKryo().register(ServerChunk.class, new ChunkSerializer<>());
 
         try {
-            server.bind(54555, 54777);
+            server.bind(54000);
         } catch (IOException e) {
             e.printStackTrace();
         }

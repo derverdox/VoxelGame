@@ -17,9 +17,7 @@ import gaiasky.util.gdx.mesh.IntMesh;
 public interface MeshWithBounds {
     void setPos(float x, float y, float z);
 
-    void addToModelCache(ModelCache cache);
-
-    void render(Camera camera, ModelBatch batch);
+    void render(Camera camera);
 
     void dispose();
 
@@ -43,12 +41,7 @@ public interface MeshWithBounds {
         }
 
         @Override
-        public void addToModelCache(ModelCache cache) {
-
-        }
-
-        @Override
-        public void render(Camera camera, ModelBatch batch) {
+        public void render(Camera camera) {
             shader.setUniformMatrix("u_worldTrans", worldTransform);
             shader.setUniformMatrix("u_projViewTrans", camera.combined);
             textureAtlas.getTextures().first().bind(0);

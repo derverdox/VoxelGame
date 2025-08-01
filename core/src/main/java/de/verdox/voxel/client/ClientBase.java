@@ -95,7 +95,7 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
         clientRenderer.getDebugScreen().attach(this);
 
         try {
-            client.connect(5000, "localhost", 54555, 54777);
+            client.connect(5000, "localhost", 54000);
         } catch (IOException e) {
             e.printStackTrace();
         }

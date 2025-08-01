@@ -3,6 +3,28 @@ package de.verdox.voxel.shared.util;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 
 public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
+
+    public int getOffsetX(int chunkX) {
+        int regionX = getRegionX(chunkX);
+        int minChunkX = getMinChunkX(regionX);
+
+        return chunkX - minChunkX;
+    }
+
+    public int getOffsetY(int chunkY) {
+        int regionY = getRegionY(chunkY);
+        int minChunkY = getMinChunkY(regionY);
+
+        return chunkY - minChunkY;
+    }
+
+    public int getOffsetZ(int chunkZ) {
+        int regionZ = getRegionZ(chunkZ);
+        int minChunkZ = getMinChunkZ(regionZ);
+
+        return chunkZ - minChunkZ;
+    }
+
     public int getRegionX(int chunkX) {
         return Math.floorDiv(chunkX, regionSizeX);
     }
@@ -39,14 +61,18 @@ public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
         return getMinChunkZ(regionZ) + regionSizeZ - 1;
     }
 
-    public long getRegionKey(long chunkKey) {
+    public long getRegionKey(int regionX, int regionY, int regionZ) {
+        return ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+    }
+
+    public long getRegionKeyFromChunk(long chunkKey) {
         int chunkX = ChunkBase.unpackChunkX(chunkKey);
         int chunkY = ChunkBase.unpackChunkY(chunkKey);
         int chunkZ = ChunkBase.unpackChunkZ(chunkKey);
-        return getRegionKey(chunkX, chunkY, chunkZ);
+        return getRegionKeyFromChunk(chunkX, chunkY, chunkZ);
     }
 
-    public long getRegionKey(int chunkX, int chunkY, int chunkZ) {
+    public long getRegionKeyFromChunk(int chunkX, int chunkY, int chunkZ) {
         return ChunkBase.computeChunkKey(getRegionX(chunkX), getRegionY(chunkY), getRegionZ(chunkZ));
     }
 

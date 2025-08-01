@@ -93,10 +93,10 @@ public class ClientRenderer implements DebuggableOnScreen {
 
     @Override
     public void debugText(DebugScreen debugScreen) {
-        if (VoxelClient.getInstance().getCurrentWorld() != null) {
+/*        if (VoxelClient.getInstance().getCurrentWorld() != null) {
             var storage = VoxelClient.getInstance().getCurrentWorld().getTerrainManager().getMeshStorage();
             debugScreen.addDebugTextLine("Queues: " + storage.getAmountOfQueues());
             debugScreen.addDebugTextLine("Terrain Graph Regions: " + VoxelClient.getInstance().getCurrentWorld().getTerrainManager().getTerrainGraph().getAmountOfRegions());
-        }
+        }*/
     }
 }

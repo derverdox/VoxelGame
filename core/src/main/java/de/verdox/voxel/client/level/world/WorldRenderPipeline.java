@@ -9,14 +9,15 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.mesh.region.strategy.CameraCenteredRegionStrategy;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.client.shader.Shaders;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.util.Benchmark;
+import lombok.Getter;
 
 public abstract class WorldRenderPipeline implements DebuggableOnScreen {
+    @Getter
     private int centerChunkX, centerChunkY, centerChunkZ;
     private final ShapeRenderer shapeRenderer = new ShapeRenderer();
     private int visibleRegionsCount = 0;
@@ -68,7 +69,7 @@ public abstract class WorldRenderPipeline implements DebuggableOnScreen {
         renderBenchmark.endSection();
 
         renderBenchmark.startSection("Render Visible regions");
-        world.getTerrainManager().getTerrainGraph().bsfRenderVisibleRegions(camera, world, batch, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
+        world.getTerrainManager().getTerrainGraph().bsfRenderVisibleRegions(camera, world, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
         //world.getTerrainManager().getTerrainGraph().bsfBufferRender(camera, world, batch);
         renderBenchmark.endSection();
 
@@ -82,16 +83,6 @@ public abstract class WorldRenderPipeline implements DebuggableOnScreen {
     }
 
     public abstract void onChangeChunk(ClientWorld world, int newChunkX, int newChunkY, int newChunkZ);
-
-    public void renderRegionBoundsForDebugging(ClientWorld world, ShapeRenderer shapeRenderer, CameraCenteredRegionStrategy.RenderRegion renderRegion) {
-        Gdx.graphics.getGL20().glLineWidth(1);
-        shapeRenderer.setColor(Color.BLUE);
-        var min = renderRegion.getBoundingBox().min;
-        shapeRenderer.box(min.x, min.y, min.z + renderRegion.getBoundingBox().getDepth(), renderRegion.getBoundingBox()
-            .getWidth(), renderRegion
-            .getBoundingBox().getHeight(), renderRegion.getBoundingBox().getDepth());
-
-    }
 
     @Override
     public void debugText(DebugScreen debugScreen) {

@@ -24,6 +24,8 @@ public class TerrainManager {
     @Getter
     private final TerrainGraph terrainGraph;
     @Getter
+    private final TerrainMeshService meshService;
+    @Getter
     private final ClientWorld world;
     @Getter
     private final ChunkLightEngine lightEngine;
@@ -31,14 +33,18 @@ public class TerrainManager {
     private final Long2IntMap highestRegions = new Long2IntOpenHashMap();
     private final Long2IntMap lowestRegions = new Long2IntOpenHashMap();
 
+    @Getter
     private int centerRegionX = 0;
+    @Getter
     private int centerRegionY = 0;
+    @Getter
     private int centerRegionZ = 0;
 
     public TerrainManager(ClientWorld world, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
         this.world = world;
         this.meshPipeline = new TerrainMeshPipeline(world, chunkMeshCalculator, regionSizeX, regionSizeY, regionSizeZ);
         this.meshStorage = new TerrainMeshStorage(world, this, regionSizeX, regionSizeY, regionSizeZ);
+        this.meshService = new TerrainMeshService(this, chunkMeshCalculator);
         this.terrainGraph = new TerrainGraph(this, this.meshPipeline.getRegionBounds(), this.meshStorage, world.getChunkSizeX(), world.getChunkSizeY(), world.getChunkSizeZ());
         this.lightEngine = new ChunkLightEngine(this.meshPipeline.getRegionBounds());
         Gdx.app.log("Terrain Manager", "Initialized terrain manager with size [" + regionSizeX + ", " + regionSizeY + ", " + regionSizeZ + "]");
@@ -117,7 +123,9 @@ public class TerrainManager {
                 }
 
                 terrainGraph.removeRegion(regionX, regionY, regionZ);
-                getMeshStorage().getRegionMeshIfAvailable(regionX, regionY, regionZ).dispose();
+                if(terrainRegion.getTerrainMesh() != null) {
+                    terrainRegion.disposeMesh();
+                }
             }
         }
 
@@ -146,12 +154,12 @@ public class TerrainManager {
     }
 
     public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors) {
-        int lodLevelOfRegion = world.computeLodLevel(centerRegionX, centerRegionY, centerRegionZ, terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
-        updateMesh(terrainRegion, updateNeighbors, lodLevelOfRegion);
+/*        int lodLevelOfRegion = world.computeLodLevel(centerRegionX, centerRegionY, centerRegionZ, terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
+        updateMesh(terrainRegion, updateNeighbors, lodLevelOfRegion);*/
     }
 
     public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors, int lodLevel) {
-        this.meshStorage.               recalculateMeshForLodLevel(terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ(), true, lodLevel);
+/*        this.meshStorage.recalculateMeshForLodLevel(terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ(), true, lodLevel);
         if (!updateNeighbors) {
             return;
         }
@@ -163,7 +171,7 @@ public class TerrainManager {
                 continue;
             }
             updateMesh(neighbor, false);
-        }
+        }*/
     }
 
     public TerrainRegion getRegion(int regionX, int regionY, int regionZ) {

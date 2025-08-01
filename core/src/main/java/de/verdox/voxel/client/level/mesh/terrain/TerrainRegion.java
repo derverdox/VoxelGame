@@ -8,6 +8,7 @@ import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
 import lombok.Getter;
+import lombok.Setter;
 
 public class TerrainRegion implements LightAccessor {
     private final TerrainManager terrainManager;
@@ -22,6 +23,9 @@ public class TerrainRegion implements LightAccessor {
     private final TerrainRegion[] neighbors;
     @Getter
     private int sideOcclusionMask;
+    @Getter
+    @Setter
+    private TerrainMesh terrainMesh;
 
     public TerrainRegion(TerrainManager terrainManager, int regionX, int regionY, int regionZ, RegionBounds bounds) {
         this.terrainManager = terrainManager;
@@ -35,14 +39,20 @@ public class TerrainRegion implements LightAccessor {
         this.neighbors = new TerrainRegion[Direction.values().length];
     }
 
-    void linkNeighbor(Direction direction, TerrainRegion neighbor) {
-        neighbors[direction.getId()] = neighbor;
-        neighbor.neighbors[direction.getOpposite().getId()] = this;
+    public void disposeMesh() {
+        getTerrainMesh().dispose();
+        setTerrainMesh(null);
     }
 
-    void unLinkNeighbor(Direction direction, TerrainRegion neighbor) {
-        neighbors[direction.getId()] = null;
-        neighbor.neighbors[direction.getOpposite().getId()] = null;
+    public TerrainMesh getOrCreateMesh() {
+        if (terrainMesh == null) {
+            this.terrainMesh = new TerrainMesh();
+        }
+        return this.terrainMesh;
+    }
+
+    public long getRegionKey() {
+        return ChunkBase.computeChunkKey(regionX, regionY, regionZ);
     }
 
     public void addChunk(ClientChunk chunk) {
@@ -61,26 +71,18 @@ public class TerrainRegion implements LightAccessor {
             airRegions += 1;
         }
 
-
-        if (isComplete()) {
-            terrainManager.updateMesh(this, true);
-            computeRegionSideMask(chunk.getWorld());
-        }
-        else {
-            if(!chunk.isEmpty()) {
-                terrainManager.updateMesh(this, false);
-            }
-        }
+        terrainManager.getMeshService().createChunkMesh(this, chunk);
+        computeRegionSideMask(chunk.getWorld());
 
         TerrainRegion highest = terrainManager.getHighestRegion(regionX, regionZ);
         TerrainRegion lowest = terrainManager.getLowestRegion(regionX, regionZ);
 
         if (highest != null && lowest != null) {
             int calcSteps = highest.getRegionY() - lowest.getRegionY();
-            terrainManager.getLightEngine().scheduleSkylightUpdateInSlice(terrainManager.getWorld(), regionX, regionZ, highest, calcSteps, (x, y, z) -> {
-            });
+            terrainManager.getLightEngine()
+                          .scheduleSkylightUpdateInSlice(terrainManager.getWorld(), regionX, regionZ, highest, calcSteps, (x, y, z) -> {
+                          });
         }
-
     }
 
     public void removeChunk(ClientChunk chunk) {
@@ -90,7 +92,7 @@ public class TerrainRegion implements LightAccessor {
             count++;
         }
         chunksInRegion[idx] = null;
-        terrainManager.updateMesh(this, true);
+        terrainManager.getMeshService().removeChunkMesh(this, chunk);
 
         if (chunk.isEmpty()) {
             airRegions -= 1;
@@ -184,7 +186,8 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null) {
             return 0;
         }
-        return chunk.getChunkLightData().getBlockRed((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+        return chunk.getChunkLightData()
+                    .getBlockRed((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
@@ -193,7 +196,8 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null) {
             return 0;
         }
-        return chunk.getChunkLightData().getBlockBlue((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+        return chunk.getChunkLightData()
+                    .getBlockBlue((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
@@ -202,7 +206,8 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null) {
             return 0;
         }
-        return chunk.getChunkLightData().getBlockGreen((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+        return chunk.getChunkLightData()
+                    .getBlockGreen((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
@@ -211,7 +216,8 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null) {
             return;
         }
-        chunk.getChunkLightData().setBlockLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), red, green, blue);
+        chunk.getChunkLightData()
+             .setBlockLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), red, green, blue);
     }
 
     @Override
@@ -220,7 +226,8 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null) {
             return 0;
         }
-        return chunk.getChunkLightData().getSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+        return chunk.getChunkLightData()
+                    .getSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
@@ -229,7 +236,8 @@ public class TerrainRegion implements LightAccessor {
         if (chunk == null) {
             return;
         }
-        chunk.getChunkLightData().setSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), light);
+        chunk.getChunkLightData()
+             .setSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), light);
     }
 
     @Override
@@ -267,6 +275,16 @@ public class TerrainRegion implements LightAccessor {
     @Override
     public TerrainRegion getRelative(int x, int y, int z) {
         return terrainManager.getRegion(regionX + x, regionY + y, regionZ + z);
+    }
+
+    void linkNeighbor(Direction direction, TerrainRegion neighbor) {
+        neighbors[direction.getId()] = neighbor;
+        neighbor.neighbors[direction.getOpposite().getId()] = this;
+    }
+
+    void unLinkNeighbor(Direction direction, TerrainRegion neighbor) {
+        neighbors[direction.getId()] = null;
+        neighbor.neighbors[direction.getOpposite().getId()] = null;
     }
 
     private void checkIfChunkInRegion(ClientChunk chunk) {

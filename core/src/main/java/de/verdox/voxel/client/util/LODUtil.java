@@ -46,6 +46,7 @@ public class LODUtil {
         double lodExact = 0.5 * Math.log(distanceSquared / (double) (baseDistance * baseDistance)) / LOG_2;
         int lod = (int) Math.floor(lodExact);
 
-        return MathUtils.clamp(lod, 0, maxLOD);
+        //return MathUtils.clamp(lod, 0, maxLOD);
+        return 0;
     }
 }

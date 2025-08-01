@@ -56,6 +56,10 @@ public class ClientWorld extends World<ClientChunk> {
             regionSizeZ = Math.max(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
         }
 
+        regionSizeX = 1;
+        regionSizeY = 1;
+        regionSizeZ = 1;
+
         this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
     }
 
@@ -112,7 +116,8 @@ public class ClientWorld extends World<ClientChunk> {
                                 chunkCounter++;
                                 chunks.remove(chunkOutOfViewDistance);
 
-                                regionsToRebuild.add(terrainManager.getMeshPipeline().getRegionBounds().getRegionKey((int) x, (int) y, (int) z));
+                                regionsToRebuild.add(terrainManager.getMeshPipeline().getRegionBounds()
+                                                                   .getRegionKeyFromChunk((int) x, (int) y, (int) z));
                             }
                         }
                     }

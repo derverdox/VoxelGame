@@ -5,6 +5,7 @@ import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
 import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
+import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
 
 import java.util.UUID;
@@ -24,9 +25,9 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
     public World(UUID uuid) {
         this.uuid = uuid;
 
-        chunkSizeX = 64;
-        chunkSizeY = 64;
-        chunkSizeZ = 64;
+        chunkSizeX = 16;
+        chunkSizeY = 16;
+        chunkSizeZ = 16;
     }
 
     // For packets only
@@ -40,6 +41,14 @@ public abstract class World<CHUNK extends ChunkBase<? extends World<CHUNK>>> {
     public abstract CHUNK getChunkNow(int chunkX, int chunkY, int chunkZ);
 
     public abstract CHUNK getChunkNow(long chunkKey);
+
+    public CHUNK getChunkNeighborNow(long chunkX, long chunkY, long chunkZ, Direction direction) {
+        return getChunkNow((int) (chunkX + direction.getOffsetX()), (int) (chunkY + direction.getOffsetY()), (int) (chunkZ + direction.getOffsetZ()));
+    }
+
+    public CHUNK getChunkNeighborNow(CHUNK chunk, Direction direction) {
+        return getChunkNow(chunk.getChunkX() + direction.getOffsetX(), chunk.getChunkY() + direction.getOffsetY(), chunk.getChunkZ() + direction.getOffsetZ());
+    }
 
     public final void addChunk(CHUNK chunk) {
         onAddChunk(chunk);

@@ -40,105 +40,6 @@ public class TerrainGraph {
         this.chunkSizeX = chunkSizeX;
         this.chunkSizeY = chunkSizeY;
         this.chunkSizeZ = chunkSizeZ;
-
-/*        service.execute(() -> {
-            while (true) {
-                Camera camera = ClientBase.clientRenderer.getCamera();
-                if (camera == null) {
-                    continue;
-                }
-                ClientWorld currentWorld = VoxelClient.getInstance().getCurrentWorld();
-                if (currentWorld == null) {
-                    continue;
-                }
-
-                bsfRenderVisibleRegions(camera, currentWorld, null, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
-            }
-        });*/
-    }
-
-    public int getAmountOfRegions() {
-        return regions.size();
-    }
-
-    /**
-     * Represents a stored chunk with 6 neighbor pointers.
-     */
-    public class RegionNode {
-        public final long pos;
-        public RegionNode nextXPos, nextXNeg;
-        public RegionNode nextYPos, nextYNeg;
-        public RegionNode nextZPos, nextZNeg;
-        public BoundingBox boundingBox;
-
-        public RegionNode(int x, int y, int z) {
-            this.pos = ChunkBase.computeChunkKey(x, y, z);
-            this.boundingBox = createBoundingBox(x, y, z);
-        }
-
-        public boolean hasLinkedNeighbors() {
-            return nextXPos != null || nextXNeg != null || nextYPos != null || nextYNeg != null || nextZPos != null || nextZNeg != null;
-        }
-
-        private BoundingBox createBoundingBox(int x, int y, int z) {
-            int minChunkX = bounds.getMinChunkX(x);
-            int minChunkY = bounds.getMinChunkY(y);
-            int minChunkZ = bounds.getMinChunkZ(z);
-
-            int maxChunkX = bounds.getMaxChunkX(x);
-            int maxChunkY = bounds.getMaxChunkY(y);
-            int maxChunkZ = bounds.getMaxChunkZ(z);
-            return new BoundingBox().set(
-                    new Vector3(
-                            minChunkX * chunkSizeX,
-                            minChunkY * chunkSizeY,
-                            minChunkZ * chunkSizeZ
-                    ),
-                    new Vector3(
-                            maxChunkX * chunkSizeX + chunkSizeX - 1,
-                            maxChunkY * chunkSizeY + chunkSizeY - 1,
-                            maxChunkZ * chunkSizeZ + chunkSizeZ - 1
-                    )
-            );
-        }
-
-        @Override
-        public String toString() {
-            return "RegionNode{" +
-                    "nextZNeg=" + (nextZNeg != null) +
-                    ", nextZPos=" + (nextZPos != null) +
-                    ", nextYNeg=" + (nextYNeg != null) +
-                    ", nextYPos=" + (nextYPos != null) +
-                    ", nextXNeg=" + (nextXNeg != null) +
-                    ", nextXPos=" + (nextXPos != null) +
-                    ", pos=" + pos +
-                    '}';
-        }
-    }
-
-    private record PlaneKey(int k1, int k2) {
-    }
-
-    public RegionNode addRegion(ClientChunk chunk) {
-        return addRegion(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
-    }
-
-    public RegionNode addRegionByChunkCoords(int chunkX, int chunkY, int chunkZ) {
-        int regionX = bounds.getRegionX(chunkX);
-        int regionY = bounds.getRegionY(chunkY);
-        int regionZ = bounds.getRegionZ(chunkZ);
-        return addRegion(regionX, regionY, regionZ);
-    }
-
-    public RegionNode getRegion(ClientChunk chunk) {
-        return getRegion(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
-    }
-
-    public RegionNode getRegionByChunkCoords(int chunkX, int chunkY, int chunkZ) {
-        int regionX = bounds.getRegionX(chunkX);
-        int regionY = bounds.getRegionY(chunkY);
-        int regionZ = bounds.getRegionZ(chunkZ);
-        return getRegion(regionX, regionY, regionZ);
     }
 
     /**
@@ -239,98 +140,10 @@ public class TerrainGraph {
         return regions.get(ChunkBase.computeChunkKey(x, y, z));
     }
 
-    /**
-     * Findet die Region, die an (x,y,z) liegt oder – falls dort keine existiert – die nächste vorhandene Region.
-     *
-     * @param x Ziel-X
-     * @param y Ziel-Y
-     * @param z Ziel-Z
-     * @return entweder der exakt an (x,y,z) liegende Knoten oder der Knoten mit dem kleinsten euklidischen Abstand;
-     * null, falls überhaupt keine Region gespeichert ist.
-     */
-    private RegionNode findNearestRegionInFrustum(Camera camera, int x, int y, int z, int maxStepsX, int maxStepsY, int maxStepsZ) {
-        long key = ChunkBase.computeChunkKey(x, y, z);
-        RegionNode exact = regions.get(key);
-        if (exact != null) {
-            return exact;
-        }
-
-        Set<Long> visited = new HashSet<>();
-        Queue<Long> toVisit = new ArrayDeque<>();
-        visited.add(key);
-        toVisit.add(key);
-
-        while (!toVisit.isEmpty()) {
-            long nextToCheck = toVisit.poll();
-            int nx = ChunkBase.unpackChunkX(nextToCheck);
-            int ny = ChunkBase.unpackChunkY(nextToCheck);
-            int nz = ChunkBase.unpackChunkZ(nextToCheck);
-
-            RegionNode node = regions.get(nextToCheck);
-            if (node != null && camera.frustum.boundsInFrustum(node.boundingBox)) {
-                return node;
-            }
-            visited.add(nextToCheck);
-
-            for (int i = 0; i < Direction.values().length; i++) {
-                Direction direction = Direction.values()[i];
-
-                int relX = nx + direction.getOffsetX();
-                int relY = ny + direction.getOffsetY();
-                int relZ = nz + direction.getOffsetZ();
-
-                // Check if in view distance
-                if (
-                        relX > x + maxStepsX || relX < x - maxStepsX ||
-                                relY > y + maxStepsY || relY < y - maxStepsY ||
-                                relZ > z + maxStepsZ || relZ < z - maxStepsZ
-                ) {
-                    continue;
-                }
-
-                long neighborKey = ChunkBase.computeChunkKey(relX, relY, relZ);
-                if (visited.contains(neighborKey)) {
-                    continue;
-                }
-                toVisit.add(neighborKey);
-            }
-        }
-        return null;
-    }
-
     private final LongSet visited = new LongOpenHashSet();
     private final LongQueue queue = new LongQueue();
-    private List<Long> frontBuffer = new ArrayList<>();
-    private List<Long> backBuffer = new ArrayList<>();
-    private final Object lock = new Object();
 
-    public int bsfBufferRender(Camera camera, ClientWorld world, ModelBatch batch) {
-        synchronized (lock) {
-            List<Long> temp = frontBuffer;
-            frontBuffer.addAll(backBuffer);
-            backBuffer = temp;
-            backBuffer.clear();
-        }
-
-        for (int i = 0; i < frontBuffer.size(); i++) {
-            long regionKey = frontBuffer.get(i);
-
-            int nx = ChunkBase.unpackChunkX(regionKey);
-            int ny = ChunkBase.unpackChunkY(regionKey);
-            int nz = ChunkBase.unpackChunkZ(regionKey);
-            TerrainRegion terrainRegion = terrainManager.getRegion(nx, ny, nz);
-            var terrainMesh = terrainManager.getMeshStorage().getRegionMeshIfAvailable(nx, ny, nz);
-            if (terrainRegion == null || terrainMesh == null) {
-                continue;
-            }
-
-            var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, nx, ny, nz);
-            mesh.render(camera, batch);
-        }
-        return 0;
-    }
-
-    public synchronized int bsfRenderVisibleRegions(Camera camera, ClientWorld world, ModelBatch batch, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
+    public synchronized int bsfRenderVisibleRegions(Camera camera, ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
         visited.clear();
         queue.clear();
 
@@ -384,7 +197,7 @@ public class TerrainGraph {
                 continue;
             }
 
-            TerrainMesh terrainMesh = world.getTerrainManager().getMeshStorage().getRegionMeshIfAvailable(nx, ny, nz);
+            TerrainMesh terrainMesh = terrainRegion.getTerrainMesh();
 
             if (terrainMesh != null && terrainMesh.getAmountOfBlockFaces() != 0 /*&& terrainMesh.isComplete()*/) {
 
@@ -394,17 +207,11 @@ public class TerrainGraph {
                     continue;
                 }
 
-                if (batch != null) {
-                    var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, nx, ny, nz);
-                    if (mesh == null) {
-                        continue;
-                    }
-                    mesh.render(camera, batch);
-                } else {
-                    synchronized (lock) {
-                        backBuffer.add(key);
-                    }
+                var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, terrainRegion);
+                if (mesh == null) {
+                    continue;
                 }
+                mesh.render(camera);
                 amountOfRenderedBlockFaces += terrainMesh.getAmountOfBlockFaces();
             }
 
@@ -457,74 +264,61 @@ public class TerrainGraph {
         return amountOfRenderedBlockFaces;
     }
 
-
     /**
-     * Prüft, ob 'target' komplett occluded ist von allen
-     * Chunks zwischen 'cameraChunk' und 'targetChunk'.
+     * Represents a stored chunk with 6 neighbor pointers.
      */
-    public static boolean isVisible(
-            int cameraChunkX, int cameraChunkY, int cameraChunkZ,
-            int targetChunkX, int targetChunkY, int targetChunkZ,
-            ClientWorld world // liefert per Koordinate die ClientChunk/OccupancyMask
-    ) {
+    public class RegionNode {
+        public final long pos;
+        public RegionNode nextXPos, nextXNeg;
+        public RegionNode nextYPos, nextYNeg;
+        public RegionNode nextZPos, nextZNeg;
+        public BoundingBox boundingBox;
 
-        // 1) Delta-Chunks
-        int dx = targetChunkX - cameraChunkX;
-        int dy = targetChunkY - cameraChunkY;
-        int dz = targetChunkZ - cameraChunkZ;
-
-        // 2) Einfache Achsen-Schritte (kann man ersetzen durch Bresenham für schräge Linien)
-        int stepX = Integer.signum(dx);
-        int stepY = Integer.signum(dy);
-        int stepZ = Integer.signum(dz);
-
-        int steps = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
-        int cx = cameraChunkX, cy = cameraChunkY, cz = cameraChunkZ;
-
-        for (int i = 0; i < steps; i++) {
-            // Bestimme nächste Chunk-Koordinate auf dem Weg
-            // hier simple Priorität X→Y→Z; du kannst das mit Bresenham ersetzen
-            if (cx != targetChunkX) cx += stepX;
-            else if (cy != targetChunkY) cy += stepY;
-            else cz += stepZ;
-
-            // 3) Welches Face des bisherigen Chunks schaut zum neuen Chunk?
-            Direction faceDir = getDirectionFromDelta(
-                    cx - cameraChunkX,
-                    cy - cameraChunkY,
-                    cz - cameraChunkZ
-            );
-
-            // 4) Hole OccupancyMask und SideMask
-            ClientChunk chunk = world.getChunkNow(cx, cy, cz);
-            if (chunk == null) break;
-            OccupancyMask mask = chunk.getChunkOccupancyMask();
-
-            // 5) Ist die komplette Face in faceDir voll opaque?
-            long sideMask = mask.getSideMask();
-            if ((sideMask & (1L << faceDir.getId())) != 0) {
-                // Strahl schlägt hier auf eine voll-opaque Face auf → alles dahinter ist occluded
-                return false;
-            }
-
-            // Merke dir neue Kamera-Position für die Face-Richtung
-            cameraChunkX = cx;
-            cameraChunkY = cy;
-            cameraChunkZ = cz;
+        public RegionNode(int x, int y, int z) {
+            this.pos = ChunkBase.computeChunkKey(x, y, z);
+            this.boundingBox = createBoundingBox(x, y, z);
         }
-        return true;
+
+        public boolean hasLinkedNeighbors() {
+            return nextXPos != null || nextXNeg != null || nextYPos != null || nextYNeg != null || nextZPos != null || nextZNeg != null;
+        }
+
+        private BoundingBox createBoundingBox(int x, int y, int z) {
+            int minChunkX = bounds.getMinChunkX(x);
+            int minChunkY = bounds.getMinChunkY(y);
+            int minChunkZ = bounds.getMinChunkZ(z);
+
+            int maxChunkX = bounds.getMaxChunkX(x);
+            int maxChunkY = bounds.getMaxChunkY(y);
+            int maxChunkZ = bounds.getMaxChunkZ(z);
+            return new BoundingBox().set(
+                    new Vector3(
+                            minChunkX * chunkSizeX,
+                            minChunkY * chunkSizeY,
+                            minChunkZ * chunkSizeZ
+                    ),
+                    new Vector3(
+                            maxChunkX * chunkSizeX + chunkSizeX - 1,
+                            maxChunkY * chunkSizeY + chunkSizeY - 1,
+                            maxChunkZ * chunkSizeZ + chunkSizeZ - 1
+                    )
+            );
+        }
+
+        @Override
+        public String toString() {
+            return "RegionNode{" +
+                    "nextZNeg=" + (nextZNeg != null) +
+                    ", nextZPos=" + (nextZPos != null) +
+                    ", nextYNeg=" + (nextYNeg != null) +
+                    ", nextYPos=" + (nextYPos != null) +
+                    ", nextXNeg=" + (nextXNeg != null) +
+                    ", nextXPos=" + (nextXPos != null) +
+                    ", pos=" + pos +
+                    '}';
+        }
     }
 
-    /**
-     * Hilfsfunktion: wandelt ein (dx,dy,dz) in eine der 6 Cardinal-Directions um.
-     */
-    private static Direction getDirectionFromDelta(int dx, int dy, int dz) {
-        if (dx > 0) return Direction.EAST;
-        if (dx < 0) return Direction.WEST;
-        if (dy > 0) return Direction.UP;
-        if (dy < 0) return Direction.DOWN;
-        if (dz > 0) return Direction.SOUTH;
-        if (dz < 0) return Direction.NORTH;
-        throw new IllegalArgumentException("Zero delta");
+    private record PlaneKey(int k1, int k2) {
     }
 }

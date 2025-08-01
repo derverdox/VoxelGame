@@ -123,7 +123,7 @@ public class TerrainMesh {
         }
     }
 
-    public MeshWithBounds getOrGenerateMeshFromFaces(ClientWorld world, int regionX, int regionY, int regionZ) {
+    public MeshWithBounds getOrGenerateMeshFromFaces(ClientWorld world, TerrainRegion terrainRegion) {
         if (calculatedMesh != null && !dirty) {
             return calculatedMesh;
         }
@@ -131,9 +131,9 @@ public class TerrainMesh {
         if (amountBlockFaces == 0 || vertices == null || (shortIndices == null && intIndices == null)) {
             return null;
         }
-        int minChunkX = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkX(regionX);
-        int minChunkY = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkY(regionY);
-        int minChunkZ = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkZ(regionZ);
+        int minChunkX = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkX(terrainRegion.getRegionX());
+        int minChunkY = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkY(terrainRegion.getRegionY());
+        int minChunkZ = world.getTerrainManager().getMeshPipeline().getRegionBounds().getMinChunkZ(terrainRegion.getRegionZ());
 
         lock.writeLock().lock();
         try {

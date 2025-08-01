@@ -8,6 +8,7 @@ import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorageImpl;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
+import de.verdox.voxel.client.util.ThroughputBenchmark;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
@@ -21,9 +22,10 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Deprecated
 public class TerrainMeshPipeline implements DebuggableOnScreen {
-    // Summierte Verarbeitungszeit in Nanosekunden (ohne Leerlauf)
-    private static final AtomicLong totalProcessingTimeNs = new AtomicLong();
+    public static final ThroughputBenchmark meshThroughput = new ThroughputBenchmark("TerrainMeshes");
+
 
     private final ClientWorld world;
     private final ChunkMeshCalculator chunkMeshCalculator;
@@ -35,7 +37,6 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
     private static final ExecutorService service = Executors.newFixedThreadPool(8, ThreadUtil.createFactoryForName("Chunk Mesh Calculator Job", true));
     private final AtomicInteger currentlyCalculating = new AtomicInteger();
     private final AtomicInteger alreadyCalculated = new AtomicInteger();
-    private final AtomicLong lastTook = new AtomicLong();
 
     public TerrainMeshPipeline(ClientWorld world, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
         this.world = world;
@@ -56,12 +57,11 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
             jobs.put(regionKey, new TerrainMeshJob(lodLevel, regionX, regionY, regionZ));
         }
 
-        long startProc = -1;
+        long startProc = System.nanoTime();
 
         TerrainMeshJob meshJob = jobs.get(regionKey);
 
         currentlyCalculating.addAndGet(1);
-        long start = System.currentTimeMillis();
 
         int minChunkX = regionBounds.getMinChunkX(regionX);
         int minChunkY = regionBounds.getMinChunkY(regionY);
@@ -78,6 +78,8 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
 
         CompletableFuture[] calculations = new CompletableFuture[(maxChunkX - minChunkX + 1) * (maxChunkY - minChunkY + 1) * (maxChunkZ - minChunkZ + 1)];
 
+        boolean calculatedAnything = false;
+
         int counter = 0;
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cy = minChunkY; cy <= maxChunkY; cy++) {
@@ -89,11 +91,7 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
                         continue;
                     }
 
-                    if (startProc == -1) {
-                        startProc = System.nanoTime();
-                    }
-
-                    boolean canGenerate = true;
+/*                    boolean canGenerate = true;
                     for (int i = 0; i < Direction.values().length; i++) {
                         Direction direction = Direction.values()[i];
 
@@ -106,13 +104,14 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
 
                     if (!canGenerate) {
                         continue;
-                    }
+                    }*/
 
                     CompletableFuture<?> future = CompletableFuture.runAsync(() -> meshJob.recomputeChunk(chunk, true, true));
 
 /*                    meshJob.recomputeChunk(chunk, true, true);
                     CompletableFuture<?> future = CompletableFuture.completedFuture(null);*/
                     calculations[counter++] = future;
+                    calculatedAnything = true;
                 }
             }
         }
@@ -130,10 +129,11 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
 
         //benchmark.startSection("Greedy meshing");
         //benchmark.endSection();
+        if (calculatedAnything) {
+            long duration = System.nanoTime() - startProc;
+            meshThroughput.add(duration);
+        }
 
-        long duration = System.nanoTime() - startProc;
-        totalProcessingTimeNs.addAndGet(duration);
-        lastTook.set(TimeUnit.NANOSECONDS.toMillis(duration));
         currentlyCalculating.addAndGet(-1);
         if (meshJob.getStorageOfJob().getSize() != 0) {
             alreadyCalculated.addAndGet(1);
@@ -150,16 +150,8 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
     @Override
     public void debugText(DebugScreen debugScreen) {
         debugScreen.addDebugTextLine("Mesh Pipeline calculating: " + currentlyCalculating.get());
-
-        long processed = alreadyCalculated.get();
-        double totalSec = totalProcessingTimeNs.get() / 1_000_000_000.0;
-        double throughput = (totalSec > 0) ? processed / totalSec : 0;
-
-        String line = String.format(
-                "Meshes: %d, Processing Time: %.2fs, Throughput: %.1f meshes/s, Last: %dms",
-                processed, totalSec, throughput, lastTook.get()
-        );
-        debugScreen.addDebugTextLine(line);
+        debugScreen.addDebugTextLine(ChunkMeshCalculator.chunkCalculatorThroughput.format());
+        debugScreen.addDebugTextLine(meshThroughput.format());
     }
 
     public record MeshResult(boolean completeMesh, TerrainFaceStorage storage) {
@@ -203,6 +195,11 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
             int offsetY = (byte) (clientChunk.getChunkY() - minChunkY);
             int offsetZ = (byte) (clientChunk.getChunkZ() - minChunkZ);
 
+            if (offsetX < 0 || offsetX >= regionBounds.regionSizeX()
+                    || offsetY < 0 || offsetY >= regionBounds.regionSizeY() || offsetZ < 0 || offsetZ >= regionBounds.regionSizeZ()) {
+                return;
+            }
+
             boolean hasFaces = storageOfJob.hasFacesForChunk(offsetX, offsetY, offsetZ);
 
             if (generateInitial && hasFaces) {
@@ -218,7 +215,8 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
             }
 
             if (!isRecursive) {
-                storageOfJob.getRegionalLock().withLock(offsetX, offsetY, offsetZ, notifyNeighbors ? 1 : 0, () -> recalculate(clientChunk, notifyNeighbors, offsetX, offsetY, offsetZ));
+                storageOfJob.getRegionalLock()
+                            .withLock(offsetX, offsetY, offsetZ, notifyNeighbors ? 1 : 0, () -> recalculate(clientChunk, notifyNeighbors, offsetX, offsetY, offsetZ));
             } else {
                 recalculate(clientChunk, notifyNeighbors, offsetX, offsetY, offsetZ);
             }
@@ -227,7 +225,6 @@ public class TerrainMeshPipeline implements DebuggableOnScreen {
         private void recalculate(ClientChunk clientChunk, boolean notifyNeighbors, int offsetX, int offsetY, int offsetZ) {
             TerrainFaceStorage.ChunkFaceStorage chunkFaceStorage = storageOfJob.getOrCreateChunkFaces(offsetX, offsetY, offsetZ);
             chunkMeshCalculator.calculateChunkMesh(chunkFaceStorage, clientChunk, lodLevel);
-
 
             if (!notifyNeighbors) {
                 return;

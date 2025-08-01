@@ -1,8 +1,10 @@
 package de.verdox.voxel.client.util;
 
+import de.verdox.voxel.shared.util.Direction;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -12,22 +14,22 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * Manages locking of 3D chunk-regions and a global master lock to prevent
  * concurrent access issues at both granular and global levels.
- *
+ * <p>
  * Beispiel-Nutzung für Region:
- *   RegionalLock lock = new RegionalLock();
- *   lock.withLock(baseX, baseY, baseZ, radius, () -> {
- *       // kritischer Code auf Regionsebene
- *   });
- *
+ * RegionalLock lock = new RegionalLock();
+ * lock.withLock(baseX, baseY, baseZ, radius, () -> {
+ * // kritischer Code auf Regionsebene
+ * });
+ * <p>
  * Radius-Definition:
  * - radius = 0: nur der eigene Chunk bei (offsetX, offsetY, offsetZ)
  * - radius = 1: direkter Nachbar-Umkreis (3×3×3 = 27 Chunks)
  * - allgemein: (2·radius + 1)^3 Chunks
- *
+ * <p>
  * Beispiel-Nutzung für Master:
- *   lock.withMasterLock(() -> {
- *       // kritischer Code auf globaler Ebene
- *   });
+ * lock.withMasterLock(() -> {
+ * // kritischer Code auf globaler Ebene
+ * });
  */
 public class RegionalLock {
     // Einzelne Locks pro Chunk-Key
@@ -40,7 +42,7 @@ public class RegionalLock {
      * Sperrt eine 3D-Region aus aufeinanderfolgenden Chunks (Leser-Modus),
      * führt die Aktion aus und gibt die Locks wieder frei.
      * Blockiert, wenn gerade ein globaler Master-Lock im Schreib-Modus aktiv ist.
-     *
+     * <p>
      * Radius-Logik: Schleifen von -radius bis +radius (inklusive).
      *
      * @param offsetX Zentrum X-Koordinate in Chunks
@@ -55,13 +57,25 @@ public class RegionalLock {
         try {
             List<Long> keys = new ArrayList<>();
             // Schleifen über Cube von -radius..+radius
-            for (int dx = -radius; dx <= radius; dx++) {
-                for (int dy = -radius; dy <= radius; dy++) {
-                    for (int dz = -radius; dz <= radius; dz++) {
-                        long key = computeChunkKey(offsetX + dx, offsetY + dy, offsetZ + dz);
-                        keys.add(key);
+
+            if (radius > 1) {
+                for (int dx = -radius; dx <= radius; dx++) {
+                    for (int dy = -radius; dy <= radius; dy++) {
+                        for (int dz = -radius; dz <= radius; dz++) {
+                            long key = computeChunkKey(offsetX + dx, offsetY + dy, offsetZ + dz);
+                            keys.add(key);
+                        }
                     }
                 }
+            } else if (radius == 1) {
+                for (int i = 0; i < Direction.values().length; i++) {
+                    Direction direction = Direction.values()[i];
+                    long key = computeChunkKey(offsetX + direction.getOffsetX(), offsetY + direction.getOffsetZ(), offsetZ + direction.getOffsetX());
+                    keys.add(key);
+                }
+            } else if (radius == 0) {
+                long key = computeChunkKey(offsetX, offsetY, offsetZ);
+                keys.add(key);
             }
 
             // Sortieren für konsistente Lock-Reihenfolge (Deadlock-Vermeidung)

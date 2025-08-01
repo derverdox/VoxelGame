@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-
+@Deprecated
 public class TerrainMeshStorage {
     private final ExecutorService executor = Executors.newFixedThreadPool(4, ThreadUtil.createFactoryForName("Meshing Thread", true));
     private final Long2ObjectOpenHashMap<TerrainMesh> renderedRegions = new Long2ObjectOpenHashMap<>();
