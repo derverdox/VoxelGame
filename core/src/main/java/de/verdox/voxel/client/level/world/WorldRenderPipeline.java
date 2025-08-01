@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -41,6 +42,8 @@ public abstract class WorldRenderPipeline implements DebuggableOnScreen {
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClearDepthf(1f);
         Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        Gdx.gl20.glViewport( 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight() );
 
         Shaders.GREEDY_OPAQUE_BLOCK_SHADER.bind();
         Shaders.SINGLE_OPAQUE_BLOCK_SHADER.bind();

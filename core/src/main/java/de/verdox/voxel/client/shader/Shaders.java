@@ -28,7 +28,7 @@ public class Shaders {
     };
 
     public static final VertexAttribute[] SINGLE_OPAQUE_ATTRIBUTES = new VertexAttribute[]{
-            new VertexAttribute(VertexAttributes.Usage.Position, 3, "a_position"),
+            new VertexAttribute(VertexAttributes.Usage.Position, 1, "a_position_and_ao"),
             new VertexAttribute(VertexAttributes.Usage.TextureCoordinates, 2, "a_texCoord0"),
             new VertexAttribute(VertexAttributes.Usage.Generic, 1, "a_light")
     };

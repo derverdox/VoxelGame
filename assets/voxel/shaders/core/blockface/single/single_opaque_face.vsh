@@ -1,4 +1,4 @@
-attribute vec3 a_position;
+attribute float a_position_and_ao;
 attribute vec2 a_texCoord0;
 attribute float a_light;
 
@@ -23,8 +23,19 @@ float getNibble(inout float data, float div) {
     return comp;
 }
 
+
+
 void main() {
     v_texCoord = a_texCoord0;
+
+    // 1) Interpretiere die Bits des Floats als unsigned int
+    uint bits = floatBitsToUint(a_position_and_ao);
+
+    // 2) Entpacke die 10-Bit-Koordinaten und das 2-Bit-AO
+    int x = int(bits & 0x3FFu);
+    int y = int((bits >> 10) & 0x3FFu);
+    int z = int((bits >> 20) & 0x3FFu);
+    int ao = int((bits >> 30) & 0x3u);
 
     float light = a_light;
     // 1) AO in Bits 16–17: div = 2^16 = 65536
@@ -39,5 +50,7 @@ void main() {
     // Blue in Bits 0–3:  div = 2^0  = 1
     v_block_light_blue = getNibble(light, 1.0) / 15;
 
-    gl_Position = u_projViewTrans * u_worldTrans * vec4(a_position, 1.0);
+    v_ambient_occlusion = 1.0 - ao / 3.0;
+
+    gl_Position = u_projViewTrans * u_worldTrans * vec4(vec3(x, y, z), 1.0);
 }

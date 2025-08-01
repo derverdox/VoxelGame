@@ -19,12 +19,13 @@ public class Lwjgl3Launcher {
     private static Lwjgl3ApplicationConfiguration getDefaultConfiguration() {
         Lwjgl3ApplicationConfiguration configuration = new Lwjgl3ApplicationConfiguration();
         configuration.setTitle("VoxelGame");
+
         configuration.setResizable(true);
         configuration.setBackBufferConfig(
             8, 8, 8, 8, // R,G,B,A bits
             16,         // depth bits
             0,          // stencil bits
-            0           // MSAA samples
+            16          // MSAA samples
         );
         //// Vsync limits the frames per second to what your hardware can display, and helps eliminate
         //// screen tearing. This setting doesn't always work on Linux, so the line after is a safeguard.

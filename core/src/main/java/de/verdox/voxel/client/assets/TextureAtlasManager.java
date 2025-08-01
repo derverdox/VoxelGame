@@ -1,6 +1,7 @@
 package de.verdox.voxel.client.assets;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.PixmapPacker;
@@ -37,7 +38,7 @@ public class TextureAtlasManager {
         Gdx.app.log("Atlas", "Creating the Block atlas");
         PixmapPacker blockTexturePacker = new PixmapPacker(
             1024, 1024, Pixmap.Format.RGBA8888,
-            2, true
+            4, true
         );
         BlockModels.getBlockModels().forEach(this::registerBlockModel);
         blockModels.stream().distinct().forEach(blockModel ->
@@ -46,13 +47,15 @@ public class TextureAtlasManager {
                 blockTexturePacker.pack(resourceLocation.toString(), new Pixmap(Gdx.files.internal(findFile(TextureType.BLOCKS, resourceLocation))));
             }));
         blockTextureAtlas = blockTexturePacker.generateTextureAtlas(
-            Texture.TextureFilter.Nearest,
-            Texture.TextureFilter.Nearest,
+            Texture.TextureFilter.Linear,
+            Texture.TextureFilter.Linear,
             false
         );
 
+
         for (Texture texture : blockTextureAtlas.getTextures()) {
-            texture.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
+            texture.setWrap(Texture.TextureWrap.ClampToEdge, Texture.TextureWrap.ClampToEdge);
+            texture.setAnisotropicFilter(Texture.getMaxAnisotropicFilterLevel());
         }
 
         Gdx.app.log("Atlas", "Block Atlas created with " + blockTextureAtlas.getRegions().size + " regions on " + blockTextureAtlas.getTextures().size + " texture pages.");

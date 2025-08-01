@@ -180,10 +180,22 @@ public class SingleBlockFace implements BlockFace {
     }
 
     protected int writePosition(float[] vertices, float[][] corners, int cornerIndex, int offsetStart, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
-        vertices[offsetStart] = corners[cornerIndex][0] + offsetXInBlocks;
-        vertices[offsetStart + 1] = corners[cornerIndex][1] + offsetYInBlocks;
-        vertices[offsetStart + 2] = corners[cornerIndex][2] + offsetZInBlocks;
-        return offsetStart + 3;
+        int x = (int) corners[cornerIndex][0] + offsetXInBlocks;
+        int y = (int) corners[cornerIndex][1] + offsetYInBlocks;
+        int z = (int) corners[cornerIndex][2] + offsetZInBlocks;
+
+
+        byte aoAtCorner = LightUtil.unpackAo(this.aoPacked, cornerIndex);
+
+        float packedPositionAndAo = packPositionAndAO(x, y, z, aoAtCorner);
+
+        vertices[offsetStart] = packedPositionAndAo;
+
+/*        vertices[offsetStart] = x;
+        vertices[offsetStart + 1] = y;
+        vertices[offsetStart + 2] = z;
+        return offsetStart + 3;*/
+        return offsetStart + 1;
     }
 
     protected int writeUV(
@@ -263,7 +275,7 @@ public class SingleBlockFace implements BlockFace {
 
     @Override
     public int getFloatsPerVertex() {
-        return 6;
+        return 4;
     }
 
     @Override
@@ -290,7 +302,8 @@ public class SingleBlockFace implements BlockFace {
         float lengthU = getULength();
         if (lengthU == 0) return this;
 
-        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction().equals(Direction.WEST);
+        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction()
+                                                                                          .equals(Direction.WEST);
 
         int deltaU = flip ? 0 : delta;
         int deltaV = flip ? delta : 0;
@@ -314,7 +327,8 @@ public class SingleBlockFace implements BlockFace {
         float lengthV = getVLength();
         if (lengthV == 0) return this;
 
-        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction().equals(Direction.WEST);
+        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction()
+                                                                                          .equals(Direction.WEST);
 
         int deltaU = flip ? delta : 0;
         int deltaV = flip ? 0 : delta;
@@ -514,5 +528,27 @@ public class SingleBlockFace implements BlockFace {
 
     protected byte[] getIndexOrderByFaceDirection(Direction direction) {
         return new byte[]{0, 1, 3, 3, 2, 0};
+    }
+
+    /**
+     * Packt drei 10-Bit-Koordinaten (cx, cy, cz ∈ [0..1023]) und
+     * einen 2-Bit AO-Wert (ao ∈ [0..3]) in einen 32-Bit Int,
+     * und reinterpret castet ihn als Float.
+     * <p>
+     * Bit-Layout (0 = LSB, 31 = MSB):
+     * [ ao:2 |   z:10   |   y:10   |   x:10   ]
+     */
+    protected float packPositionAndAO(int cx, int cy, int cz, int ao) {
+        // Maske auf gültigen Wertebereich
+        int x = cx & 0x3FF;   // 10 Bit
+        int y = cy & 0x3FF;   // 10 Bit
+        int z = cz & 0x3FF;   // 10 Bit
+        int a = ao & 0x3;     // 2 Bit
+
+        // Schiebe in 32-Bit-Wort: [a<<30] + [z<<20] + [y<<10] + [x]
+        int packed = (a << 30) | (z << 20) | (y << 10) | x;
+
+        // Reinterpret als Float, Bits bleiben erhalten
+        return Float.intBitsToFloat(packed);
     }
 }
