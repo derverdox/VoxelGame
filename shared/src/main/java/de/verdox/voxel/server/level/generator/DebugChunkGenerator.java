@@ -1,11 +1,11 @@
 package de.verdox.voxel.server.level.generator;
 
-import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.shared.data.types.Blocks;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 
 public class DebugChunkGenerator implements ChunkGenerator {
     @Override
-    public void generateNoise(ServerChunk gameChunk) {
+    public void generateNoise(Chunk gameChunk) {
 
         if (gameChunk.getChunkX() == 1 && gameChunk.getChunkY() == 4 && gameChunk.getChunkZ() == 1) {
             fillChunk(gameChunk, Blocks.STONE);
@@ -73,7 +73,7 @@ public class DebugChunkGenerator implements ChunkGenerator {
     }
 
     @Override
-    public void generateSurfaceBlocks(ServerChunk gameChunk) {
+    public void generateSurfaceBlocks(Chunk gameChunk) {
 
     }
 }

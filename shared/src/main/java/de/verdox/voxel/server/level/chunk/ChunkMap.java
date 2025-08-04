@@ -1,8 +1,7 @@
 package de.verdox.voxel.server.level.chunk;
 
-import de.verdox.voxel.server.level.ServerWorld;
-import de.verdox.voxel.shared.level.World;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.world.LevelWorld;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -11,46 +10,34 @@ import lombok.Getter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 @Getter
 public class ChunkMap {
-    public static final Logger LOGGER = Logger.getLogger(ChunkMap.class.getSimpleName());
-
-    private final Long2ObjectMap<ServerChunk> chunks = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
+    private final Long2ObjectMap<Chunk> chunks = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
     private final Long2ObjectMap<MinMaxY> columnHeights = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
 
-    private final ServerWorld world;
-    private final Set<ChunkMapUpdateSubscriber> subscribers = new HashSet<>();
+    private final LevelWorld world;
 
-    public ChunkMap(ServerWorld world) {
+    public ChunkMap(LevelWorld world) {
         this.world = world;
     }
 
-    public void subscribeToChanges(ChunkMapUpdateSubscriber subscriber) {
-        subscribers.add(subscriber);
-    }
-
-    public void unsubscribeFromChanges(ChunkMapUpdateSubscriber subscriber) {
-        subscribers.remove(subscriber);
-    }
-
-    public CompletableFuture<ServerChunk> getOrCreateChunkAsync(int chunkX, int chunkY, int chunkZ, Consumer<ServerChunk> whenDone) {
+    public CompletableFuture<Chunk> getOrCreateChunkAsync(int chunkX, int chunkY, int chunkZ, Consumer<Chunk> whenDone) {
         return getChunk(chunkX, chunkY, chunkZ)
                 .map(chunk -> CompletableFuture.completedFuture(chunk).whenComplete((chunk1, throwable) -> whenDone.accept(chunk1)))
-                .orElseGet(() -> world.getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
+                .orElseGet(() -> getWorld().getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
     }
 
-    public Optional<ServerChunk> getChunk(int chunkX, int chunkY, int chunkZ) {
-        long chunkKey = ChunkBase.computeChunkKey(chunkX, chunkY, chunkZ);
+    public Optional<Chunk> getChunk(int chunkX, int chunkY, int chunkZ) {
+        long chunkKey = Chunk.computeChunkKey(chunkX, chunkY, chunkZ);
         if (!chunks.containsKey(chunkKey)) {
             return Optional.empty();
         }
-        ServerChunk chunk = chunks.get(chunkKey);
+        Chunk chunk = chunks.get(chunkKey);
         return Optional.of(chunk);
     }
 
-    public void saveChunkAfterGeneration(ServerChunk gameChunk) {
+    public void saveChunkAfterGeneration(Chunk gameChunk) {
         chunks.put(gameChunk.getChunkKey(), gameChunk);
 
         long columnKey = computeColumnKey(gameChunk.getChunkX(), gameChunk.getChunkZ());
@@ -66,15 +53,13 @@ public class ChunkMap {
                 return minMax;
             }
         });
-
-        subscribers.forEach(subscriber -> subscriber.chunkLoaded(gameChunk));
+        world.addChunk(gameChunk);
     }
 
     public boolean unloadChunk(int chunkX, int chunkY, int chunkZ) {
-        long chunkKey = ChunkBase.computeChunkKey(chunkX, chunkY, chunkZ);
+        long chunkKey = Chunk.computeChunkKey(chunkX, chunkY, chunkZ);
         if (chunks.containsKey(chunkKey)) {
-            ServerChunk removed = chunks.remove(chunkKey);
-            subscribers.forEach(subscriber -> subscriber.chunkUnloaded(removed));
+            Chunk removed = chunks.remove(chunkKey);
 
             long columnKey = computeColumnKey(chunkX, chunkZ);
             MinMaxY recalculated = recomputeColumnHeight(chunkX, chunkZ);
@@ -83,7 +68,7 @@ public class ChunkMap {
             } else {
                 columnHeights.remove(columnKey);
             }
-
+            world.removeChunk(removed);
             return true;
         }
         return false;
@@ -93,7 +78,7 @@ public class ChunkMap {
      * Wird von einem Chunk aufgerufen, wenn sich dessen Heightmap geändert hat.
      * Hier kannst du Logik einfügen, falls du darauf reagieren willst.
      */
-    void notifyHeightmapChange(ServerChunk gameChunk) {
+    public void notifyHeightmapChange(Chunk gameChunk) {
         if (gameChunk.isEmpty()) {
             unloadChunk(gameChunk.getChunkX(), gameChunk.getChunkY(), gameChunk.getChunkZ());
         } else {
@@ -127,8 +112,8 @@ public class ChunkMap {
     private MinMaxY recomputeColumnHeight(int chunkX, int chunkZ) {
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;
-        for (Map.Entry<Long, ServerChunk> entry : chunks.entrySet()) {
-            ServerChunk chunk = entry.getValue();
+        for (Map.Entry<Long, Chunk> entry : chunks.entrySet()) {
+            Chunk chunk = entry.getValue();
             if (chunk.getChunkX() == chunkX && chunk.getChunkZ() == chunkZ) {
                 int y = chunk.getChunkY();
                 if (y < min) min = y;
@@ -149,17 +134,6 @@ public class ChunkMap {
      */
     public static long computeColumnKey(int chunkX, int chunkZ) {
         return (((long) chunkX) & 0xFFFFFFFFL) | ((((long) chunkZ) & 0xFFFFFFFFL) << 32);
-    }
-
-    /**
-     * Interface für Subscriber.
-     */
-    public interface ChunkMapUpdateSubscriber {
-        void chunkLoaded(ServerChunk gameChunk);
-
-        void chunkUnloaded(ServerChunk gameChunk);
-
-        void blockUpdateInChunk(ServerChunk gameChunk, int localX, int localY, int localZ);
     }
 
     /**

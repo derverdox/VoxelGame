@@ -1,15 +1,10 @@
 package de.verdox.server;
 
-import com.esotericsoftware.kryonet.Connection;
-import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import de.verdox.server.heart.TickThread;
 import de.verdox.server.network.ServerConnectionListener;
-import de.verdox.voxel.server.VoxelServer;
-import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.shared.Bootstrap;
-import de.verdox.voxel.shared.network.packet.PacketRegistry;
-import de.verdox.voxel.shared.network.packet.serializer.ChunkSerializer;
+import de.verdox.voxel.shared.VoxelBase;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -26,7 +21,6 @@ public class ServerLauncher {
         server.start();
 
         Bootstrap.bootstrap(server.getKryo());
-        server.getKryo().register(ServerChunk.class, new ChunkSerializer<>());
 
         try {
             server.bind(54000);
@@ -36,7 +30,7 @@ public class ServerLauncher {
         TickThread tickThread = new TickThread(20);
         tickThread.start();
 
-        VoxelServer.getInstance().createWorld(UUID.randomUUID());
+        VoxelBase.getInstance().createWorld(UUID.randomUUID());
 
         server.addListener(new ServerConnectionListener());
     }

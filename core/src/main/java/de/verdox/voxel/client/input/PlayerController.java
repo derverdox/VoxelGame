@@ -5,7 +5,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.math.Vector3;
 import com.esotericsoftware.kryonet.Client;
-import de.verdox.voxel.client.VoxelClient;
+import de.verdox.voxel.client.GameSession;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import lombok.Getter;
@@ -75,8 +75,8 @@ public class PlayerController implements DebuggableOnScreen {
             camera.position.set(position);
         }
 
-        if (VoxelClient.getInstance().getCurrentWorld() != null) {
-            blockInteractionResult = playerInteractionRayCast.rayCastNearestBlockTarget(this.camera, VoxelClient.getInstance().getCurrentWorld());
+        if (GameSession.getInstance().getCurrentWorld() != null) {
+            blockInteractionResult = playerInteractionRayCast.rayCastNearestBlockTarget(this.camera, GameSession.getInstance().getCurrentWorld());
         }
 
         // 4) Position & Blick an Server senden

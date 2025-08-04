@@ -1,4 +1,4 @@
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,46 +10,46 @@ public class ChunkMathTest {
     @Test
     void testZeroCoordinates() {
         int x = 0, y = 0, z = 0;
-        long key = ChunkBase.computeChunkKey(x, y, z);
+        long key = Chunk.computeChunkKey(x, y, z);
         assertEquals(0L, key, "Key for (0,0,0) sollte 0 sein");
-        assertEquals(0, ChunkBase.unpackChunkX(key));
-        assertEquals(0, ChunkBase.unpackChunkY(key));
-        assertEquals(0, ChunkBase.unpackChunkZ(key));
+        assertEquals(0, Chunk.unpackChunkX(key));
+        assertEquals(0, Chunk.unpackChunkY(key));
+        assertEquals(0, Chunk.unpackChunkZ(key));
     }
 
     @Test
     void testPositiveCoordinates() {
         int x = 1, y = 2, z = 3;
         long expected = (1L << 42) | (2L << 21) | 3L;
-        long key = ChunkBase.computeChunkKey(x, y, z);
+        long key = Chunk.computeChunkKey(x, y, z);
 
         assertEquals(expected, key, "Key stimmt nicht für (1,2,3)");
-        assertEquals(x, ChunkBase.unpackChunkX(key));
-        assertEquals(y, ChunkBase.unpackChunkY(key));
-        assertEquals(z, ChunkBase.unpackChunkZ(key));
+        assertEquals(x, Chunk.unpackChunkX(key));
+        assertEquals(y, Chunk.unpackChunkY(key));
+        assertEquals(z, Chunk.unpackChunkZ(key));
     }
 
     @Test
     void testMaxCoordinates() {
         // Maximal darstellbarer Wert innerhalb 21 Bits
         int max = MASK;
-        long key = ChunkBase.computeChunkKey(max, max, max);
-        assertEquals(max, ChunkBase.unpackChunkX(key));
-        assertEquals(max, ChunkBase.unpackChunkY(key));
-        assertEquals(max, ChunkBase.unpackChunkZ(key));
+        long key = Chunk.computeChunkKey(max, max, max);
+        assertEquals(max, Chunk.unpackChunkX(key));
+        assertEquals(max, Chunk.unpackChunkY(key));
+        assertEquals(max, Chunk.unpackChunkZ(key));
     }
 
     @Test
     void testNegativeCoordinates() {
         // Negative Werte werden beim Packen auf die unteren 21 Bits gemasked
         int x = -1, y = -2, z = -3;
-        long key = ChunkBase.computeChunkKey(x, y, z);
+        long key = Chunk.computeChunkKey(x, y, z);
 
-        assertEquals(x & MASK, ChunkBase.unpackChunkX(key),
+        assertEquals(x & MASK, Chunk.unpackChunkX(key),
             "UnpackChunkX sollte x & MASK zurückliefern");
-        assertEquals(y & MASK, ChunkBase.unpackChunkY(key),
+        assertEquals(y & MASK, Chunk.unpackChunkY(key),
             "UnpackChunkY sollte y & MASK zurückliefern");
-        assertEquals(z & MASK, ChunkBase.unpackChunkZ(key),
+        assertEquals(z & MASK, Chunk.unpackChunkZ(key),
             "UnpackChunkZ sollte z & MASK zurückliefern");
     }
 
@@ -60,12 +60,12 @@ public class ChunkMathTest {
         for (int x : samples) {
             for (int y : samples) {
                 for (int z : samples) {
-                    long key = ChunkBase.computeChunkKey(x, y, z);
-                    assertEquals(x & MASK, ChunkBase.unpackChunkX(key),
+                    long key = Chunk.computeChunkKey(x, y, z);
+                    assertEquals(x & MASK, Chunk.unpackChunkX(key),
                         () -> "Fehler bei X=" + x);
-                    assertEquals(y & MASK, ChunkBase.unpackChunkY(key),
+                    assertEquals(y & MASK, Chunk.unpackChunkY(key),
                         () -> "Fehler bei Y=" + y);
-                    assertEquals(z & MASK, ChunkBase.unpackChunkZ(key),
+                    assertEquals(z & MASK, Chunk.unpackChunkZ(key),
                         () -> "Fehler bei Z=" + z);
                 }
             }

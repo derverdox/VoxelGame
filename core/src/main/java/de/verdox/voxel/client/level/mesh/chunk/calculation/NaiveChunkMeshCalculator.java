@@ -1,20 +1,20 @@
 package de.verdox.voxel.client.level.mesh.chunk.calculation;
 
-import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorage;
+import de.verdox.voxel.client.level.mesh.terrain.TerrainChunk;
 import de.verdox.voxel.shared.data.types.BlockModelTypes;
 import de.verdox.voxel.shared.data.types.BlockModels;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.block.BlockModel;
 import de.verdox.voxel.shared.level.block.BlockModelType;
+import de.verdox.voxel.shared.level.world.World;
 
 import java.util.List;
 
 public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
     @Override
-    public void calculateChunkMesh(TerrainFaceStorage.ChunkFaceStorage blockFaces, ClientChunk chunk, int lodLevel) {
+    public void calculateChunkMesh(TerrainFaceStorage.ChunkFaceStorage blockFaces, TerrainChunk chunk, int lodLevel) {
         if (chunk.isEmpty()) {
             return;
         }
@@ -33,7 +33,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
         }
     }
 
-    private void drawBlock(BlockBase blockBase, ClientChunk chunk, int blockXInMesh, int blockYInMesh, int blockZInMesh, TerrainFaceStorage.ChunkFaceStorage blockFaceStorage, int lodLevel) {
+    private void drawBlock(BlockBase blockBase, TerrainChunk chunk, int blockXInMesh, int blockYInMesh, int blockZInMesh, TerrainFaceStorage.ChunkFaceStorage blockFaceStorage, int lodLevel) {
         paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, 0, -1, blockFaceStorage, lodLevel);
         paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, 0, +1, blockFaceStorage, lodLevel);
         paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, 0, +1, 0, blockFaceStorage, lodLevel);
@@ -42,7 +42,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
         paintFaceIfVisible(blockBase, chunk, blockXInMesh, blockYInMesh, blockZInMesh, +1, 0, 0, blockFaceStorage, lodLevel);
     }
 
-    private void paintFaceIfVisible(BlockBase blockBase, ClientChunk chunk,
+    private void paintFaceIfVisible(BlockBase blockBase, TerrainChunk chunk,
                                     int localX, int localY, int localZ,
                                     int relativeX, int relativeY, int relativeZ,
                                     TerrainFaceStorage.ChunkFaceStorage faces, int lodLevel) {
@@ -56,7 +56,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
         int neighbourY = localY + relativeY;
         int neighbourZ = localZ + relativeZ;
 
-        ClientWorld world = chunk.getWorld();
+        World world = chunk.getWorld();
         int sizeX = world.getChunkSizeX();
         int sizeY = world.getChunkSizeY();
         int sizeZ = world.getChunkSizeZ();
@@ -78,7 +78,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
             neighbourY = Math.floorMod(neighbourY, sizeY);
             neighbourZ = Math.floorMod(neighbourZ, sizeZ);
 
-            ClientChunk adjacent = world.getChunk(relativeChunkX, relativeChunkY, relativeChunkZ);
+            TerrainChunk adjacent = chunk.getTerrainManager().getChunkNow(relativeChunkX, relativeChunkY, relativeChunkZ);
 
             if (adjacent != null) {
                 neighbour = adjacent.getBlockAt(neighbourX, neighbourY, neighbourZ);
@@ -115,6 +115,7 @@ public class NaiveChunkMeshCalculator implements ChunkMeshCalculator {
             String nameOfBlockFace = blockModel.getBlockModelType().getNameOfFace(relevantBlockFace);
 
             faces.generateFace(
+                    chunk.getTerrainManager(),
                     chunk, blockModel.getTextureOfFace(nameOfBlockFace), relevantBlockFace, (byte) lodLevel,
                     localX, localY, localZ
             );

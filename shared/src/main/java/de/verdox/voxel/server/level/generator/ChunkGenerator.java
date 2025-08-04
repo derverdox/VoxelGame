@@ -1,7 +1,7 @@
 package de.verdox.voxel.server.level.generator;
 
-import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
@@ -12,14 +12,14 @@ public interface ChunkGenerator {
     /**
      * Generates basic noise pattern for the world.
      */
-    void generateNoise(ServerChunk gameChunk);
+    void generateNoise(Chunk gameChunk);
 
     /**
      * Generates the surface on top of a GameChunk. Only surface chunks are passed into this function
      */
-    void generateSurfaceBlocks(ServerChunk gameChunk);
+    void generateSurfaceBlocks(Chunk gameChunk);
 
-    default void fillChunk(ServerChunk gameChunk, BlockBase blockBase) {
+    default void fillChunk(Chunk gameChunk, BlockBase blockBase) {
         for (int x = 0; x < gameChunk.getWorld().getChunkSizeX(); x++) {
             for (int y = 0; y < gameChunk.getWorld().getChunkSizeY(); y++) {
                 for (int z = 0; z < gameChunk.getWorld().getChunkSizeZ(); z++) {
@@ -29,7 +29,7 @@ public interface ChunkGenerator {
         }
     }
 
-    default void mostlyFillChunk(ServerChunk gameChunk, BlockBase blockBase) {
+    default void mostlyFillChunk(Chunk gameChunk, BlockBase blockBase) {
         for (int x = 0; x < gameChunk.getWorld().getChunkSizeX(); x++) {
             for (int y = 0; y < gameChunk.getWorld().getChunkSizeY(); y++) {
                 for (int z = 0; z < gameChunk.getWorld().getChunkSizeZ(); z++) {

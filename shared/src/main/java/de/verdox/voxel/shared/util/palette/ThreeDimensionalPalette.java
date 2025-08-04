@@ -4,11 +4,9 @@ import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import de.verdox.voxel.shared.level.chunk.Box;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.network.packet.serializer.NetworkSerializable;
 import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
-import lombok.Setter;
 
 import java.util.*;
 

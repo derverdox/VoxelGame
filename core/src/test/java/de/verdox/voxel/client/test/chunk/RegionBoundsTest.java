@@ -1,6 +1,6 @@
 package de.verdox.voxel.client.test.chunk;
 
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.RegionBounds;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,15 +45,15 @@ public class RegionBoundsTest {
     @MethodSource("provideMinMaxEntries")
     public void testRegionKeyDirect(RegionOffsetEntry entry) {
         long actual = bounds.getRegionKeyFromChunk(entry.chunkX, entry.chunkY, entry.chunkZ);
-        long expected = ChunkBase.computeChunkKey(entry.regionX, entry.regionY, entry.regionZ);
+        long expected = Chunk.computeChunkKey(entry.regionX, entry.regionY, entry.regionZ);
         Assertions.assertEquals(expected, actual);
     }
 
     @ParameterizedTest
     @MethodSource("provideMinMaxEntries")
     public void testRegionKeyInDirect(RegionOffsetEntry entry) {
-        long actual = bounds.getRegionKeyFromChunk(ChunkBase.computeChunkKey(entry.chunkX, entry.chunkY, entry.chunkZ));
-        long expected = ChunkBase.computeChunkKey(entry.regionX, entry.regionY, entry.regionZ);
+        long actual = bounds.getRegionKeyFromChunk(Chunk.computeChunkKey(entry.chunkX, entry.chunkY, entry.chunkZ));
+        long expected = Chunk.computeChunkKey(entry.regionX, entry.regionY, entry.regionZ);
         Assertions.assertEquals(expected, actual);
     }
 

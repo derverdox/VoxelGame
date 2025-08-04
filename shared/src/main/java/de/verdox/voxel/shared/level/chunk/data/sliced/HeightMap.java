@@ -1,21 +1,21 @@
 package de.verdox.voxel.shared.level.chunk.data.sliced;
 
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.level.chunk.data.ChunkData;
 import lombok.Getter;
 import lombok.Setter;
 
-public class HeightMap extends AbstractSliceMap implements ChunkData<ChunkBase<?>> {
+public class HeightMap extends AbstractSliceMap implements ChunkData<Chunk> {
     @Getter
     @Setter
-    private ChunkBase<?> owner;
+    private Chunk owner;
     @Override
     public int getSizeX() {
-        return owner.getBlockSizeX();
+        return owner.getSizeX();
     }
 
     @Override
     public int getSizeZ() {
-        return owner.getBlockSizeZ();
+        return owner.getSizeZ();
     }
 }

@@ -17,6 +17,7 @@ buildscript {
 allprojects {
   apply plugin: 'eclipse'
   apply plugin: 'idea'
+  apply plugin: 'java'
 
   // This allows you to "Build and run using IntelliJ IDEA", an option in IDEA's Settings.
   idea {
@@ -25,6 +26,20 @@ allprojects {
       testOutputDir file('build/classes/java/test')
     }
   }
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)  // oder 21
+  }
+}
+
+tasks.withType(Test).configureEach {
+  useJUnitPlatform()
+  jvmArgs += [
+          '--enable-preview',
+          '--add-modules', 'jdk.incubator.vector'
+  ]
 }
 
 configure(subprojects) {
@@ -53,6 +68,10 @@ configure(subprojects) {
 
   compileJava {
     options.incremental = true
+    options.compilerArgs += [
+            '--enable-preview',
+            '--add-modules', 'jdk.incubator.vector'
+    ]
   }
 }
 

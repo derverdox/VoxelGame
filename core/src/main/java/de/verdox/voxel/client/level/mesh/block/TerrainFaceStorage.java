@@ -2,10 +2,12 @@ package de.verdox.voxel.client.level.mesh.block;
 
 import com.esotericsoftware.kryo.util.Null;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
+import de.verdox.voxel.client.level.mesh.terrain.TerrainChunk;
+import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
 import de.verdox.voxel.client.util.RegionalLock;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
 
 import java.util.function.Consumer;
@@ -55,14 +57,25 @@ public interface TerrainFaceStorage {
         boolean isEmpty();
 
         void generateFace(
-                ChunkBase<?> chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
+                TerrainManager terrainManager,
+                Chunk chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
                 int localX, int localY, int localZ
         );
 
-        void forEachFace(Consumer<BlockFace> consumer);
+        void forEachFace(BlockFacesConsumer consumer);
+
+        int getAmountFloats();
+
+        int getAmountIndices();
+
+        int getSize();
     }
 
     interface ChunkFaceStorageConsumer {
         void consume(ChunkFaceStorage storage, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks);
+    }
+
+    interface BlockFacesConsumer {
+        void consume(BlockFace blockFace, int localX, int localY, int localZ);
     }
 }

@@ -1,7 +1,6 @@
 package de.verdox.voxel.client.util;
 
-import com.badlogic.gdx.math.MathUtils;
-import de.verdox.voxel.shared.level.World;
+import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.util.RegionBounds;
 
 public class LODUtil {
@@ -11,7 +10,7 @@ public class LODUtil {
         return 1 << lodLevel;
     }
 
-    public static int getMaxLod(World<?> world) {
+    public static int getMaxLod(World world) {
         int minSize = Math.min(world.getChunkSizeX(), Math.min(world.getChunkSizeY(), world.getChunkSizeZ()));
         return (int) Math.floor(Math.log(minSize) / Math.log(2));
     }

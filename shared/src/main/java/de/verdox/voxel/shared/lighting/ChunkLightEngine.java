@@ -1,9 +1,8 @@
 package de.verdox.voxel.shared.lighting;
 
-import de.verdox.voxel.shared.level.World;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.world.World;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
-import de.verdox.voxel.shared.util.RegionBounds;
 import de.verdox.voxel.shared.util.ThreadUtil;
 import de.verdox.voxel.shared.util.datastructure.LongQueue;
 
@@ -17,7 +16,7 @@ public class ChunkLightEngine {
     private volatile LongQueue longQueue = new LongQueue(512);
     private final Executor service = Executors.newSingleThreadExecutor(ThreadUtil.createFactoryForName("Chunk Light Engine", true));
 
-    public void scheduleSkylightUpdateInSlice(World<?> world, int regionSliceX, int regionSliceZ, LightAccessor startAccessor, int stepsToCalculateDown, LightUpdateCallback onDone) {
+    public void scheduleSkylightUpdateInSlice(World world, int regionSliceX, int regionSliceZ, LightAccessor startAccessor, int stepsToCalculateDown, LightUpdateCallback onDone) {
 /*        service.execute(() -> {
             int steps = stepsToCalculateDown;
 
@@ -84,7 +83,7 @@ public class ChunkLightEngine {
                 for (int y = sizeY - 1; y > firstNonAir; y--) {
                     if (lightAccessor.getSkyLight(x, y, z) != incoming) {
                         lightAccessor.setSkyLight(x, y, z, incoming);
-                        queue.enqueue(ChunkBase.computeChunkKey(x, y, z));
+                        queue.enqueue(Chunk.computeChunkKey(x, y, z));
                         wasUpdated = true;
                     }
                 }
@@ -98,7 +97,7 @@ public class ChunkLightEngine {
                 byte blockLevel = (byte) Math.max(0, incoming - attenuation);
                 if (lightAccessor.getSkyLight(x, firstNonAir, z) != blockLevel) {
                     lightAccessor.setSkyLight(x, firstNonAir, z, blockLevel);
-                    queue.enqueue(ChunkBase.computeChunkKey(x, firstNonAir, z));
+                    queue.enqueue(Chunk.computeChunkKey(x, firstNonAir, z));
                     wasUpdated = true;
                 }
             }

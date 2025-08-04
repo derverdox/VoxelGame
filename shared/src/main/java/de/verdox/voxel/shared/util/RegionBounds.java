@@ -1,6 +1,6 @@
 package de.verdox.voxel.shared.util;
 
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 
 public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
 
@@ -64,18 +64,18 @@ public record RegionBounds(int regionSizeX, int regionSizeY, int regionSizeZ) {
     }
 
     public long getRegionKey(int regionX, int regionY, int regionZ) {
-        return ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        return Chunk.computeChunkKey(regionX, regionY, regionZ);
     }
 
     public long getRegionKeyFromChunk(long chunkKey) {
-        int chunkX = ChunkBase.unpackChunkX(chunkKey);
-        int chunkY = ChunkBase.unpackChunkY(chunkKey);
-        int chunkZ = ChunkBase.unpackChunkZ(chunkKey);
+        int chunkX = Chunk.unpackChunkX(chunkKey);
+        int chunkY = Chunk.unpackChunkY(chunkKey);
+        int chunkZ = Chunk.unpackChunkZ(chunkKey);
         return getRegionKeyFromChunk(chunkX, chunkY, chunkZ);
     }
 
     public long getRegionKeyFromChunk(int chunkX, int chunkY, int chunkZ) {
-        return ChunkBase.computeChunkKey(getRegionX(chunkX), getRegionY(chunkY), getRegionZ(chunkZ));
+        return Chunk.computeChunkKey(getRegionX(chunkX), getRegionY(chunkY), getRegionZ(chunkZ));
     }
 
     public int getIndexInRegion(int chunkX, int chunkY, int chunkZ) {

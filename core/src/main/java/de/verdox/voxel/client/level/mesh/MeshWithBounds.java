@@ -1,8 +1,7 @@
 package de.verdox.voxel.client.level.mesh;
 
-import com.badlogic.gdx.graphics.Camera;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Mesh;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelCache;
@@ -44,7 +43,7 @@ public interface MeshWithBounds {
         public void render(Camera camera) {
             shader.setUniformMatrix("u_worldTrans", worldTransform);
             shader.setUniformMatrix("u_projViewTrans", camera.combined);
-            textureAtlas.getTextures().first().bind(0);
+            shader.setUniformi("u_texture", atlasPage);
             renderMesh(mesh, shader);
         }
 

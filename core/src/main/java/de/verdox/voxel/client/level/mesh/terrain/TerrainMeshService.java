@@ -1,22 +1,24 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
 import de.verdox.voxel.client.ClientBase;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorage;
 import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorageImpl;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
-import de.verdox.voxel.client.renderer.ClientRenderer;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
 import de.verdox.voxel.shared.util.ThreadUtil;
+import de.verdox.voxel.shared.util.buffer.*;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class TerrainMeshService implements DebuggableOnScreen {
@@ -29,7 +31,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
         this.terrainManager = terrainManager;
         this.chunkMeshCalculator = chunkMeshCalculator;
 
-        if(ClientBase.clientRenderer != null) {
+        if (ClientBase.clientRenderer != null) {
             ClientBase.clientRenderer.getDebugScreen().attach(this);
         }
     }
@@ -38,11 +40,10 @@ public class TerrainMeshService implements DebuggableOnScreen {
         return terrainManager.getBounds();
     }
 
-    public void createChunkMesh(TerrainRegion terrainRegion, ClientChunk chunk) {
+    public void createChunkMesh(TerrainRegion terrainRegion, TerrainChunk chunk) {
         long regionKey = terrainRegion.getRegionKey();
 
-        int regionLodLevel = chunk.getWorld()
-                                  .computeLodLevel(terrainManager.getCenterRegionX(), terrainManager.getCenterRegionY(), terrainManager.getCenterRegionZ(), terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
+        int regionLodLevel = terrainManager.computeLodLevel(terrainManager.getCenterRegionX(), terrainManager.getCenterRegionY(), terrainManager.getCenterRegionZ(), terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
 
         if (!jobs.containsKey(regionKey) || jobs.get(regionKey).lodLevel != regionLodLevel) {
             jobs.put(regionKey, new TerrainMeshJob(terrainRegion, regionLodLevel));
@@ -52,7 +53,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
         terrainMeshJob.addChunk(chunk);
     }
 
-    public void removeChunkMesh(TerrainRegion terrainRegion, ClientChunk chunk) {
+    public void removeChunkMesh(TerrainRegion terrainRegion, TerrainChunk chunk) {
 
     }
 
@@ -64,6 +65,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
     @Getter
     private class TerrainMeshJob {
         private final TerrainFaceStorage storageOfJob;
+        private final TerrainMeshBuffer terrainMeshBuffer = new TerrainMeshBuffer(this);
         private final TerrainRegion terrainRegion;
         private final int lodLevel;
         private final AtomicLong computedChunks = new AtomicLong();
@@ -78,7 +80,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
             return computedChunks.get() >= (long) getBounds().regionSizeX() * getBounds().regionSizeY() * getBounds().regionSizeZ();
         }
 
-        public void addChunk(ClientChunk chunk) {
+        public void addChunk(TerrainChunk chunk) {
             terrainRegion.checkIfChunkInRegion(chunk);
             if (skip(chunk)) {
                 return;
@@ -98,10 +100,11 @@ public class TerrainMeshService implements DebuggableOnScreen {
             executor.submit(() -> {
                 recomputeChunksAndNeighbors(chunk, offsetX, offsetY, offsetZ);
                 terrainRegion.getOrCreateMesh().setRawBlockFaces(getStorageOfJob(), true, lodLevel);
+                //terrainMeshBuffer.addChunkMesh((byte) lodLevel, storageOfJob.getOrCreateChunkFaces(offsetX, offsetY, offsetZ), offsetX, offsetY, offsetZ);
             });
         }
 
-        public void updateChunk(ClientChunk chunk) {
+        public void updateChunk(TerrainChunk chunk) {
             terrainRegion.checkIfChunkInRegion(chunk);
             if (skip(chunk)) {
                 return;
@@ -114,7 +117,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
             recomputeChunksAndNeighbors(chunk, offsetX, offsetY, offsetZ);
         }
 
-        public void removeChunk(ClientChunk chunk) {
+        public void removeChunk(TerrainChunk chunk) {
             terrainRegion.checkIfChunkInRegion(chunk);
             if (skip(chunk)) {
                 return;
@@ -124,14 +127,14 @@ public class TerrainMeshService implements DebuggableOnScreen {
             //TODO
         }
 
-        private void recomputeChunksAndNeighbors(ClientChunk chunk, int offsetX, int offsetY, int offsetZ) {
+        private void recomputeChunksAndNeighbors(TerrainChunk chunk, int offsetX, int offsetY, int offsetZ) {
 
             storageOfJob.getRegionalLock().withLock(offsetX, offsetY, offsetZ, 1, () -> {
                 computeChunk(chunk, lodLevel);
 
                 for (int i = 0; i < Direction.values().length; i++) {
                     Direction direction = Direction.values()[i];
-                    ClientChunk neighborChunk = chunk.getWorld().getChunkNeighborNow(chunk, direction);
+                    TerrainChunk neighborChunk = (TerrainChunk) chunk.getNeighborChunk(direction);
 
                     if (neighborChunk == null || skip(neighborChunk)) {
                         continue;
@@ -141,7 +144,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
             });
         }
 
-        private void computeChunk(ClientChunk chunk, int lodLevel) {
+        private void computeChunk(TerrainChunk chunk, int lodLevel) {
             int offsetX = (byte) getBounds().getOffsetX(chunk.getChunkX());
             int offsetY = (byte) getBounds().getOffsetY(chunk.getChunkY());
             int offsetZ = (byte) getBounds().getOffsetZ(chunk.getChunkZ());
@@ -150,7 +153,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
             chunkMeshCalculator.calculateChunkMesh(chunkFaceStorage, chunk, lodLevel);
         }
 
-        public boolean skip(ClientChunk chunk) {
+        public boolean skip(TerrainChunk chunk) {
             if (chunk.isEmpty()) {
                 return true;
             }
@@ -166,7 +169,7 @@ public class TerrainMeshService implements DebuggableOnScreen {
             int offsetY = (byte) getBounds().getOffsetY(chunk.getChunkY());
             int offsetZ = (byte) getBounds().getOffsetZ(chunk.getChunkZ());
 
-            if (!chunk.getWorld().hasNeighborsToAllSides(chunk)) {
+            if (!chunk.hasNeighborsToAllSides()) {
                 return true;
             }
 
@@ -174,7 +177,74 @@ public class TerrainMeshService implements DebuggableOnScreen {
         }
     }
 
+    private static class TerrainMeshBuffer {
+        @Getter
+        private final DynamicFloatBuffer vertexBuffer = new PlainDynamicFloatBuffer(1, true);
+        @Getter
+        private final DynamicIntBuffer indexBuffer = new PlainDynamicIntBuffer(1, true);
+        private final Long2ObjectMap<BufferRange> bufferRanges = new Long2ObjectOpenHashMap<>();
+        private final TerrainMeshJob parent;
+
+        public TerrainMeshBuffer(TerrainMeshJob parent) {
+            this.parent = parent;
+        }
+
+        public synchronized void addChunkMesh(byte lodLevel, TerrainFaceStorage.ChunkFaceStorage chunkFaces, int offsetXInRegion, int offsetYInRegion, int offsetZInRegion) {
+            if (chunkFaces.isEmpty()) {
+                return;
+            }
+
+            float[] vertices = new float[chunkFaces.getAmountFloats()];
+            int[] indices = new int[chunkFaces.getAmountIndices()];
+
+            AtomicInteger vertexOffset = new AtomicInteger();
+            AtomicInteger indexOffset = new AtomicInteger();
+            AtomicInteger baseVertex = new AtomicInteger();
+            AtomicInteger amountVertices = new AtomicInteger();
+
+            int offsetXInBlocks = offsetXInRegion * parent.getTerrainRegion().getTerrainManager().getWorld().getChunkSizeX();
+            int offsetYInBlocks = offsetYInRegion * parent.getTerrainRegion().getTerrainManager().getWorld().getChunkSizeY();
+            int offsetZInBlocks = offsetZInRegion * parent.getTerrainRegion().getTerrainManager().getWorld().getChunkSizeZ();
+
+            chunkFaces.forEachFace((face, localX, localY, localZ) -> {
+                face.appendToBuffers(vertices, null, indices, vertexOffset.get(), indexOffset.get(), baseVertex.get(), TextureAtlasManager.getInstance().getBlockTextureAtlas(), lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+                vertexOffset.addAndGet(face.getVerticesPerFace() * face.getFloatsPerVertex());
+                indexOffset.addAndGet(face.getIndicesPerFace());
+                baseVertex.addAndGet(face.getVerticesPerFace());
+                amountVertices.addAndGet(face.getVerticesPerFace());
+            });
+
+            long offsetKey = Chunk.computeChunkKey(offsetXInRegion, offsetYInRegion, offsetZInRegion);
+
+            // Replace data in buffer
+            if (bufferRanges.containsKey(offsetKey)) {
+                // REPLACE OLD DATA
+                BufferRange bufferRange = bufferRanges.get(offsetKey);
+
+                int vertexStartNew = bufferRange.vertexStart;
+                int vertexEndNew = vertexBuffer.update(bufferRange.vertexStart, bufferRange.vertexEndExclusive, vertices);
+                int indexStartNew = bufferRange.indexStart;
+                int indexEndNew = indexBuffer.update(bufferRange.indexStart, bufferRange.indexEndExclusive, indices);
+                bufferRanges.put(offsetKey, new BufferRange(vertexStartNew, vertexEndNew, indexStartNew, indexEndNew));
+            }
+            // Insert data into buffer
+            else {
+                int vertexStart = vertexBuffer.size();
+                int vertexEnd = vertexStart + vertices.length;
+                vertexBuffer.insert(vertexBuffer.size(), vertices);
+                int indexStart = indexBuffer.size();
+                int indexEnd = indexStart + indices.length;
+                indexBuffer.insert(indexBuffer.size(), indices);
+                BufferRange bufferRange = new BufferRange(vertexStart, vertexEnd, indexStart, indexEnd);
+                bufferRanges.put(offsetKey, bufferRange);
+            }
+        }
+
+        private record BufferRange(int vertexStart, int vertexEndExclusive, int indexStart, int indexEndExclusive) {
+        }
+    }
+
     private TerrainFaceStorage createStorageForLodLevel(int lodLevel) {
-        return new TerrainFaceStorageImpl(terrainManager.getWorld(), (byte) lodLevel);
+        return new TerrainFaceStorageImpl(terrainManager, (byte) lodLevel);
     }
 }

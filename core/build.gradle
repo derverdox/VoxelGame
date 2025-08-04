@@ -2,7 +2,13 @@ plugins {
   id 'me.champeau.jmh' version '0.7.2'
 }
 
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+[compileJava, compileTestJava]*.options*.with {
+  encoding = 'UTF-8'
+  compilerArgs += [
+          '--enable-preview',
+          '--add-modules', 'jdk.incubator.vector'
+  ]
+}
 eclipse.project.name = appName + '-core'
 
 

@@ -6,10 +6,14 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
+import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.level.chunk.data.sliced.AbstractSliceMap;
+import de.verdox.voxel.shared.level.world.LevelWorld;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.network.packet.client.ClientInputPacket;
-import de.verdox.voxel.shared.network.packet.client.ClientLoadChunkPacket;
+import de.verdox.voxel.shared.network.packet.client.ClientRequestChunkPacket;
+import de.verdox.voxel.shared.network.packet.serializer.ChunkSerializer;
+import de.verdox.voxel.shared.network.packet.serializer.WorldSerializer;
 import de.verdox.voxel.shared.network.packet.server.ServerPlayerPositionPacket;
 import de.verdox.voxel.shared.network.packet.server.ServerSetPlayerWorldPacket;
 import de.verdox.voxel.shared.network.packet.server.ServerWorldExistPacket;
@@ -35,7 +39,7 @@ public class PacketRegistry {
 
     public PacketRegistry(Kryo kryo) {
         kryo.register(ClientInputPacket.class);
-        kryo.register(ClientLoadChunkPacket.class);
+        kryo.register(ClientRequestChunkPacket.class);
 
 
         kryo.register(ServerPlayerPositionPacket.class);
@@ -45,6 +49,8 @@ public class PacketRegistry {
         kryo.register(ChunkLightData.LightState.class, new DefaultSerializers.EnumSerializer(ChunkLightData.LightState.class));
         kryo.register(ThreeDimensionalPalette.State.class, new DefaultSerializers.EnumSerializer(ThreeDimensionalPalette.State.class));
         kryo.register(AbstractSliceMap.State.class, new DefaultSerializers.EnumSerializer(AbstractSliceMap.State.class));
+        kryo.register(ChunkBase.class, new ChunkSerializer());
+        kryo.register(LevelWorld.class, new WorldSerializer());
         kryo.register(UUID.class, new DefaultSerializers.UUIDSerializer());
 
         kryo.register(byte[][].class, new Serializer<byte[][]>() {

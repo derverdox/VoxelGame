@@ -2,26 +2,24 @@ package de.verdox.voxel.client.level.chunk;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.LongQueue;
-import com.esotericsoftware.kryonet.Client;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
+import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
-import de.verdox.voxel.shared.network.packet.client.ClientLoadChunkPacket;
+import de.verdox.voxel.shared.VoxelBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
+import de.verdox.voxel.shared.network.packet.client.ClientRequestChunkPacket;
 import de.verdox.voxel.shared.util.ThreadUtil;
-import it.unimi.dsi.fastutil.longs.*;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ChunkRequestManager implements DebuggableOnScreen {
     private static final Logger LOGGER = Logger.getLogger(ChunkRequestManager.class.getSimpleName());
 
-    private final Client client;
     private final ClientWorld clientWorld;
 
     private static final int CHUNKS_PER_TICK = 150;
@@ -39,8 +37,7 @@ public class ChunkRequestManager implements DebuggableOnScreen {
     private final AtomicBoolean needRebuild = new AtomicBoolean();
     private final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(ThreadUtil.createFactoryForName("ChunkRequestManager", true));
 
-    public ChunkRequestManager(Client client, ClientWorld clientWorld) {
-        this.client = client;
+    public ChunkRequestManager(ClientWorld clientWorld) {
 
         this.clientWorld = clientWorld;
         if (ClientBase.clientRenderer != null) {
@@ -102,7 +99,7 @@ public class ChunkRequestManager implements DebuggableOnScreen {
                                 continue;
                             }
 
-                            long key = ChunkBase.computeChunkKey(x, y, z);
+                            long key = Chunk.computeChunkKey(x, y, z);
                             pendingQueue.addLast(key);
                             counter++;
                         }
@@ -121,9 +118,9 @@ public class ChunkRequestManager implements DebuggableOnScreen {
         while (requestCounter > 0 && !pendingQueue.isEmpty()) {
             long key = pendingQueue.removeFirst();
 
-            int chunkX = ChunkBase.unpackChunkX(key);
-            int chunkY = ChunkBase.unpackChunkY(key);
-            int chunkZ = ChunkBase.unpackChunkZ(key);
+            int chunkX = Chunk.unpackChunkX(key);
+            int chunkY = Chunk.unpackChunkY(key);
+            int chunkZ = Chunk.unpackChunkZ(key);
 
             if (isChunkLoaded(chunkX, chunkY, chunkZ)) {
                 continue;
@@ -142,25 +139,25 @@ public class ChunkRequestManager implements DebuggableOnScreen {
     }
 
     private boolean isChunkLoaded(long key) {
-        int chunkKeyX = ChunkBase.unpackChunkX(key);
-        int chunkKeyY = ChunkBase.unpackChunkY(key);
-        int chunkKeyZ = ChunkBase.unpackChunkZ(key);
+        int chunkKeyX = Chunk.unpackChunkX(key);
+        int chunkKeyY = Chunk.unpackChunkY(key);
+        int chunkKeyZ = Chunk.unpackChunkZ(key);
         return isChunkLoaded(chunkKeyX, chunkKeyY, chunkKeyZ);
     }
 
     private boolean isChunkLoaded(int chunkX, int chunkY, int chunkZ) {
-        return clientWorld.getChunk(chunkX, chunkY, chunkZ) != null;
+        return clientWorld.getChunkNow(chunkX, chunkY, chunkZ) != null;
     }
 
     private void sendRequest(long chunkKey, float time) {
-        int chunkKeyX = ChunkBase.unpackChunkX(chunkKey);
-        int chunkKeyY = ChunkBase.unpackChunkY(chunkKey);
-        int chunkKeyZ = ChunkBase.unpackChunkZ(chunkKey);
+        int chunkKeyX = Chunk.unpackChunkX(chunkKey);
+        int chunkKeyY = Chunk.unpackChunkY(chunkKey);
+        int chunkKeyZ = Chunk.unpackChunkZ(chunkKey);
         sendRequest(chunkKey, chunkKeyX, chunkKeyY, chunkKeyZ, time);
     }
 
     private void sendRequest(long chunkKey, int chunkX, int chunkY, int chunkZ, float time) {
-        client.sendTCP(new ClientLoadChunkPacket(clientWorld.getUuid(), chunkX, chunkY, chunkZ));
+        VoxelBase.getInstance().clientInterface(clientInterface -> clientInterface.sendToServer(new ClientRequestChunkPacket(clientWorld.getUuid(), chunkX, chunkY, chunkZ)));
         requestedChunksThisTick++;
     }
 

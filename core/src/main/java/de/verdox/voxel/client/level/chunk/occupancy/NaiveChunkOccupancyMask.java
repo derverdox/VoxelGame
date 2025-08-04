@@ -1,9 +1,8 @@
 package de.verdox.voxel.client.level.chunk.occupancy;
 
-import de.verdox.voxel.client.level.chunk.ClientChunk;
-import de.verdox.voxel.shared.level.World;
+import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.level.block.BlockBase;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,7 +10,7 @@ import lombok.Setter;
 @Getter
 public class NaiveChunkOccupancyMask implements OccupancyMask {
     @Getter @Setter
-    private ChunkBase<?> owner;
+    private Chunk owner;
     private int sx, sy, sz;
 
     private long[][] occupancyMask;
@@ -36,9 +35,9 @@ public class NaiveChunkOccupancyMask implements OccupancyMask {
      */
     @Override
     public void initFromOwner() {
-        int newSx = owner.getBlockSizeX();
-        int newSy = owner.getBlockSizeY();
-        int newSz = owner.getBlockSizeZ();
+        int newSx = owner.getSizeX();
+        int newSy = owner.getSizeY();
+        int newSz = owner.getSizeZ();
         if (newSx > World.MAX_CHUNK_SIZE
                 || newSy > World.MAX_CHUNK_SIZE
                 || newSz > World.MAX_CHUNK_SIZE) {

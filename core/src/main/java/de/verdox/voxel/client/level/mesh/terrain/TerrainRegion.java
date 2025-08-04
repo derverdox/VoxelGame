@@ -1,9 +1,8 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
-import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
-import de.verdox.voxel.shared.level.World;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.world.World;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.LightAccessor;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
@@ -11,12 +10,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class TerrainRegion implements LightAccessor {
+    @Getter
     private final TerrainManager terrainManager;
     @Getter
     private final int regionX, regionY, regionZ;
-    private final ClientChunk[] chunksInRegion;
-    private final ClientChunk[] chunkHeighMap;
-    private final ClientChunk[] chunkDepthMap;
+    private final TerrainChunk[] chunksInRegion;
+    private final TerrainChunk[] chunkHeighMap;
+    private final TerrainChunk[] chunkDepthMap;
     private int count;
     private short airRegions;
     private final TerrainRegion[] neighbors;
@@ -31,10 +31,20 @@ public class TerrainRegion implements LightAccessor {
         this.regionX = regionX;
         this.regionY = regionY;
         this.regionZ = regionZ;
-        this.chunksInRegion = new ClientChunk[getBounds().regionSizeX() * getBounds().regionSizeY() * getBounds().regionSizeZ()];
-        this.chunkHeighMap = new ClientChunk[getBounds().regionSizeX() * getBounds().regionSizeZ()];
-        this.chunkDepthMap = new ClientChunk[getBounds().regionSizeX() * getBounds().regionSizeZ()];
+        this.chunksInRegion = new TerrainChunk[getBounds().regionSizeX() * getBounds().regionSizeY() * getBounds().regionSizeZ()];
+        this.chunkHeighMap = new TerrainChunk[getBounds().regionSizeX() * getBounds().regionSizeZ()];
+        this.chunkDepthMap = new TerrainChunk[getBounds().regionSizeX() * getBounds().regionSizeZ()];
         this.neighbors = new TerrainRegion[Direction.values().length];
+    }
+
+    public TerrainChunk getTerrainChunk(int chunkX, int chunkY, int chunkZ) {
+        checkIfChunkInRegion(chunkX, chunkY, chunkZ);
+        int idx = getIndexInRegion(chunkX, chunkY, chunkZ);
+        return chunksInRegion[idx];
+    }
+
+    public TerrainChunk getTerrainChunk(Chunk chunk) {
+        return getTerrainChunk(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
     }
 
     public RegionBounds getBounds() {
@@ -54,31 +64,39 @@ public class TerrainRegion implements LightAccessor {
     }
 
     public long getRegionKey() {
-        return ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        return Chunk.computeChunkKey(regionX, regionY, regionZ);
     }
 
-    public void addChunk(ClientChunk chunk) {
+    public void addChunk(Chunk chunk) {
         checkIfChunkInRegion(chunk);
         int idx = getIndexInRegion(chunk);
         int heightIdx = getIndexInHeightMap(chunk.getChunkX(), chunk.getChunkZ());
 
-        addToHeightMaps(chunk, heightIdx);
+        TerrainChunk terrainChunk;
+
+
 
         if (chunksInRegion[idx] == null) {
+
+            if (chunk.isEmpty()) {
+                airRegions += 1;
+            }
+
             count++;
+            terrainChunk = new TerrainChunk(terrainManager, chunk);
+            chunksInRegion[idx] = terrainChunk;
+            addToHeightMaps(terrainChunk, heightIdx);
+        } else {
+            terrainChunk = chunksInRegion[idx];
         }
-        chunksInRegion[idx] = chunk;
 
-        if (chunk.isEmpty()) {
-            airRegions += 1;
-        }
 
-        if (chunk.getWorld().hasNeighborsToAllSides(chunk)) {
-            terrainManager.getMeshService().createChunkMesh(this, chunk);
+        if (terrainChunk.hasNeighborsToAllSides()) {
+            terrainManager.getMeshService().createChunkMesh(this, terrainChunk);
         } else {
             for (int i = 0; i < Direction.values().length; i++) {
                 Direction direction = Direction.values()[i];
-                ClientChunk neighbor = chunk.getWorld().getChunkNeighborNow(chunk, direction);
+                TerrainChunk neighbor = terrainChunk.getNeighborChunk(direction);
                 if (neighbor == null) {
                     continue;
                 }
@@ -96,23 +114,27 @@ public class TerrainRegion implements LightAccessor {
         if (highest != null && lowest != null) {
             int calcSteps = highest.getRegionY() - lowest.getRegionY();
             terrainManager.getLightEngine()
-                          .scheduleSkylightUpdateInSlice(terrainManager.getWorld(), regionX, regionZ, highest, calcSteps, (x, y, z) -> {
-                          });
+                    .scheduleSkylightUpdateInSlice(terrainManager.getWorld(), regionX, regionZ, highest, calcSteps, (x, y, z) -> {
+                    });
         }
     }
 
-    public void removeChunk(ClientChunk chunk) {
+    public void removeChunk(Chunk chunk) {
         checkIfChunkInRegion(chunk);
         int idx = getIndexInRegion(chunk);
-        if (chunksInRegion[idx] != null) {
+        TerrainChunk old = chunksInRegion[idx];
+        if (old != null) {
+            old.getOwner().unsubscribe(old);
             count++;
-        }
-        chunksInRegion[idx] = null;
-        terrainManager.getMeshService().removeChunkMesh(this, chunk);
 
-        if (chunk.isEmpty()) {
-            airRegions -= 1;
+            if (chunk.isEmpty()) {
+                airRegions -= 1;
+            }
         }
+
+        chunksInRegion[idx] = null;
+        terrainManager.getMeshService().removeChunkMesh(this, getTerrainChunk(chunk));
+
         computeRegionSideMask(chunk.getWorld());
     }
 
@@ -124,7 +146,7 @@ public class TerrainRegion implements LightAccessor {
         return count == 0;
     }
 
-    public void updateChunk(ClientChunk chunk, boolean wasEmptyBefore) {
+    public void updateChunk(Chunk chunk, boolean wasEmptyBefore) {
         checkIfChunkInRegion(chunk);
 
         if (wasEmptyBefore && !chunk.isEmpty()) {
@@ -162,7 +184,7 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public boolean isOpaque(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return false;
         }
@@ -171,7 +193,7 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public byte getEmissionRed(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
@@ -180,7 +202,7 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public byte getEmissionBlue(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
@@ -189,7 +211,7 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public byte getEmissionGreen(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
@@ -198,62 +220,62 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public byte getBlockLightRed(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
         return chunk.getChunkLightData()
-                    .getBlockRed((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+                .getBlockRed((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
     public byte getBlockLightBlue(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
         return chunk.getChunkLightData()
-                    .getBlockBlue((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+                .getBlockBlue((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
     public byte getBlockLightGreen(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
         return chunk.getChunkLightData()
-                    .getBlockGreen((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+                .getBlockGreen((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
     public void setBlockLight(int localX, int localY, int localZ, byte red, byte green, byte blue) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return;
         }
         chunk.getChunkLightData()
-             .setBlockLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), red, green, blue);
+                .setBlockLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), red, green, blue);
     }
 
     @Override
     public byte getSkyLight(int localX, int localY, int localZ) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return 0;
         }
         return chunk.getChunkLightData()
-                    .getSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
+                .getSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ));
     }
 
     @Override
     public void setSkyLight(int localX, int localY, int localZ, byte light) {
-        ChunkBase<?> chunk = getChunkInRegion(localX, localY, localZ);
+        Chunk chunk = getChunkInRegion(localX, localY, localZ);
         if (chunk == null) {
             return;
         }
         chunk.getChunkLightData()
-             .setSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), light);
+                .setSkyLight((byte) chunk.localX(localX), (byte) chunk.localY(localY), (byte) chunk.localZ(localZ), light);
     }
 
     @Override
@@ -271,11 +293,11 @@ public class TerrainRegion implements LightAccessor {
 
     @Override
     public int getHighestNonAirBlockAt(int localX, int localZ) {
-        ChunkBase<?> chunk = getChunkFromHeightMaps(localX, localZ, true);
+        Chunk chunk = getChunkFromHeightMaps(localX, localZ, true);
         if (chunk == null || chunk.isEmpty()) {
             return -1;
         }
-        return chunk.getHeightmap().get(chunk.localX(localX), chunk.localZ(localZ));
+        return chunk.getHeightMap().get(chunk.localX(localX), chunk.localZ(localZ));
     }
 
     @Override
@@ -303,17 +325,21 @@ public class TerrainRegion implements LightAccessor {
         neighbor.neighbors[direction.getOpposite().getId()] = null;
     }
 
-    public void checkIfChunkInRegion(ClientChunk chunk) {
-        int regionX = getBounds().getRegionX(chunk.getChunkX());
-        int regionY = getBounds().getRegionY(chunk.getChunkY());
-        int regionZ = getBounds().getRegionZ(chunk.getChunkZ());
+    public void checkIfChunkInRegion(Chunk chunk) {
+        checkIfChunkInRegion(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
+    }
+
+    public void checkIfChunkInRegion(int chunkX, int chunkY, int chunkZ) {
+        int regionX = getBounds().getRegionX(chunkX);
+        int regionY = getBounds().getRegionY(chunkY);
+        int regionZ = getBounds().getRegionZ(chunkZ);
 
         if (regionX != this.regionX || regionY != this.regionY || regionZ != this.regionZ) {
-            throw new IllegalArgumentException("The chunk " + chunk + " does not belong to this region.");
+            throw new IllegalArgumentException("The chunk " + chunkX + ", " + chunkY + ", " + chunkZ + " does not belong to this region.");
         }
     }
 
-    private int getIndexInRegion(ClientChunk chunk) {
+    private int getIndexInRegion(Chunk chunk) {
         return getIndexInRegion(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
     }
 
@@ -330,11 +356,11 @@ public class TerrainRegion implements LightAccessor {
     }
 
 
-    private void addToHeightMaps(ClientChunk chunk, int heightIdx) {
+    private void addToHeightMaps(TerrainChunk chunk, int heightIdx) {
         if (chunkHeighMap[heightIdx] == null) {
             chunkHeighMap[heightIdx] = chunk;
         } else if (!chunk.isEmpty()) {
-            ClientChunk highestChunk = chunkHeighMap[heightIdx];
+            TerrainChunk highestChunk = chunkHeighMap[heightIdx];
 
             if (highestChunk.isEmpty() || chunk.getChunkY() > highestChunk.getChunkY()) {
                 chunkHeighMap[heightIdx] = chunk;
@@ -344,7 +370,7 @@ public class TerrainRegion implements LightAccessor {
         if (chunkDepthMap[heightIdx] == null) {
             chunkDepthMap[heightIdx] = chunk;
         } else if (!chunk.isEmpty()) {
-            ClientChunk lowestChunk = chunkDepthMap[heightIdx];
+            TerrainChunk lowestChunk = chunkDepthMap[heightIdx];
 
             if (lowestChunk.isEmpty() || chunk.getChunkY() < lowestChunk.getChunkY()) {
                 chunkDepthMap[heightIdx] = chunk;
@@ -352,7 +378,7 @@ public class TerrainRegion implements LightAccessor {
         }
     }
 
-    private ChunkBase<?> getChunkInRegion(int regionCordX, int regionCordY, int regionCordZ) {
+    private Chunk getChunkInRegion(int regionCordX, int regionCordY, int regionCordZ) {
         int shiftX = Math.floorDiv(regionCordX, terrainManager.getWorld().getChunkSizeX());
         int shiftY = Math.floorDiv(regionCordY, terrainManager.getWorld().getChunkSizeY());
         int shiftZ = Math.floorDiv(regionCordZ, terrainManager.getWorld().getChunkSizeZ());
@@ -365,7 +391,7 @@ public class TerrainRegion implements LightAccessor {
         return chunksInRegion[idx];
     }
 
-    private ChunkBase<?> getChunkFromHeightMaps(int regionCordX, int regionCordZ, boolean getLowest) {
+    private Chunk getChunkFromHeightMaps(int regionCordX, int regionCordZ, boolean getLowest) {
         int shiftX = Math.floorDiv(regionCordX, terrainManager.getWorld().getChunkSizeX());
         int shiftZ = Math.floorDiv(regionCordZ, terrainManager.getWorld().getChunkSizeZ());
 
@@ -379,7 +405,7 @@ public class TerrainRegion implements LightAccessor {
         return chunkHeighMap[idx];
     }
 
-    private void computeRegionSideMask(World<?> chunkProvider) {
+    private void computeRegionSideMask(World chunkProvider) {
         sideOcclusionMask = 0;
 
 
@@ -436,7 +462,7 @@ public class TerrainRegion implements LightAccessor {
                                             int rangeAStart, int rangeAEnd,
                                             int rangeBStart, int rangeBEnd,
                                             Direction faceDir,
-                                            World<?> provider,
+                                            World provider,
                                             boolean swapAB,
                                             boolean isZFace) {
         for (int a = rangeAStart; a <= rangeAEnd; a++) {
@@ -445,9 +471,9 @@ public class TerrainRegion implements LightAccessor {
                 int cy = swapAB ? faceCoord : (isZFace ? b : a);
                 int cz = isZFace ? faceCoord : b;
 
-                ClientChunk chunk = (ClientChunk) provider.getChunkNow(cx, cy, cz);
+                Chunk chunk = provider.getChunkNow(cx, cy, cz);
                 if (chunk == null) return false;
-                OccupancyMask mask = chunk.getChunkOccupancyMask();
+                OccupancyMask mask = getTerrainChunk(chunk).getChunkOccupancyMask();
                 if ((mask.getSideMask() & (1L << faceDir.getId())) == 0) {
                     return false;
                 }
@@ -461,7 +487,7 @@ public class TerrainRegion implements LightAccessor {
                                             int yStart, int yEnd,
                                             int zStart, int zEnd,
                                             Direction faceDir,
-                                            World<?> provider) {
+                                            World provider) {
         return isRegionFaceFullyOpaque(faceX, yStart, yEnd, zStart, zEnd, faceDir, provider, false, false);
     }
 }

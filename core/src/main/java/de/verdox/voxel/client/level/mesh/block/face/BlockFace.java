@@ -14,11 +14,11 @@ public interface BlockFace {
             int indexOffset,
             int baseVertexIndex,
             TextureAtlas textureAtlas,
-            int floatsPerVertex,
+            byte lodLevel,
             int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
     );
 
-    BlockModelType.BlockFace getFaceDefinition();
+    BlockModelType.BlockFace getBlockFaceDefinition();
 
     BlockFace addOffset(float offsetX, float offsetY, float offsetZ);
 
@@ -48,29 +48,119 @@ public interface BlockFace {
 
     boolean isLodGroup(BlockFace other, Direction direction, int lodStep);
 
-    float getCorner1X();
+    default float getCorner1X(float lodScale) {
+        return getCornerX(getBlockFaceDefinition().c1(), lodScale);
+    }
 
-    float getCorner1Y();
+    default float getCorner1Y(float lodScale) {
+        return getCornerY(getBlockFaceDefinition().c1(), lodScale);
+    }
 
-    float getCorner1Z();
+    default float getCorner1Z(float lodScale) {
+        return getCornerZ(getBlockFaceDefinition().c1(), lodScale);
+    }
 
-    float getCorner2X();
+    default float getCorner2X(float lodScale) {
+        return getCornerX(getBlockFaceDefinition().c2(), lodScale);
+    }
 
-    float getCorner2Y();
+    default float getCorner2Y(float lodScale) {
+        return getCornerY(getBlockFaceDefinition().c2(), lodScale);
+    }
 
-    float getCorner2Z();
+    default float getCorner2Z(float lodScale) {
+        return getCornerZ(getBlockFaceDefinition().c2(), lodScale);
+    }
 
-    float getCorner3X();
+    default float getCorner3X(float lodScale) {
+        return getCornerX(getBlockFaceDefinition().c3(), lodScale);
+    }
 
-    float getCorner3Y();
+    default float getCorner3Y(float lodScale) {
+        return getCornerY(getBlockFaceDefinition().c3(), lodScale);
+    }
 
-    float getCorner3Z();
+    default float getCorner3Z(float lodScale) {
+        return getCornerZ(getBlockFaceDefinition().c3(), lodScale);
+    }
 
-    float getCorner4X();
+    default float getCorner4X(float lodScale) {
+        return getCornerX(getBlockFaceDefinition().c4(), lodScale);
+    }
 
-    float getCorner4Y();
+    default float getCorner4Y(float lodScale) {
+        return getCornerY(getBlockFaceDefinition().c4(), lodScale);
+    }
 
-    float getCorner4Z();
+    default float getCorner4Z(float lodScale) {
+        return getCornerZ(getBlockFaceDefinition().c4(), lodScale);
+    }
+
+    default float getNormalX() {
+        return getBlockFaceDefinition().normalX();
+    }
+
+    default float getNormalY() {
+        return getBlockFaceDefinition().normalY();
+    }
+
+    default float getNormalZ() {
+        return getBlockFaceDefinition().normalZ();
+    }
+
+    float getCornerX(BlockModelType.BlockFace.BlockModelCoordinate blockModelCoordinate, float lodScale);
+
+    float getCornerY(BlockModelType.BlockFace.BlockModelCoordinate blockModelCoordinate, float lodScale);
+
+    float getCornerZ(BlockModelType.BlockFace.BlockModelCoordinate blockModelCoordinate, float lodScale);
+
+    default float getCorner1X() {
+        return getCorner1X(1);
+    }
+
+    default float getCorner1Y() {
+        return getCorner1Y(1);
+    }
+
+    default float getCorner1Z() {
+        return getCorner1Z(1);
+    }
+
+    default float getCorner2X() {
+        return getCorner2X(1);
+    }
+
+    default float getCorner2Y() {
+        return getCorner2Y(1);
+    }
+
+    default float getCorner2Z() {
+        return getCorner2Z(1);
+    }
+
+    default float getCorner3X() {
+        return getCorner3X(1);
+    }
+
+    default float getCorner3Y() {
+        return getCorner3Y(1);
+    }
+
+    default float getCorner3Z() {
+        return getCorner3Z(1);
+    }
+
+    default float getCorner4X() {
+        return getCorner4X(1);
+    }
+
+    default float getCorner4Y() {
+        return getCorner4Y(1);
+    }
+
+    default float getCorner4Z() {
+        return getCorner4Z(1);
+    }
 
     byte getBlockXInChunk();
 

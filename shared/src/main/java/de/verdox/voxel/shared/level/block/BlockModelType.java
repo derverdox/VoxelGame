@@ -8,6 +8,7 @@ import java.util.*;
 
 @Getter
 public class BlockModelType {
+    public static final float CUBE_BOUNDING_BOX_HALF = 0.5f;
 
     private final Map<String, BlockFace> faces = new HashMap<>();
     private final Map<BlockFace, String> facesToName = new HashMap<>();
@@ -57,7 +58,7 @@ public class BlockModelType {
         }
 
         public static BlockFace full(Direction direction, int uGrowth, int vGrowth) {
-            if(uGrowth < 0 || vGrowth < 0) {
+            if (uGrowth < 0 || vGrowth < 0) {
                 throw new IllegalArgumentException("u and v growth must be larger than one");
             }
             Vector3f normal = new Vector3f(direction.getNx(), direction.getNy(), direction.getNz());
@@ -71,10 +72,10 @@ public class BlockModelType {
 
 
             return new BlockFace(
-                    new RelativeCoordinate(c0.x, c0.y, c0.z),
-                    new RelativeCoordinate(c1.x, c1.y, c1.z),
-                    new RelativeCoordinate(c2.x, c2.y, c2.z),
-                    new RelativeCoordinate(c3.x, c3.y, c3.z),
+                    new BlockModelCoordinate((byte) 0, c0.x, c0.y, c0.z),
+                    new BlockModelCoordinate((byte) 1, c1.x, c1.y, c1.z),
+                    new BlockModelCoordinate((byte) 2, c2.x, c2.y, c2.z),
+                    new BlockModelCoordinate((byte) 3, c3.x, c3.y, c3.z),
                     direction.getOffsetX(), direction.getOffsetY(), direction.getOffsetZ(),
                     Direction.fromOffsets((int) direction.getUDirection()[0], (int) direction.getUDirection()[1], (int) direction.getUDirection()[2]),
                     Direction.fromOffsets((int) direction.getVDirection()[0], (int) direction.getVDirection()[1], (int) direction.getVDirection()[2])
@@ -82,11 +83,11 @@ public class BlockModelType {
         }
 
         public static BlockFace of(
-                RelativeCoordinate a, RelativeCoordinate b,
-                RelativeCoordinate c, RelativeCoordinate d,
+                BlockModelCoordinate a, BlockModelCoordinate b,
+                BlockModelCoordinate c, BlockModelCoordinate d,
                 Direction direction
         ) {
-            RelativeCoordinate[] corners = {a, b, c, d};
+            BlockModelCoordinate[] corners = {a, b, c, d};
 
 
             float[] uDir = direction.getUDirection();
@@ -101,10 +102,10 @@ public class BlockModelType {
         }
 
 
-        private final RelativeCoordinate c1;
-        private final RelativeCoordinate c2;
-        private final RelativeCoordinate c3;
-        private final RelativeCoordinate c4;
+        private final BlockModelCoordinate c1;
+        private final BlockModelCoordinate c2;
+        private final BlockModelCoordinate c3;
+        private final BlockModelCoordinate c4;
         private final float normalX;
         private final float normalY;
         private final float normalZ;
@@ -114,7 +115,7 @@ public class BlockModelType {
         private final Direction vDirection;
 
         private BlockFace(
-                RelativeCoordinate c1, RelativeCoordinate c2, RelativeCoordinate c3, RelativeCoordinate c4,
+                BlockModelCoordinate c1, BlockModelCoordinate c2, BlockModelCoordinate c3, BlockModelCoordinate c4,
                 float normalX, float normalY, float normalZ,
                 Direction uDirection,
                 Direction vDirection
@@ -142,19 +143,19 @@ public class BlockModelType {
             return normalZ;
         }
 
-        public RelativeCoordinate c1() {
+        public BlockModelCoordinate c1() {
             return c1;
         }
 
-        public RelativeCoordinate c2() {
+        public BlockModelCoordinate c2() {
             return c2;
         }
 
-        public RelativeCoordinate c3() {
+        public BlockModelCoordinate c3() {
             return c3;
         }
 
-        public RelativeCoordinate c4() {
+        public BlockModelCoordinate c4() {
             return c4;
         }
 
@@ -219,16 +220,16 @@ public class BlockModelType {
          */
         public boolean isLarger(BlockFace other) {
             // Compute edge vectors in 3D
-            RelativeCoordinate a = c1;
-            RelativeCoordinate b = c2;
-            RelativeCoordinate d = c4;
+            BlockModelCoordinate a = c1;
+            BlockModelCoordinate b = c2;
+            BlockModelCoordinate d = c4;
             float edge1 = distance(a, b);
             float edge2 = distance(a, d);
             float myArea = edge1 * edge2;
 
-            RelativeCoordinate oa = other.c1;
-            RelativeCoordinate ob = other.c2;
-            RelativeCoordinate od = other.c4;
+            BlockModelCoordinate oa = other.c1;
+            BlockModelCoordinate ob = other.c2;
+            BlockModelCoordinate od = other.c4;
             float oEdge1 = distance(oa, ob);
             float oEdge2 = distance(oa, od);
             float otherArea = oEdge1 * oEdge2;
@@ -241,16 +242,16 @@ public class BlockModelType {
          */
         public boolean isLargerOrEqual(BlockFace other) {
             // Compute edge vectors in 3D
-            RelativeCoordinate a = c1;
-            RelativeCoordinate b = c2;
-            RelativeCoordinate d = c4;
+            BlockModelCoordinate a = c1;
+            BlockModelCoordinate b = c2;
+            BlockModelCoordinate d = c4;
             float edge1 = distance(a, b);
             float edge2 = distance(a, d);
             float myArea = edge1 * edge2;
 
-            RelativeCoordinate oa = other.c1;
-            RelativeCoordinate ob = other.c2;
-            RelativeCoordinate od = other.c4;
+            BlockModelCoordinate oa = other.c1;
+            BlockModelCoordinate ob = other.c2;
+            BlockModelCoordinate od = other.c4;
             float oEdge1 = distance(oa, ob);
             float oEdge2 = distance(oa, od);
             float otherArea = oEdge1 * oEdge2;
@@ -314,59 +315,10 @@ public class BlockModelType {
         }
 
         /**
-         * Cut this face into left half (along U axis).
-         *//*
-        public BlockFace leftHalf() {
-            RelativeCoordinate m1 = midpoint(c1, c2);
-            RelativeCoordinate m4 = midpoint(c4, c3);
-            return of(c1, m1, m4, c4, normalX, normalY, normalZ);
-        }
-
-        *//**
-         * Cut this face into right half (along U axis).
-         *//*
-        public BlockFace rightHalf() {
-            RelativeCoordinate m1 = midpoint(c1, c2);
-            RelativeCoordinate m4 = midpoint(c4, c3);
-            return of(m1, c2, c3, m4, normalX, normalY, normalZ);
-        }
-
-        *//**
-         * Cut this face into top half (along V axis).
-         *//*
-        public BlockFace topHalf() {
-            RelativeCoordinate m2 = midpoint(c2, c3);
-            RelativeCoordinate m1 = midpoint(c1, c4);
-            return of(m1, m2, c3, c4, normalX, normalY, normalZ);
-        }
-
-        */
-
-        /**
-         * Cut this face into bottom half (along V axis).
-         *//*
-        public BlockFace bottomHalf() {
-            RelativeCoordinate m2 = midpoint(c2, c3);
-            RelativeCoordinate m1 = midpoint(c1, c4);
-            return of(c1, c2, m2, m1, normalX, normalY, normalZ);
-        }*/
-        private static RelativeCoordinate midpoint(RelativeCoordinate a, RelativeCoordinate b) {
-            return new RelativeCoordinate(
-                    (a.x() + b.x()) * 0.5f,
-                    (a.y() + b.y()) * 0.5f,
-                    (a.z() + b.z()) * 0.5f
-            );
-        }
-
-        /**
          * Relative coordinates in a block model. Relative to 0,0,0
          */
-        public record RelativeCoordinate(float x, float y, float z) {
-            public boolean onPlane(float plane, float nx, float ny, float nz) {
-                if (nx != 0) return x == plane;
-                if (ny != 0) return y == plane;
-                return z == plane;
-            }
+        public record BlockModelCoordinate(byte cId, float x, float y, float z) {
+
 
             @Override
             public String toString() {
@@ -376,9 +328,21 @@ public class BlockModelType {
                         ", z=" + z +
                         '}';
             }
+
+            public float getCornerX(int blockXInChunk, float lodScale) {
+                return ((blockXInChunk + x() + CUBE_BOUNDING_BOX_HALF) * lodScale);
+            }
+
+            public float getCornerY(int blockYInChunk, float lodScale) {
+                return ((blockYInChunk + y() + CUBE_BOUNDING_BOX_HALF) * lodScale);
+            }
+
+            public float getCornerZ(int blockZInChunk, float lodScale) {
+                return ((blockZInChunk + z() + CUBE_BOUNDING_BOX_HALF) * lodScale);
+            }
         }
 
-        private static float distance(RelativeCoordinate p1, RelativeCoordinate p2) {
+        private static float distance(BlockModelCoordinate p1, BlockModelCoordinate p2) {
             float dx = p2.x() - p1.x();
             float dy = p2.y() - p1.y();
             float dz = p2.z() - p1.z();

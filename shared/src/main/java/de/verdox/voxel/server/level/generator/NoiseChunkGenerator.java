@@ -1,9 +1,8 @@
 package de.verdox.voxel.server.level.generator;
 
-import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.server.level.generator.spline.NoiseHeightSpline;
 import de.verdox.voxel.shared.data.types.Blocks;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import personthecat.fastnoise.FastNoise;
 import personthecat.fastnoise.data.FractalType;
 import personthecat.fastnoise.data.NoiseType;
@@ -38,7 +37,7 @@ public class NoiseChunkGenerator implements ChunkGenerator {
     }
 
     @Override
-    public void generateNoise(ServerChunk chunk) {
+    public void generateNoise(Chunk chunk) {
         int cx = chunk.getChunkX(), cz = chunk.getChunkZ();
         int sizeX = chunk.getWorld().getChunkSizeX();
         int sizeZ = chunk.getWorld().getChunkSizeZ();
@@ -56,7 +55,7 @@ public class NoiseChunkGenerator implements ChunkGenerator {
                 int height = (int) erosionSpline.evaluate(cont);
 
                 // 5) Fülle Stein bis Höhe
-                int chunkYOfMax = ChunkBase.chunkY(chunk.getWorld(), height);
+                int chunkYOfMax = Chunk.chunkY(chunk.getWorld(), height);
                 for (int y = 0; y < chunk.getWorld().getChunkSizeY(); y++) {
                     if (chunk.getChunkY() < chunkYOfMax ||
                             (chunk.getChunkY() == chunkYOfMax && y <= chunk.localY(height))) {
@@ -68,7 +67,7 @@ public class NoiseChunkGenerator implements ChunkGenerator {
     }
 
     @Override
-    public void generateSurfaceBlocks(ServerChunk gameChunk) {
+    public void generateSurfaceBlocks(Chunk gameChunk) {
 
     }
 }

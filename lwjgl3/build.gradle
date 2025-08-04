@@ -184,3 +184,21 @@ startScripts.classpath = project.tasks.jar.outputs.files
 if (enableGraalNative == 'true') {
     apply from: file("nativeimage.gradle")
 }
+
+
+// 1) Für alle Java-Compile-Tasks (auch core-Code!) Preview + Incubator aktivieren:
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += [
+            '--enable-preview',
+            '--add-modules', 'jdk.incubator.vector'
+    ]
+}
+
+// 2) Für den Desktop-Launcher (run task bzw. jede JavaExec) dieselben JVM-Flags:
+tasks.withType(JavaExec).configureEach {
+    jvmArgs += [
+            '--enable-preview',
+            '--add-modules', 'jdk.incubator.vector'
+    ]
+}

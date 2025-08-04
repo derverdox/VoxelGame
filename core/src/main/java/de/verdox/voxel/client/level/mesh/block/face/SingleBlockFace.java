@@ -23,10 +23,8 @@ import java.util.Objects;
  */
 @Getter
 public class SingleBlockFace implements BlockFace {
-    public static final float CUBE_BOUNDING_BOX_HALF = 0.5f;
 
-    protected final BlockModelType.BlockFace blockFace;
-    protected final byte lodLevel;
+    protected final BlockModelType.BlockFace blockFaceDefinition;
     protected final ResourceLocation textureId;
     protected final float lightPacked;
     protected final byte aoPacked;
@@ -35,15 +33,14 @@ public class SingleBlockFace implements BlockFace {
     protected final byte blockZInChunk;
 
     public SingleBlockFace(
-            BlockModelType.BlockFace blockFace,
+            BlockModelType.BlockFace blockFaceDefinition,
             byte blockXInMesh, byte blockYInMesh, byte blockZInMesh,
-            byte lodLevel, ResourceLocation textureId, float lightPacked, byte aoPacked
+            ResourceLocation textureId, float lightPacked, byte aoPacked
     ) {
-        this.blockFace = blockFace;
+        this.blockFaceDefinition = blockFaceDefinition;
         this.blockXInChunk = blockXInMesh;
         this.blockYInChunk = blockYInMesh;
         this.blockZInChunk = blockZInMesh;
-        this.lodLevel = lodLevel;
         this.textureId = textureId;
         this.lightPacked = lightPacked;
         this.aoPacked = aoPacked;
@@ -57,7 +54,7 @@ public class SingleBlockFace implements BlockFace {
             int indexOffset,
             int baseVertexIndex,
             TextureAtlas textureAtlas,
-            int floatsPerVertex,
+            byte lodLevel,
             int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
     ) {
         // Hole Texturregion
@@ -65,16 +62,16 @@ public class SingleBlockFace implements BlockFace {
         if (textureId != null) {
             region = textureAtlas.findRegion(textureId.toString());
         }
-        float lodScale = getLODScale();
+        float lodScale = LODUtil.getLodScale(lodLevel);
 
         float uLen = getULength();
         float vLen = getVLength();
 
         float[][] corners = new float[][]{
-                {getCorner1X(), getCorner1Y(), getCorner1Z()},
-                {getCorner2X(), getCorner2Y(), getCorner2Z()},
-                {getCorner3X(), getCorner3Y(), getCorner3Z()},
-                {getCorner4X(), getCorner4Y(), getCorner4Z()}
+                {getCorner1X(lodScale), getCorner1Y(lodScale), getCorner1Z(lodScale)},
+                {getCorner2X(lodScale), getCorner2Y(lodScale), getCorner2Z(lodScale)},
+                {getCorner3X(lodScale), getCorner3Y(lodScale), getCorner3Z(lodScale)},
+                {getCorner4X(lodScale), getCorner4Y(lodScale), getCorner4Z(lodScale)}
         };
 
         float[] c0 = {0f, 0f};
@@ -97,7 +94,7 @@ public class SingleBlockFace implements BlockFace {
 
         for (int i = 0; i < 4; i++) {
 
-            int offset = vertexOffsetFloats + i * floatsPerVertex;
+            int offset = vertexOffsetFloats + i * getFloatsPerVertex();
             float u = uv[i][0], v = uv[i][1];
 
             offset = writePosition(vertices, corners, i, offset, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
@@ -156,7 +153,7 @@ public class SingleBlockFace implements BlockFace {
 
         }
 
-        byte[] indicesByFace = getIndexOrderByFaceDirection(blockFace.direction());
+        byte[] indicesByFace = getIndexOrderByFaceDirection(blockFaceDefinition.direction());
 
         // Indices für 2 Triangles
 
@@ -190,11 +187,6 @@ public class SingleBlockFace implements BlockFace {
         float packedPositionAndAo = packPositionAndAO(x, y, z, aoAtCorner);
 
         vertices[offsetStart] = packedPositionAndAo;
-
-/*        vertices[offsetStart] = x;
-        vertices[offsetStart + 1] = y;
-        vertices[offsetStart + 2] = z;
-        return offsetStart + 3;*/
         return offsetStart + 1;
     }
 
@@ -222,18 +214,12 @@ public class SingleBlockFace implements BlockFace {
         return offset + 1;
     }
 
-    @Override
-    public BlockModelType.BlockFace getFaceDefinition() {
-        return blockFace;
-    }
-
 
     @Override
     public BlockFace addOffset(float offsetX, float offsetY, float offsetZ) {
         return new SingleBlockFace(
-                blockFace,
+                blockFaceDefinition,
                 ((byte) (blockXInChunk + offsetX)), ((byte) (blockYInChunk + offsetY)), ((byte) (blockZInChunk + offsetZ)),
-                lodLevel,
                 textureId,
                 lightPacked, aoPacked
         );
@@ -255,7 +241,7 @@ public class SingleBlockFace implements BlockFace {
         }
 
         if (u != 0) {
-            switch (blockFace.direction()) {
+            switch (blockFaceDefinition.direction()) {
                 case UP, DOWN, SOUTH -> offsetX = u;
                 case NORTH -> offsetX = -u;
                 case EAST -> offsetZ = u;
@@ -265,7 +251,7 @@ public class SingleBlockFace implements BlockFace {
         }
 
         if (v != 0) {
-            switch (blockFace.direction()) {
+            switch (blockFaceDefinition.direction()) {
                 case UP, DOWN -> offsetZ = v;
                 case EAST, WEST, NORTH, SOUTH -> offsetY = v;
             }
@@ -302,16 +288,15 @@ public class SingleBlockFace implements BlockFace {
         float lengthU = getULength();
         if (lengthU == 0) return this;
 
-        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction()
-                                                                                          .equals(Direction.WEST);
+        boolean flip = getBlockFaceDefinition().direction().equals(Direction.EAST) || getBlockFaceDefinition().direction()
+                .equals(Direction.WEST);
 
         int deltaU = flip ? 0 : delta;
         int deltaV = flip ? delta : 0;
 
         return new GreedyBlockFace(
-                blockFace,
+                blockFaceDefinition,
                 blockXInChunk, blockYInChunk, blockZInChunk,
-                lodLevel,
                 textureId,
                 lightPacked, aoPacked,
                 deltaU, deltaV
@@ -327,16 +312,15 @@ public class SingleBlockFace implements BlockFace {
         float lengthV = getVLength();
         if (lengthV == 0) return this;
 
-        boolean flip = getBlockFace().direction().equals(Direction.EAST) || getBlockFace().direction()
-                                                                                          .equals(Direction.WEST);
+        boolean flip = getBlockFaceDefinition().direction().equals(Direction.EAST) || getBlockFaceDefinition().direction()
+                .equals(Direction.WEST);
 
         int deltaU = flip ? delta : 0;
         int deltaV = flip ? 0 : delta;
 
         return new GreedyBlockFace(
-                blockFace,
+                blockFaceDefinition,
                 blockXInChunk, blockYInChunk, blockZInChunk,
-                lodLevel,
                 textureId,
                 lightPacked, aoPacked,
                 deltaU, deltaV
@@ -355,7 +339,7 @@ public class SingleBlockFace implements BlockFace {
 
     @Override
     public int getWCoord(Direction dir) {
-        return BlockFace.getWCoord(dir, (short) getCorner1X(), (short) getCorner1Y(), (short) getCorner1Z());
+        return BlockFace.getWCoord(dir, (short) getCorner1X(1), (short) getCorner1Y(1), (short) getCorner1Z(1));
     }
 
     @Override
@@ -366,7 +350,7 @@ public class SingleBlockFace implements BlockFace {
         if (!(other instanceof SingleBlockFace singleBlockFace)) {
             return false;
         }
-        return this.blockFace.equals(singleBlockFace.blockFace) && this.aoPacked == singleBlockFace.aoPacked && this.lightPacked == singleBlockFace.lightPacked && this.getWCoord(direction) == singleBlockFace.getWCoord(direction);
+        return this.blockFaceDefinition.equals(singleBlockFace.blockFaceDefinition) && this.aoPacked == singleBlockFace.aoPacked && this.lightPacked == singleBlockFace.lightPacked && this.getWCoord(direction) == singleBlockFace.getWCoord(direction);
     }
 
     @Override
@@ -384,7 +368,7 @@ public class SingleBlockFace implements BlockFace {
      * @return the U-length in block units
      */
     protected float getULength() {
-        return (int) (Math.abs(getCorner2X() - getCorner1X()) + Math.abs(getCorner2Y() - getCorner1Y()) + Math.abs(getCorner2Z() - getCorner1Z()));
+        return (int) (Math.abs(getCorner2X(1) - getCorner1X(1)) + Math.abs(getCorner2Y(1) - getCorner1Y(1)) + Math.abs(getCorner2Z(1) - getCorner1Z(1)));
     }
 
     /**
@@ -393,24 +377,24 @@ public class SingleBlockFace implements BlockFace {
      * @return the V-length in block units
      */
     protected float getVLength() {
-        return Math.abs(getCorner4X() - getCorner1X()) + Math.abs(getCorner4Y() - getCorner1Y()) + Math.abs(getCorner4Z() - getCorner1Z());
+        return Math.abs(getCorner4X(1) - getCorner1X(1)) + Math.abs(getCorner4Y(1) - getCorner1Y(1)) + Math.abs(getCorner4Z(1) - getCorner1Z(1));
     }
 
     @Override
     public String toString() {
         return "BlockFace{" +
-                "c1X=" + getCorner1X() +
-                ", c1Y=" + getCorner1Y() +
-                ", c1Z=" + getCorner1Z() +
-                ", c2X=" + getCorner2X() +
-                ", c2Y=" + getCorner2Y() +
-                ", c2Z=" + getCorner2Z() +
-                ", c3X=" + getCorner3X() +
-                ", c3Y=" + getCorner3Y() +
-                ", c3Z=" + getCorner3Z() +
-                ", c4X=" + getCorner4X() +
-                ", c4Y=" + getCorner4Y() +
-                ", c4Z=" + getCorner4Z() +
+                "c1X=" + getCorner1X(1) +
+                ", c1Y=" + getCorner1Y(1) +
+                ", c1Z=" + getCorner1Z(1) +
+                ", c2X=" + getCorner2X(1) +
+                ", c2Y=" + getCorner2Y(1) +
+                ", c2Z=" + getCorner2Z(1) +
+                ", c3X=" + getCorner3X(1) +
+                ", c3Y=" + getCorner3Y(1) +
+                ", c3Z=" + getCorner3Z(1) +
+                ", c4X=" + getCorner4X(1) +
+                ", c4Y=" + getCorner4Y(1) +
+                ", c4Z=" + getCorner4Z(1) +
                 ", nX=" + getNormalX() +
                 ", nY=" + getNormalY() +
                 ", nZ=" + getNormalZ() +
@@ -422,18 +406,18 @@ public class SingleBlockFace implements BlockFace {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         SingleBlockFace blockFace = (SingleBlockFace) o;
-        return Float.compare(getCorner1X(), blockFace.getCorner1X()) == 0 &&
-                Float.compare(getCorner1Y(), blockFace.getCorner1Y()) == 0 &&
-                Float.compare(getCorner1Z(), blockFace.getCorner1Z()) == 0 &&
-                Float.compare(getCorner2X(), blockFace.getCorner2X()) == 0 &&
-                Float.compare(getCorner2Y(), blockFace.getCorner2Y()) == 0 &&
-                Float.compare(getCorner2Z(), blockFace.getCorner2Z()) == 0 &&
-                Float.compare(getCorner3X(), blockFace.getCorner3X()) == 0 &&
-                Float.compare(getCorner3Y(), blockFace.getCorner3Y()) == 0 &&
-                Float.compare(getCorner3Z(), blockFace.getCorner3Z()) == 0 &&
-                Float.compare(getCorner4X(), blockFace.getCorner4X()) == 0 &&
-                Float.compare(getCorner4Y(), blockFace.getCorner4Y()) == 0 &&
-                Float.compare(getCorner4Z(), blockFace.getCorner4Z()) == 0 &&
+        return Float.compare(getCorner1X(1), blockFace.getCorner1X(1)) == 0 &&
+                Float.compare(getCorner1Y(1), blockFace.getCorner1Y(1)) == 0 &&
+                Float.compare(getCorner1Z(1), blockFace.getCorner1Z(1)) == 0 &&
+                Float.compare(getCorner2X(1), blockFace.getCorner2X(1)) == 0 &&
+                Float.compare(getCorner2Y(1), blockFace.getCorner2Y(1)) == 0 &&
+                Float.compare(getCorner2Z(1), blockFace.getCorner2Z(1)) == 0 &&
+                Float.compare(getCorner3X(1), blockFace.getCorner3X(1)) == 0 &&
+                Float.compare(getCorner3Y(1), blockFace.getCorner3Y(1)) == 0 &&
+                Float.compare(getCorner3Z(1), blockFace.getCorner3Z(1)) == 0 &&
+                Float.compare(getCorner4X(1), blockFace.getCorner4X(1)) == 0 &&
+                Float.compare(getCorner4Y(1), blockFace.getCorner4Y(1)) == 0 &&
+                Float.compare(getCorner4Z(1), blockFace.getCorner4Z(1)) == 0 &&
                 Float.compare(getNormalX(), blockFace.getNormalX()) == 0 &&
                 Float.compare(getNormalY(), blockFace.getNormalY()) == 0 &&
                 Float.compare(getNormalZ(), blockFace.getNormalZ()) == 0 &&
@@ -443,87 +427,26 @@ public class SingleBlockFace implements BlockFace {
     @Override
     public int hashCode() {
         return Objects.hash(
-                getCorner1X(), getCorner1Y(), getCorner1Z(),
-                getCorner2X(), getCorner2Y(), getCorner2Z(),
-                getCorner3X(), getCorner3Y(), getCorner3Z(),
-                getCorner4X(), getCorner4Y(), getCorner4Z(),
+                getCorner1X(1), getCorner1Y(1), getCorner1Z(1),
+                getCorner2X(1), getCorner2Y(1), getCorner2Z(1),
+                getCorner3X(1), getCorner3Y(1), getCorner3Z(1),
+                getCorner4X(1), getCorner4Y(1), getCorner4Z(1),
                 getNormalX(), getNormalY(), getNormalZ(), textureId);
     }
 
-    public float getCorner1X() {
-        return getCornerX((byte) 0, blockFace.c1());
+    @Override
+    public float getCornerX(BlockModelType.BlockFace.BlockModelCoordinate blockModelCoordinate, float lodScale) {
+        return blockModelCoordinate.getCornerX(blockXInChunk, lodScale);
     }
 
-    public float getCorner1Y() {
-        return getCornerY((byte) 0, blockFace.c1());
+    @Override
+    public float getCornerY(BlockModelType.BlockFace.BlockModelCoordinate blockModelCoordinate, float lodScale) {
+        return blockModelCoordinate.getCornerY(blockYInChunk, lodScale);
     }
 
-    public float getCorner1Z() {
-        return getCornerZ((byte) 0, blockFace.c1());
-    }
-
-    public float getCorner2X() {
-        return getCornerX((byte) 1, blockFace.c2());
-    }
-
-    public float getCorner2Y() {
-        return getCornerY((byte) 1, blockFace.c2());
-    }
-
-    public float getCorner2Z() {
-        return getCornerZ((byte) 1, blockFace.c2());
-    }
-
-    public float getCorner3X() {
-        return getCornerX((byte) 2, blockFace.c3());
-    }
-
-    public float getCorner3Y() {
-        return getCornerY((byte) 2, blockFace.c3());
-    }
-
-    public float getCorner3Z() {
-        return getCornerZ((byte) 2, blockFace.c3());
-    }
-
-    public float getCorner4X() {
-        return getCornerX((byte) 3, blockFace.c4());
-    }
-
-    public float getCorner4Y() {
-        return getCornerY((byte) 3, blockFace.c4());
-    }
-
-    public float getCorner4Z() {
-        return getCornerZ((byte) 3, blockFace.c4());
-    }
-
-    public float getNormalX() {
-        return blockFace.normalX();
-    }
-
-    public float getNormalY() {
-        return blockFace.normalY();
-    }
-
-    public float getNormalZ() {
-        return blockFace.normalZ();
-    }
-
-    protected float getCornerX(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
-        return ((blockXInChunk + relativeCoordinate.x() + CUBE_BOUNDING_BOX_HALF) * getLODScale());
-    }
-
-    protected float getCornerY(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
-        return ((blockYInChunk + relativeCoordinate.y() + CUBE_BOUNDING_BOX_HALF) * getLODScale());
-    }
-
-    protected float getCornerZ(byte cId, BlockModelType.BlockFace.RelativeCoordinate relativeCoordinate) {
-        return ((blockZInChunk + relativeCoordinate.z() + CUBE_BOUNDING_BOX_HALF) * getLODScale());
-    }
-
-    protected float getLODScale() {
-        return LODUtil.getLodScale(lodLevel);
+    @Override
+    public float getCornerZ(BlockModelType.BlockFace.BlockModelCoordinate blockModelCoordinate, float lodScale) {
+        return blockModelCoordinate.getCornerZ(blockZInChunk, lodScale);
     }
 
     protected byte[] getIndexOrderByFaceDirection(Direction direction) {

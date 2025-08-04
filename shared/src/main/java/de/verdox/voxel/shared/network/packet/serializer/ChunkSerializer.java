@@ -5,27 +5,23 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import de.verdox.voxel.shared.VoxelBase;
-import de.verdox.voxel.shared.data.types.Blocks;
-import de.verdox.voxel.shared.level.World;
+import de.verdox.voxel.shared.level.chunk.Chunk;
+import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
-import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
-import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
-import de.verdox.voxel.shared.lighting.ChunkLightData;
-import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
 
 import java.util.UUID;
 
-public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase<WORLD>> extends Serializer<CHUNK> {
+public class ChunkSerializer extends Serializer<Chunk> {
 
     @Override
-    public void write(Kryo kryo, Output output, CHUNK chunk) {
+    public void write(Kryo kryo, Output output, Chunk chunk) {
         kryo.writeObject(output, chunk.getWorld().getUuid());
         output.writeInt(chunk.getChunkX());
         output.writeInt(chunk.getChunkY());
         output.writeInt(chunk.getChunkZ());
         output.writeBoolean(chunk.isEmpty());
         chunk.getChunkLightData().write(kryo, output);
-        chunk.getHeightmap().write(kryo, output);
+        chunk.getHeightMap().write(kryo, output);
         chunk.getDepthMap().write(kryo, output);
         if (chunk.isEmpty()) {
             return;
@@ -34,9 +30,9 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
     }
 
     @Override
-    public CHUNK read(Kryo kryo, Input input, Class<? extends CHUNK> type) {
+    public Chunk read(Kryo kryo, Input input, Class<? extends Chunk> type) {
         UUID worldUUID = kryo.readObject(input, UUID.class);
-        WORLD world = getWorld(worldUUID);
+        World world = getWorld(worldUUID);
 
         if (world == null) {
             return null;
@@ -46,10 +42,10 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
         int chunkZ = input.readInt();
         boolean isEmpty = input.readBoolean();
 
-        CHUNK chunk = world.constructChunkObject(chunkX, chunkY, chunkZ);
+        Chunk chunk = new ChunkBase(world, chunkX, chunkY, chunkZ);
 
         chunk.getChunkLightData().readAndUpdate(kryo, input);
-        chunk.getHeightmap().readAndUpdate(kryo, input);
+        chunk.getHeightMap().readAndUpdate(kryo, input);
         chunk.getDepthMap().readAndUpdate(kryo, input);
 
 
@@ -62,7 +58,7 @@ public class ChunkSerializer<WORLD extends World<CHUNK>, CHUNK extends ChunkBase
         return chunk;
     }
 
-    private WORLD getWorld(UUID worldUUID) {
-        return (WORLD) VoxelBase.getINSTANCE().getWorld(worldUUID).orElse(null);
+    private World getWorld(UUID worldUUID) {
+        return VoxelBase.getInstance().getWorld(worldUUID).orElse(null);
     }
 }

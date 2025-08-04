@@ -24,6 +24,13 @@ tasks.named("jmhRunBytecodeGenerator") {
   doNotTrackState("JMH codegen on Netzlaufwerk: disable Gradle state tracking")
 }
 
+jmh {
+  jvmArgs = [
+          "--enable-preview",
+          "--add-modules", "jdk.incubator.vector"
+  ]
+}
+
 test {
   useJUnitPlatform()
 }

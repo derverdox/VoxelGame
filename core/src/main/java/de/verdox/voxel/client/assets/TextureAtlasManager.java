@@ -38,7 +38,7 @@ public class TextureAtlasManager {
         Gdx.app.log("Atlas", "Creating the Block atlas");
         PixmapPacker blockTexturePacker = new PixmapPacker(
             1024, 1024, Pixmap.Format.RGBA8888,
-            4, true
+                (int) (4 * Texture.getMaxAnisotropicFilterLevel()), true
         );
         BlockModels.getBlockModels().forEach(this::registerBlockModel);
         blockModels.stream().distinct().forEach(blockModel ->
@@ -51,12 +51,7 @@ public class TextureAtlasManager {
             Texture.TextureFilter.Linear,
             false
         );
-
-
-        for (Texture texture : blockTextureAtlas.getTextures()) {
-            texture.setWrap(Texture.TextureWrap.ClampToEdge, Texture.TextureWrap.ClampToEdge);
-            texture.setAnisotropicFilter(Texture.getMaxAnisotropicFilterLevel());
-        }
+        blockTexturePacker.dispose();
 
         Gdx.app.log("Atlas", "Block Atlas created with " + blockTextureAtlas.getRegions().size + " regions on " + blockTextureAtlas.getTextures().size + " texture pages.");
     }

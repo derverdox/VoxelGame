@@ -3,7 +3,7 @@ package de.verdox.voxel.client.level.mesh.terrain.graph;
 import com.badlogic.gdx.graphics.Camera;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainRegion;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
@@ -54,9 +54,9 @@ public class OctreeTerrainGraph {
      * Frustum-Query: Frustum ins lokalen Koordinaten testen und Callback mit Welt-Box
      */
     public void queryVisibleRegions(Camera camera, FrustumCallback frustumCallback) {
-        int chunkX = ChunkBase.chunkX(terrainManager.getWorld(), (int) camera.position.x);
-        int chunkY = ChunkBase.chunkY(terrainManager.getWorld(), (int) camera.position.y);
-        int chunkZ = ChunkBase.chunkZ(terrainManager.getWorld(), (int) camera.position.z);
+        int chunkX = Chunk.chunkX(terrainManager.getWorld(), (int) camera.position.x);
+        int chunkY = Chunk.chunkY(terrainManager.getWorld(), (int) camera.position.y);
+        int chunkZ = Chunk.chunkZ(terrainManager.getWorld(), (int) camera.position.z);
 
         int worldRegionX = terrainManager.getBounds().getRegionX(chunkX);
         int worldRegionY = terrainManager.getBounds().getRegionY(chunkY);
@@ -250,15 +250,15 @@ public class OctreeTerrainGraph {
         }
 
         private int extractRelativeRegionX(long relativeRegionKey) {
-            return ChunkBase.unpackChunkX(relativeRegionKey);
+            return Chunk.unpackChunkX(relativeRegionKey);
         }
 
         private int extractRelativeRegionY(long relativeRegionKey) {
-            return ChunkBase.unpackChunkY(relativeRegionKey);
+            return Chunk.unpackChunkY(relativeRegionKey);
         }
 
         private int extractRelativeRegionZ(long relativeRegionKey) {
-            return ChunkBase.unpackChunkZ(relativeRegionKey);
+            return Chunk.unpackChunkZ(relativeRegionKey);
         }
     }
 

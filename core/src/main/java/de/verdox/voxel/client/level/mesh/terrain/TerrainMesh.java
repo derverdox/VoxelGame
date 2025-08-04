@@ -72,14 +72,15 @@ public class TerrainMesh {
         AtomicInteger baseVertex = new AtomicInteger();
         AtomicInteger amountVertices = new AtomicInteger();
 
-        blockFaces.forEachChunkFace((storage, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks) -> storage.forEachFace(face -> {
-            face.appendToBuffers(floats, shortIndices, intIndices, vertexOffset.get(), indexOffset.get(), baseVertex.get(), textureAtlas, face.getFloatsPerVertex(), offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+        blockFaces.forEachChunkFace((storage, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks) ->
+                storage.forEachFace((face, _, _, _) -> {
+                    face.appendToBuffers(floats, shortIndices, intIndices, vertexOffset.get(), indexOffset.get(), baseVertex.get(), textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
 
-            vertexOffset.addAndGet(face.getVerticesPerFace() * face.getFloatsPerVertex());
-            indexOffset.addAndGet(face.getIndicesPerFace());
-            baseVertex.addAndGet(face.getVerticesPerFace());
-            amountVertices.addAndGet(face.getVerticesPerFace());
-        }));
+                    vertexOffset.addAndGet(face.getVerticesPerFace() * face.getFloatsPerVertex());
+                    indexOffset.addAndGet(face.getIndicesPerFace());
+                    baseVertex.addAndGet(face.getVerticesPerFace());
+                    amountVertices.addAndGet(face.getVerticesPerFace());
+                }));
 
         lock.writeLock().lock();
         try {

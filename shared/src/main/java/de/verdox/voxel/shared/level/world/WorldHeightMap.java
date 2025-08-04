@@ -1,15 +1,13 @@
-package de.verdox.voxel.shared.level;
+package de.verdox.voxel.shared.level.world;
 
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import it.unimi.dsi.fastutil.ints.Int2IntAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
 
-public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
+public class WorldHeightMap {
     /**
      * Chunk-Koordinate in Y-Richtung (ganzzahlig) und X/Z-Position (Chunk-Index)
      */
@@ -79,7 +77,7 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
      * Chunk hinzufügen: aus seiner heightmap/depthMap lokale Extrema berechnen
      * und global in die Multisets eintragen.
      */
-    public void addChunk(CHUNK chunk) {
+    public void addChunk(Chunk chunk) {
         int cx = chunk.getChunkX(), cy = chunk.getChunkY(), cz = chunk.getChunkZ();
         ChunkPos pos = new ChunkPos(cx, cy, cz);
 
@@ -88,9 +86,9 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
 
         int localMax = Integer.MIN_VALUE;
         int localMin = Integer.MAX_VALUE;
-        for (int x = 0; x < chunk.getBlockSizeX(); x++) {
-            for (int z = 0; z < chunk.getBlockSizeZ(); z++) {
-                int h = Byte.toUnsignedInt(chunk.getHeightmap().get(x, z));
+        for (int x = 0; x < chunk.getSizeX(); x++) {
+            for (int z = 0; z < chunk.getSizeZ(); z++) {
+                int h = Byte.toUnsignedInt(chunk.getHeightMap().get(x, z));
                 int d = Byte.toUnsignedInt(chunk.getDepthMap().get(x, z));
                 localMax = Math.max(localMax, h);
                 localMin = Math.min(localMin, d);
@@ -107,7 +105,7 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
     /**
      * Chunk entfernen: seine alten Extremwerte aus den Multisets dekrementieren.
      */
-    public void removeChunk(CHUNK chunk) {
+    public void removeChunk(Chunk chunk) {
         ChunkPos pos = new ChunkPos(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
         ChunkExtrema old = chunkMap.remove(pos);
         if (old == null) return;
@@ -120,7 +118,7 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
      * Nachdem im Chunk die heightmap/depthMap angepasst wurde,
      * rufe das hier auf, um die globalen Multisets zu korrigieren.
      */
-    public void blockUpdate(CHUNK chunk) {
+    public void blockUpdate(Chunk chunk) {
         ChunkPos pos = new ChunkPos(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
         ChunkExtrema old = chunkMap.get(pos);
         if (old == null) {
@@ -137,9 +135,9 @@ public class WorldHeightMap<CHUNK extends ChunkBase<?>> {
         int localMax = Integer.MIN_VALUE;
         int localMin = Integer.MAX_VALUE;
 
-        for (int x = 0; x < chunk.getBlockSizeX(); x++) {
-            for (int z = 0; z < chunk.getBlockSizeZ(); z++) {
-                localMax = Math.max(localMax, Byte.toUnsignedInt(chunk.getHeightmap().get(x, z)));
+        for (int x = 0; x < chunk.getSizeX(); x++) {
+            for (int z = 0; z < chunk.getSizeZ(); z++) {
+                localMax = Math.max(localMax, Byte.toUnsignedInt(chunk.getHeightMap().get(x, z)));
                 localMin = Math.min(localMin, Byte.toUnsignedInt(chunk.getDepthMap().get(x, z)));
             }
         }

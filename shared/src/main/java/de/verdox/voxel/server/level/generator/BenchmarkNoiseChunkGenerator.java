@@ -1,8 +1,7 @@
 package de.verdox.voxel.server.level.generator;
 
-import de.verdox.voxel.server.level.chunk.ServerChunk;
 import de.verdox.voxel.shared.data.types.Blocks;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import personthecat.fastnoise.FastNoise;
 import personthecat.fastnoise.data.FractalType;
 import personthecat.fastnoise.data.NoiseType;
@@ -15,12 +14,12 @@ public class BenchmarkNoiseChunkGenerator implements ChunkGenerator {
         .build();
 
     @Override
-    public void generateNoise(ServerChunk gameChunk) {
+    public void generateNoise(Chunk gameChunk) {
         int minHeight = 40;
         int noiseMaxHeight = 145;
 
         int maxHeightGenerated = 40 + 145;
-        int maxChunkYToGenerateNoiseIn = ChunkBase.chunkY(gameChunk.getWorld(), maxHeightGenerated);
+        int maxChunkYToGenerateNoiseIn = Chunk.chunkY(gameChunk.getWorld(), maxHeightGenerated);
 
         if (gameChunk.getChunkY() > maxChunkYToGenerateNoiseIn) {
             return;
@@ -33,7 +32,7 @@ public class BenchmarkNoiseChunkGenerator implements ChunkGenerator {
                 int globalZ = gameChunk.globalZ(z);
                 int heightAtPos = (int) (noise.getNoise(globalX, globalZ) * noiseMaxHeight) + minHeight;
 
-                int chunkYOfMaxHeight = ChunkBase.chunkY(gameChunk.getWorld(), heightAtPos);
+                int chunkYOfMaxHeight = Chunk.chunkY(gameChunk.getWorld(), heightAtPos);
 
                 if (chunkYOfMaxHeight == gameChunk.getChunkY()) {
                     for (int y = 0; y < gameChunk.localY(heightAtPos); y++) {
@@ -49,7 +48,7 @@ public class BenchmarkNoiseChunkGenerator implements ChunkGenerator {
     }
 
     @Override
-    public void generateSurfaceBlocks(ServerChunk gameChunk) {
+    public void generateSurfaceBlocks(Chunk gameChunk) {
 
     }
 }

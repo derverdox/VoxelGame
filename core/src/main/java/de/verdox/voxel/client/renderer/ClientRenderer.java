@@ -3,22 +3,14 @@ package de.verdox.voxel.client.renderer;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.profiling.GLProfiler;
-import com.badlogic.gdx.utils.BufferUtils;
-import de.verdox.voxel.client.VoxelClient;
+import de.verdox.voxel.client.GameSession;
 import de.verdox.voxel.client.input.ClientSettings;
 import de.verdox.voxel.client.input.PlayerController;
 import de.verdox.voxel.client.input.PlayerInteractionRayCast;
-import de.verdox.voxel.client.level.world.RegionBasedWorldRenderPipeline;
 import de.verdox.voxel.client.level.world.WorldRenderPipeline;
-import de.verdox.voxel.client.renderer.level.WorldRenderer;
-import de.verdox.voxel.client.shader.Shaders;
 import de.verdox.voxel.shared.util.Benchmark;
 import lombok.Getter;
-
-import java.nio.IntBuffer;
 
 @Getter
 public class ClientRenderer implements DebuggableOnScreen {
@@ -27,11 +19,8 @@ public class ClientRenderer implements DebuggableOnScreen {
     private final ClientSettings clientSettings;
     private final PlayerController playerController;
 
-    private final WorldRenderer worldRenderer;
     private final WorldRenderPipeline worldRenderPipeline;
 
-    private ModelBatch renderBatch;
-    private Environment environment;
     private final ShapeRenderer blockOutlineRenderer = new ShapeRenderer();
     private final ShapeRenderer chunkRegionOutlineRenderer = new ShapeRenderer();
 
@@ -41,12 +30,9 @@ public class ClientRenderer implements DebuggableOnScreen {
         this.clientSettings = clientSettings;
         this.playerController = playerController;
 
-        renderBatch = new ModelBatch();
         debugScreen = new DebugScreen();
 
-        this.worldRenderer = new WorldRenderer();
-        this.worldRenderPipeline = new RegionBasedWorldRenderPipeline();
-        debugScreen.attach(worldRenderer);
+        this.worldRenderPipeline = new WorldRenderPipeline();
         debugScreen.attach(worldRenderPipeline);
         debugScreen.attach(this);
 
@@ -60,13 +46,10 @@ public class ClientRenderer implements DebuggableOnScreen {
 
         benchmark.endSection();
 
-        if (VoxelClient.getInstance().getCurrentWorld() == null) {
+        if (GameSession.getInstance().getCurrentWorld() == null) {
             return;
         }
 
-        if (environment == null) {
-            environment = WorldRenderer.createEnvironment(VoxelClient.getInstance().getCurrentWorld());
-        }
 
 
 
@@ -74,7 +57,7 @@ public class ClientRenderer implements DebuggableOnScreen {
         benchmark.startSection("Batch start");
         //renderBatch.begin(camera);
         benchmark.endSection();
-        this.worldRenderPipeline.renderWorld(camera, VoxelClient.getInstance().getCurrentWorld(), renderBatch, environment, benchmark);
+        this.worldRenderPipeline.renderWorld(camera, GameSession.getInstance().getCurrentWorld().getTerrainManager(), benchmark);
         benchmark.startSection("Batch End");
         //renderBatch.end();
         benchmark.endSection();

@@ -1,58 +1,33 @@
 package de.verdox.voxel.client.level.chunk;
 
-import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.occupancy.BitsetBasedOccupancyMask;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
 import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
 import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
 
-public class LODChunk extends ChunkBase<ClientWorld> {
-    private final ClientChunk parent;
+public class LODChunk extends ChunkBase {
+    private final Chunk owner;
     @Getter
     private final OccupancyMask chunkOccupancyMask = new BitsetBasedOccupancyMask();
     @Getter
     private final int lodLevel;
 
-    public static LODChunk of(ClientChunk parent, int lodLevel) {
-        int lodStep = LODUtil.getLodScale(lodLevel);
-        return new LODChunk(parent, lodLevel, lodStep, (parent.getBlockSizeX() / lodStep), (parent.getBlockSizeY() / lodStep), (parent.getBlockSizeZ() / lodStep));
+    public static LODChunk of(Chunk parent, int lodLevel) {
+        return new LODChunk(parent, lodLevel);
     }
 
-    private LODChunk(ClientChunk parent, int lodLevel, int lodStep, int sizeX, int sizeY, int sizeZ) {
+    private LODChunk(Chunk parent, int lodLevel) {
         super(parent.getWorld(), parent.getChunkX(), parent.getChunkY(), parent.getChunkZ());
-        this.parent = parent;
+        this.owner = parent;
         this.lodLevel = lodLevel;
-    }
-
-    @Override
-    public int getChunkX() {
-        return parent.getChunkX();
-    }
-
-    @Override
-    public int getChunkY() {
-        return parent.getChunkY();
-    }
-
-    @Override
-    public int getChunkZ() {
-        return parent.getChunkZ();
-    }
-
-    @Override
-    public ClientWorld getWorld() {
-        return parent.getWorld();
-    }
-
-    @Override
-    public void init() {
         initLodChunk();
         initLodLight();
         this.chunkOccupancyMask.setOwner(this);
@@ -73,23 +48,22 @@ public class LODChunk extends ChunkBase<ClientWorld> {
         int lodX = localX(localX);
         int lodY = localY(localY);
         int lodZ = localZ(localZ);
-        //System.out.println("Get block at " + lodX + ", " + lodY + ", " + lodZ);
         return super.getBlockAt(lodX, lodY, lodZ);
     }
 
     @Override
-    public int getBlockSizeX() {
-        return parent.getBlockSizeX() / getLodStep();
+    public int getSizeX() {
+        return owner.getSizeX() / getLodStep();
     }
 
     @Override
-    public int getBlockSizeY() {
-        return parent.getBlockSizeY() / getLodStep();
+    public int getSizeY() {
+        return owner.getSizeY() / getLodStep();
     }
 
     @Override
-    public int getBlockSizeZ() {
-        return parent.getBlockSizeZ() / getLodStep();
+    public int getSizeZ() {
+        return owner.getSizeZ() / getLodStep();
     }
 
     private void updateBlockAt(int lodX, int lodY, int lodZ, boolean updateBlocks, boolean updateLights) {
@@ -97,15 +71,14 @@ public class LODChunk extends ChunkBase<ClientWorld> {
         int counter = 0;
         int accuracy = getLodAccuracy();
         int lodStep = getLodStep();
-        // Search for LOD block in lod radius in parent chunk.
-        //System.out.println("Update Block at: " + lodX + ", " + lodY + ", " + lodZ);
+
         for (int x = 0; x < lodStep; x++) {
             for (int y = 0; y < lodStep; y++) {
                 for (int z = 0; z < lodStep; z++) {
                     int relX = (lodX * lodStep) + x;
                     int relY = (lodY * lodStep) + y;
                     int relZ = (lodZ * lodStep) + z;
-                    BlockBase blockInParent = parent.getBlockAt(relX, relY, relZ);
+                    BlockBase blockInParent = owner.getBlockAt(relX, relY, relZ);
 
                     if (blockInParent != null && !blockInParent.equals(Blocks.AIR)) {
                         counter++;
@@ -120,10 +93,10 @@ public class LODChunk extends ChunkBase<ClientWorld> {
                             super.setBlockAt(lodBlock, lodX, lodY, lodZ);
                         }
                         if (updateLights) {
-                            byte skyLight = parent.getChunkLightData().getSkyLight(lodX + x, lodY + y, lodZ + z);
-                            byte red = parent.getChunkLightData().getBlockRed(lodX + x, lodY + y, lodZ + z);
-                            byte green = parent.getChunkLightData().getBlockGreen(lodX + x, lodY + y, lodZ + z);
-                            byte blue = parent.getChunkLightData().getBlockBlue(lodX + x, lodY + y, lodZ + z);
+                            byte skyLight = owner.getChunkLightData().getSkyLight(lodX + x, lodY + y, lodZ + z);
+                            byte red = owner.getChunkLightData().getBlockRed(lodX + x, lodY + y, lodZ + z);
+                            byte green = owner.getChunkLightData().getBlockGreen(lodX + x, lodY + y, lodZ + z);
+                            byte blue = owner.getChunkLightData().getBlockBlue(lodX + x, lodY + y, lodZ + z);
                             getChunkLightData().setSkyLight(lodX, lodY, lodZ, skyLight);
                             getChunkLightData().setBlockLight(lodX, lodY, lodZ, red, green, blue);
                         }
@@ -144,15 +117,15 @@ public class LODChunk extends ChunkBase<ClientWorld> {
     }
 
     private void initLodChunk() {
-        if (parent.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.EMPTY)) {
+        if (owner.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.EMPTY)) {
             this.getChunkBlockPalette().setStrategy(new PaletteStrategy.Empty<>(), ThreeDimensionalPalette.State.EMPTY);
-        } else if (parent.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.UNIFORM) && parent.getChunkBlockPalette().getStrategy() instanceof PaletteStrategy.Uniform<?> strategy) {
+        } else if (owner.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.UNIFORM) && owner.getChunkBlockPalette().getStrategy() instanceof PaletteStrategy.Uniform<?> strategy) {
 
             this.getChunkBlockPalette().setStrategy(new PaletteStrategy.Uniform<>((ResourceLocation) strategy.getUniformValue()), ThreeDimensionalPalette.State.UNIFORM);
         } else {
-            for (int x = 0; x < getBlockSizeX(); x++) {
-                for (int y = 0; y < getBlockSizeY(); y++) {
-                    for (int z = 0; z < getBlockSizeZ(); z++) {
+            for (int x = 0; x < getSizeX(); x++) {
+                for (int y = 0; y < getSizeY(); y++) {
+                    for (int z = 0; z < getSizeZ(); z++) {
                         updateBlockAt(x, y, z, true, false);
                     }
                 }
@@ -161,14 +134,14 @@ public class LODChunk extends ChunkBase<ClientWorld> {
     }
 
     private void initLodLight() {
-        if (parent.getChunkLightData().getState().equals(ChunkLightData.LightState.UNINITIALIZED)) {
+        if (owner.getChunkLightData().getState().equals(ChunkLightData.LightState.UNINITIALIZED)) {
             return;
-        } else if (parent.getChunkLightData().getState().equals(ChunkLightData.LightState.UNIFORM)) {
-            this.getChunkLightData().setUniform(parent.getChunkLightData().getUniformPacked());
+        } else if (owner.getChunkLightData().getState().equals(ChunkLightData.LightState.UNIFORM)) {
+            this.getChunkLightData().setUniform(owner.getChunkLightData().getUniformPacked());
         } else {
-            for (int x = 0; x < getBlockSizeX(); x++) {
-                for (int y = 0; y < getBlockSizeY(); y++) {
-                    for (int z = 0; z < getBlockSizeZ(); z++) {
+            for (int x = 0; x < getSizeX(); x++) {
+                for (int y = 0; y < getSizeY(); y++) {
+                    for (int z = 0; z < getSizeZ(); z++) {
                         updateBlockAt(x, y, z, false, true);
                     }
                 }

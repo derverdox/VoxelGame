@@ -3,6 +3,7 @@ package de.verdox.voxel.shared.lighting;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.level.chunk.data.ChunkData;
 import de.verdox.voxel.shared.network.packet.serializer.NetworkSerializable;
@@ -11,7 +12,7 @@ import lombok.Setter;
 
 import java.util.Arrays;
 
-public class ChunkLightData implements NetworkSerializable, ChunkData<ChunkBase<?>> {
+public class ChunkLightData implements NetworkSerializable, ChunkData<Chunk> {
     @Override
     public void write(Kryo kryo, Output output) {
         kryo.writeObject(output, state);
@@ -39,7 +40,7 @@ public class ChunkLightData implements NetworkSerializable, ChunkData<ChunkBase<
 
     @Getter
     @Setter
-    private ChunkBase<?> owner;
+    private Chunk owner;
     @Getter
     private LightState state = LightState.UNINITIALIZED;
     @Getter

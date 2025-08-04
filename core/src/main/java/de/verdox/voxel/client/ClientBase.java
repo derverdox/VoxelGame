@@ -1,10 +1,8 @@
 package de.verdox.voxel.client;
 
-import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.Camera;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.profiling.GLProfiler;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.BufferUtils;
@@ -12,9 +10,9 @@ import com.esotericsoftware.kryonet.Client;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.input.ClientSettings;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
+import de.verdox.voxel.client.play.singleplayer.SinglePlayerHandler;
 import de.verdox.voxel.client.shader.Shaders;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.client.network.ClientConnectionListener;
 import de.verdox.voxel.client.renderer.ClientRenderer;
 import de.verdox.voxel.client.input.PlayerController;
@@ -22,7 +20,6 @@ import de.verdox.voxel.shared.data.types.BlockModels;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.Bootstrap;
-import de.verdox.voxel.shared.network.packet.serializer.ChunkSerializer;
 import de.verdox.voxel.shared.util.Benchmark;
 import lombok.Getter;
 
@@ -34,14 +31,13 @@ import java.util.List;
 /**
  * {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms.
  */
-public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen {
+public class ClientBase extends Game implements DebuggableOnScreen {
     private static final int TICKS_PER_SECOND = 20;
     private float accumulator = 0f;
     private long clientTick = 0;
 
     public static Client client;
     public static ClientRenderer clientRenderer;
-    public static ClientConnectionListener clientConnectionListener;
     public static ClientSettings clientSettings = new ClientSettings();
 
     private PlayerController playerController;
@@ -59,16 +55,7 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
 
     @Override
     public void create() {
-        int writeBufferSize = 1024 * 1024 * 16;   // z.B. 32 KB
-        int objectBufferSize = 1024 * 1024 * 16;   // z.B. 64 KB
-
         Shaders.initShaders();
-
-        client = new Client(writeBufferSize, objectBufferSize);
-        client.start();
-        Bootstrap.bootstrap(client.getKryo());
-
-        client.getKryo().register(ClientChunk.class, new ChunkSerializer<>());
 
         Gdx.input.setCursorCatched(true);
         Gdx.graphics.setVSync(false);
@@ -78,7 +65,8 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
 
         IntBuffer depthBits = BufferUtils.newIntBuffer(16);
         Gdx.gl.glGetIntegerv(GL20.GL_DEPTH_BITS, depthBits);
-        Gdx.app.log("DEPTH", "Depth bits: " + depthBits.get(0));
+        Gdx.app.log("Start", "Depth bits: " + depthBits.get(0));
+        Gdx.app.log("Start", "Max Ansio: " + Texture.getMaxAnisotropicFilterLevel());
 
         BlockModels.bootstrap();
         TextureAtlasManager.getInstance().build();
@@ -94,17 +82,10 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
         clientRenderer.getDebugScreen().attach(playerController.getPlayerInteractionRayCast());
         clientRenderer.getDebugScreen().attach(this);
 
-        try {
-            client.connect(5000, "localhost", 54000);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-
-        clientConnectionListener = new ClientConnectionListener(clientRenderer);
-        client.addListener(clientConnectionListener);
         worldRendererProfiler = new GLProfiler(Gdx.graphics);
         worldRendererProfiler.enable();
+
+        SinglePlayerHandler.createNewWorldAndJoin();
     }
 
     @Override
@@ -148,7 +129,7 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
     }
 
     private void updateGameLogic(float dt, Benchmark benchmark) {
-        ClientWorld current = VoxelClient.getInstance().getCurrentWorld();
+        ClientWorld current = GameSession.getInstance().getCurrentWorld();
         if (current == null) {
             return;
         }
@@ -157,9 +138,9 @@ public class ClientBase extends ApplicationAdapter implements DebuggableOnScreen
         float y = playerController.getCamera().position.y;
         float z = playerController.getCamera().position.z;
 
-        int chunkX = ChunkBase.chunkX(current, (int) x);
-        int chunkY = ChunkBase.chunkY(current, (int) y);
-        int chunkZ = ChunkBase.chunkZ(current, (int) z);
+        int chunkX = Chunk.chunkX(current, (int) x);
+        int chunkY = Chunk.chunkY(current, (int) y);
+        int chunkZ = Chunk.chunkZ(current, (int) z);
 
         if (chunkX != this.chunkX || chunkY != this.chunkY || chunkZ != this.chunkZ) {
             this.chunkX = chunkX;

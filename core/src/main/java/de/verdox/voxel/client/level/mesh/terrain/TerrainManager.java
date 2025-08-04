@@ -3,12 +3,12 @@ package de.verdox.voxel.client.level.mesh.terrain;
 import com.badlogic.gdx.Gdx;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.terrain.graph.NaiveTerrainGraph;
 import de.verdox.voxel.client.level.mesh.terrain.graph.OctreeTerrainGraph;
 import de.verdox.voxel.client.level.mesh.terrain.graph.TerrainGraph;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.ChunkLightEngine;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.RegionBounds;
@@ -62,15 +62,33 @@ public class TerrainManager {
         centerRegionZ = bounds.getRegionZ(chunkZ);
     }
 
-    public void addChunk(ClientChunk chunk) {
+    public TerrainChunk getChunkNow(long chunkKey) {
+        return getChunkNow(Chunk.unpackChunkX(chunkKey), Chunk.unpackChunkY(chunkKey), Chunk.unpackChunkZ(chunkKey));
+    }
+
+    public TerrainChunk getChunkNow(int chunkX, int chunkY, int chunkZ) {
+        int regionX = bounds.getRegionX(chunkX);
+        int regionY = bounds.getRegionY(chunkY);
+        int regionZ = bounds.getRegionZ(chunkZ);
+
+        TerrainRegion terrainRegion = getRegion(regionX, regionY, regionZ);
+        if (terrainRegion == null) {
+            return null;
+        }
+        return terrainRegion.getTerrainChunk(chunkX, chunkY, chunkZ);
+    }
+
+    public TerrainChunk getTerrainChunk(Chunk chunk) {
+        return getChunkNow(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
+    }
+
+    public void addChunk(Chunk chunk) {
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
 
-        long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
-        if (!chunk.isEmpty()) {
-            terrainGraph.addRegion(regionX, regionY, regionZ);
-        }
+        long regionKey = Chunk.computeChunkKey(regionX, regionY, regionZ);
+        terrainGraph.addRegion(regionX, regionY, regionZ);
 
         TerrainRegion terrainRegion;
         if (!terrainRegions.containsKey(regionKey)) {
@@ -78,7 +96,7 @@ public class TerrainManager {
 
             for (int i = 0; i < Direction.values().length; i++) {
                 Direction dir = Direction.values()[i];
-                long neighborKey = ChunkBase.computeChunkKey(regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ());
+                long neighborKey = Chunk.computeChunkKey(regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ());
 
                 if (!terrainRegions.containsKey(neighborKey)) {
                     terrainRegions.put(neighborKey, new TerrainRegion(this, regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ()));
@@ -89,13 +107,12 @@ public class TerrainManager {
 
             terrainRegions.put(regionKey, newRegion);
             terrainRegion = newRegion;
-
         } else {
             terrainRegion = terrainRegions.get(regionKey);
         }
         terrainRegion.addChunk(chunk);
 
-        long heightKey = ChunkBase.computeChunkKey(regionX, 0, regionZ);
+        long heightKey = Chunk.computeChunkKey(regionX, 0, regionZ);
         if (!highestRegions.containsKey(heightKey) || regionY > highestRegions.get(heightKey)) {
             highestRegions.put(heightKey, regionY);
         }
@@ -105,11 +122,11 @@ public class TerrainManager {
         }
     }
 
-    public void removeChunk(ClientChunk chunk) {
+    public void removeChunk(Chunk chunk) {
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
-        long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        long regionKey = Chunk.computeChunkKey(regionX, regionY, regionZ);
 
         TerrainRegion terrainRegion = terrainRegions.get(regionKey);
         if (terrainRegion != null) {
@@ -119,7 +136,7 @@ public class TerrainManager {
 
                 for (int i = 0; i < Direction.values().length; i++) {
                     Direction dir = Direction.values()[i];
-                    long neighborKey = ChunkBase.computeChunkKey(regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ());
+                    long neighborKey = Chunk.computeChunkKey(regionX + dir.getOffsetX(), regionY + dir.getOffsetY(), regionZ + dir.getOffsetZ());
 
                     if (terrainRegions.containsKey(neighborKey)) {
                         TerrainRegion neighborRegion = terrainRegions.get(neighborKey);
@@ -134,7 +151,7 @@ public class TerrainManager {
             }
         }
 
-        long heightKey = ChunkBase.computeChunkKey(regionX, 0, regionZ);
+        long heightKey = Chunk.computeChunkKey(regionX, 0, regionZ);
         if (highestRegions.containsKey(heightKey) && regionY > highestRegions.get(heightKey)) {
             highestRegions.put(heightKey, regionY - 1);
         }
@@ -144,11 +161,11 @@ public class TerrainManager {
         }
     }
 
-    public void afterChunkUpdate(ClientChunk chunk, boolean wasEmptyBefore) {
+    public void afterChunkUpdate(Chunk chunk, boolean wasEmptyBefore) {
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
-        long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        long regionKey = Chunk.computeChunkKey(regionX, regionY, regionZ);
 
         TerrainRegion terrainRegion = terrainRegions.get(regionKey);
         if (terrainRegion != null) {
@@ -183,17 +200,33 @@ public class TerrainManager {
     }
 
     public TerrainRegion getRegion(int regionX, int regionY, int regionZ) {
-        long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        long regionKey = Chunk.computeChunkKey(regionX, regionY, regionZ);
         return terrainRegions.get(regionKey);
     }
 
     public TerrainRegion getHighestRegion(int regionX, int regionZ) {
-        long heightKey = ChunkBase.computeChunkKey(regionX, 0, regionZ);
+        long heightKey = Chunk.computeChunkKey(regionX, 0, regionZ);
         return getRegion(regionX, highestRegions.getOrDefault(heightKey, 0), regionZ);
     }
 
     public TerrainRegion getLowestRegion(int regionX, int regionZ) {
-        long heightKey = ChunkBase.computeChunkKey(regionX, 0, regionZ);
+        long heightKey = Chunk.computeChunkKey(regionX, 0, regionZ);
         return getRegion(regionX, lowestRegions.getOrDefault(heightKey, 0), regionZ);
+    }
+
+    public int computeLodLevel(
+            int centerRegionX, int centerRegionY, int centerRegionZ,
+            int targetRegionX, int targetRegionY, int targetRegionZ
+    ) {
+        return LODUtil.computeLodLevel(
+                getBounds(),
+                ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance,
+                getWorld().getChunkSizeX(),
+                getWorld().getChunkSizeY(),
+                getWorld().getChunkSizeZ(),
+                centerRegionX, centerRegionY, centerRegionZ,
+                targetRegionX, targetRegionY, targetRegionZ,
+                LODUtil.getMaxLod(getWorld())
+        );
     }
 }

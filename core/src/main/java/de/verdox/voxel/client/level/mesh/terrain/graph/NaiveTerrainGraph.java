@@ -8,7 +8,7 @@ import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainRegion;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.ThreadUtil;
 import de.verdox.voxel.shared.util.datastructure.LongQueue;
@@ -47,7 +47,7 @@ public class NaiveTerrainGraph implements TerrainGraph {
 
     @Override
     public void removeRegion(int x, int y, int z) {
-        long pos = ChunkBase.computeChunkKey(x, y, z);
+        long pos = Chunk.computeChunkKey(x, y, z);
         RegionNode old = regions.remove(pos);
         if (old == null) return;
 
@@ -78,14 +78,14 @@ public class NaiveTerrainGraph implements TerrainGraph {
         visited.clear();
         queue.clear();
 
-        int startChunkX = ChunkBase.chunkX(chunkSizeX, (int) camera.position.x);
-        int startChunkY = ChunkBase.chunkY(chunkSizeY, (int) camera.position.y);
-        int startChunkZ = ChunkBase.chunkZ(chunkSizeZ, (int) camera.position.z);
+        int startChunkX = Chunk.chunkX(chunkSizeX, (int) camera.position.x);
+        int startChunkY = Chunk.chunkY(chunkSizeY, (int) camera.position.y);
+        int startChunkZ = Chunk.chunkZ(chunkSizeZ, (int) camera.position.z);
 
         int regionX = terrainManager.getBounds().getRegionX(startChunkX);
         int regionY = terrainManager.getBounds().getRegionY(startChunkY);
         int regionZ = terrainManager.getBounds().getRegionZ(startChunkZ);
-        long regionKey = ChunkBase.computeChunkKey(regionX, regionY, regionZ);
+        long regionKey = Chunk.computeChunkKey(regionX, regionY, regionZ);
 
         RegionNode startNode = regions.get(regionKey);
         boolean removeCameraNodeAfter = false;
@@ -105,9 +105,9 @@ public class NaiveTerrainGraph implements TerrainGraph {
                 continue;
             }
 
-            int nx = ChunkBase.unpackChunkX(key);
-            int ny = ChunkBase.unpackChunkY(key);
-            int nz = ChunkBase.unpackChunkZ(key);
+            int nx = Chunk.unpackChunkX(key);
+            int ny = Chunk.unpackChunkY(key);
+            int nz = Chunk.unpackChunkZ(key);
 
             TerrainRegion terrainRegion = terrainManager.getRegion(nx, ny, nz);
 
@@ -130,7 +130,7 @@ public class NaiveTerrainGraph implements TerrainGraph {
 
             if (terrainMesh != null && terrainMesh.getAmountOfBlockFaces() != 0 /*&& terrainMesh.isComplete()*/) {
 
-                int lodLevel = world.computeLodLevel(regionX, regionY, regionZ, nx, ny, nz);
+                int lodLevel = terrainManager.computeLodLevel(regionX, regionY, regionZ, nx, ny, nz);
                 if (terrainMesh.getLodLevel() != lodLevel) {
                     terrainManager.updateMesh(terrainRegion, false, lodLevel);
                     continue;
@@ -192,7 +192,7 @@ public class NaiveTerrainGraph implements TerrainGraph {
     }
 
     private synchronized RegionNode addRegionInternal(int x, int y, int z) {
-        long pos = ChunkBase.computeChunkKey(x, y, z);
+        long pos = Chunk.computeChunkKey(x, y, z);
         if (regions.containsKey(pos)) return regions.get(pos);
         RegionNode newRegionNode = new RegionNode(x, y, z);
         // XY-plane index for Z
@@ -202,12 +202,12 @@ public class NaiveTerrainGraph implements TerrainGraph {
 
         // link along Z
         if (zAbove != null) {
-            RegionNode above = regions.get(ChunkBase.computeChunkKey(x, y, zAbove));
+            RegionNode above = regions.get(Chunk.computeChunkKey(x, y, zAbove));
             newRegionNode.nextZPos = above;
             above.nextZNeg = newRegionNode;
         }
         if (zBelow != null) {
-            RegionNode below = regions.get(ChunkBase.computeChunkKey(x, y, zBelow));
+            RegionNode below = regions.get(Chunk.computeChunkKey(x, y, zBelow));
             newRegionNode.nextZNeg = below;
             below.nextZPos = newRegionNode;
         }
@@ -218,12 +218,12 @@ public class NaiveTerrainGraph implements TerrainGraph {
         Integer yAbove = ySet.higher(y);
         Integer yBelow = ySet.lower(y);
         if (yAbove != null) {
-            RegionNode nYPos = regions.get(ChunkBase.computeChunkKey(x, yAbove, z));
+            RegionNode nYPos = regions.get(Chunk.computeChunkKey(x, yAbove, z));
             newRegionNode.nextYPos = nYPos;
             nYPos.nextYNeg = newRegionNode;
         }
         if (yBelow != null) {
-            RegionNode nYNeg = regions.get(ChunkBase.computeChunkKey(x, yBelow, z));
+            RegionNode nYNeg = regions.get(Chunk.computeChunkKey(x, yBelow, z));
             newRegionNode.nextYNeg = nYNeg;
             nYNeg.nextYPos = newRegionNode;
         }
@@ -234,12 +234,12 @@ public class NaiveTerrainGraph implements TerrainGraph {
         Integer xAbove = xSet.higher(x);
         Integer xBelow = xSet.lower(x);
         if (xAbove != null) {
-            RegionNode nXPos = regions.get(ChunkBase.computeChunkKey(xAbove, y, z));
+            RegionNode nXPos = regions.get(Chunk.computeChunkKey(xAbove, y, z));
             newRegionNode.nextXPos = nXPos;
             nXPos.nextXNeg = newRegionNode;
         }
         if (xBelow != null) {
-            RegionNode nXNeg = regions.get(ChunkBase.computeChunkKey(xBelow, y, z));
+            RegionNode nXNeg = regions.get(Chunk.computeChunkKey(xBelow, y, z));
             newRegionNode.nextXNeg = nXNeg;
             nXNeg.nextXPos = newRegionNode;
         }
@@ -262,7 +262,7 @@ public class NaiveTerrainGraph implements TerrainGraph {
         public BoundingBox boundingBox;
 
         public RegionNode(int x, int y, int z) {
-            this.pos = ChunkBase.computeChunkKey(x, y, z);
+            this.pos = Chunk.computeChunkKey(x, y, z);
             this.boundingBox = createBoundingBox(x, y, z);
         }
 

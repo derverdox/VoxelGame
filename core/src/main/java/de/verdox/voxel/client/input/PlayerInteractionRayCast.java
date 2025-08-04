@@ -7,11 +7,10 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.GridPoint3;
 import com.badlogic.gdx.math.Vector3;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.chunk.ClientChunk;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.level.block.BlockBase;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 
 public class PlayerInteractionRayCast implements DebuggableOnScreen {
     private static final float RAY_CAST_STEP_SIZE = 0.05f;
@@ -63,7 +62,7 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
     public void debugText(DebugScreen debugScreen) {
         if (lastHit != null) {
             debugScreen.addDebugTextLine("Block [" + lastHit.globalX + ", " + lastHit.globalY + ", " + lastHit.globalZ + "]: " + lastHit.castBlock.findKey());
-            debugScreen.addDebugTextLine(" ".repeat(4) + "Chunk: "+ ChunkBase.chunkX(lastHit.world, lastHit.globalX)+", "+ChunkBase.chunkY(lastHit.world, lastHit.globalY)+", "+ChunkBase.chunkZ(lastHit.world, lastHit.globalZ));
+            debugScreen.addDebugTextLine(" ".repeat(4) + "Chunk: "+ Chunk.chunkX(lastHit.world, lastHit.globalX)+", "+ Chunk.chunkY(lastHit.world, lastHit.globalY)+", "+ Chunk.chunkZ(lastHit.world, lastHit.globalZ));
             debugScreen.addDebugTextLine(" ".repeat(4) + "Sky Light: "+ lastHit.getSkyLightOfHitBlock());
             debugScreen.addDebugTextLine(" ".repeat(4) + "Block Light: ("+ lastHit.getBlockLightRedOfHitBlock()+", "+lastHit.getBlockLightGreenOfHitBlock()+", "+lastHit.getBlockLightBlueOfHitBlock()+")");
         }
@@ -79,12 +78,12 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
             shapeRenderer.end();
         }
 
-        public ClientChunk getChunk() {
-            return world.getChunk(ChunkBase.chunkX(world, globalX), ChunkBase.chunkY(world, globalY), ChunkBase.chunkZ(world, globalZ));
+        public Chunk getChunk() {
+            return world.getChunkNow(Chunk.chunkX(world, globalX), Chunk.chunkY(world, globalY), Chunk.chunkZ(world, globalZ));
         }
 
         public byte getSkyLightOfHitBlock() {
-            ClientChunk chunk = getChunk();
+            Chunk chunk = getChunk();
             if(chunk == null) {
                 return -1;
             }
@@ -92,7 +91,7 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
         }
 
         public byte getBlockLightRedOfHitBlock() {
-            ClientChunk chunk = getChunk();
+            Chunk chunk = getChunk();
             if(chunk == null) {
                 return -1;
             }
@@ -100,7 +99,7 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
         }
 
         public byte getBlockLightGreenOfHitBlock() {
-            ClientChunk chunk = getChunk();
+            Chunk chunk = getChunk();
             if(chunk == null) {
                 return -1;
             }
@@ -108,7 +107,7 @@ public class PlayerInteractionRayCast implements DebuggableOnScreen {
         }
 
         public byte getBlockLightBlueOfHitBlock() {
-            ClientChunk chunk = getChunk();
+            Chunk chunk = getChunk();
             if(chunk == null) {
                 return -1;
             }

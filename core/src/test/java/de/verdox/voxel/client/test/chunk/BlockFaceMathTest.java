@@ -10,8 +10,8 @@ public class BlockFaceMathTest {
 
     @Test
     public void testSimpleUVOffset() {
-        SingleBlockFace face1 = new SingleBlockFace(BlockModelType.BlockFace.full(Direction.UP), (byte) 0, (byte) 0, (byte) 0, (byte) 0, null, 0f, (byte) 0);
-        SingleBlockFace face2 = new SingleBlockFace(BlockModelType.BlockFace.full(Direction.UP), (byte) 1, (byte) 0, (byte) 1, (byte) 0, null, 0f, (byte) 0);
+        SingleBlockFace face1 = new SingleBlockFace(BlockModelType.BlockFace.full(Direction.UP), (byte) 0, (byte) 0, (byte) 0, null, 0f, (byte) 0);
+        SingleBlockFace face2 = new SingleBlockFace(BlockModelType.BlockFace.full(Direction.UP), (byte) 1, (byte) 0, (byte) 1, null, 0f, (byte) 0);
 
         int uCoord1 = face1.getUCoord(Direction.UP);
         int vCoord1 = face1.getVCoord(Direction.UP);
@@ -23,20 +23,20 @@ public class BlockFaceMathTest {
         Assertions.assertEquals(uCoord1, uCoord2);
         Assertions.assertEquals(vCoord1, vCoord2);
 
-        Assertions.assertEquals(face1.getCorner1X(), result.getCorner1X());
-        Assertions.assertEquals(face1.getCorner1Y(), result.getCorner1Y());
-        Assertions.assertEquals(face1.getCorner1Z(), result.getCorner1Z());
+        Assertions.assertEquals(face1.getCorner1X(1), result.getCorner1X(1));
+        Assertions.assertEquals(face1.getCorner1Y(1), result.getCorner1Y(1));
+        Assertions.assertEquals(face1.getCorner1Z(1), result.getCorner1Z(1));
 
-        Assertions.assertEquals(face1.getCorner2X(), result.getCorner2X());
-        Assertions.assertEquals(face1.getCorner2Y(), result.getCorner2Y());
-        Assertions.assertEquals(face1.getCorner2Z(), result.getCorner2Z());
+        Assertions.assertEquals(face1.getCorner2X(1), result.getCorner2X(1));
+        Assertions.assertEquals(face1.getCorner2Y(1), result.getCorner2Y(1));
+        Assertions.assertEquals(face1.getCorner2Z(1), result.getCorner2Z(1));
 
-        Assertions.assertEquals(face1.getCorner3X(), result.getCorner3X());
-        Assertions.assertEquals(face1.getCorner3Y(), result.getCorner3Y());
-        Assertions.assertEquals(face1.getCorner3Z(), result.getCorner3Z());
+        Assertions.assertEquals(face1.getCorner3X(1), result.getCorner3X(1));
+        Assertions.assertEquals(face1.getCorner3Y(1), result.getCorner3Y(1));
+        Assertions.assertEquals(face1.getCorner3Z(1), result.getCorner3Z(1));
 
-        Assertions.assertEquals(face1.getCorner4X(), result.getCorner4X());
-        Assertions.assertEquals(face1.getCorner4Y(), result.getCorner4Y());
-        Assertions.assertEquals(face1.getCorner4Z(), result.getCorner4Z());
+        Assertions.assertEquals(face1.getCorner4X(1), result.getCorner4X(1));
+        Assertions.assertEquals(face1.getCorner4Y(1), result.getCorner4Y(1));
+        Assertions.assertEquals(face1.getCorner4Z(1), result.getCorner4Z(1));
     }
 }

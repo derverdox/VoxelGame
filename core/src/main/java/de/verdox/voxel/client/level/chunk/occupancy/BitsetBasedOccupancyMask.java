@@ -1,7 +1,7 @@
 package de.verdox.voxel.client.level.chunk.occupancy;
 
 import de.verdox.voxel.shared.level.block.BlockBase;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.level.chunk.data.ChunkData;
 import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
@@ -9,10 +9,10 @@ import lombok.Setter;
 
 import java.util.BitSet;
 
-public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<ChunkBase<?>> {
+public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<Chunk> {
     @Getter
     @Setter
-    private ChunkBase<?> owner;
+    private Chunk owner;
     /**
      * flache BitMap für alle (x,y,z): index = (x*sy + y)*sz + z
      **/
@@ -22,9 +22,9 @@ public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<ChunkB
 
     @Override
     public void initFromOwner() {
-        int sx = owner.getBlockSizeX();
-        int sy = owner.getBlockSizeY();
-        int sz = owner.getBlockSizeZ();
+        int sx = owner.getSizeX();
+        int sy = owner.getSizeY();
+        int sz = owner.getSizeZ();
         int totalBits = sx * sy * sz;
         occupancy = new BitSet(totalBits);
         totalOpaqueCount = 0;
@@ -46,7 +46,7 @@ public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<ChunkB
 
     @Override
     public boolean isChunkFullOpaque() {
-        return totalOpaqueCount == owner.getBlockSizeX() * owner.getBlockSizeY() * owner.getBlockSizeZ();
+        return totalOpaqueCount == owner.getSizeX() * owner.getSizeY() * owner.getSizeZ();
     }
 
     @Override
@@ -57,8 +57,8 @@ public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<ChunkB
     @Override
     public long getZColumn(int x, int y) {
         long mask = 0L;
-        int base = (x * owner.getBlockSizeY() + y) * owner.getBlockSizeZ();
-        for (int z = 0; z < owner.getBlockSizeZ(); z++) {
+        int base = (x * owner.getSizeY() + y) * owner.getSizeZ();
+        for (int z = 0; z < owner.getSizeZ(); z++) {
             if (occupancy.get(base + z)) {
                 mask |= 1L << z;
             }
@@ -73,13 +73,13 @@ public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<ChunkB
 
     @Override
     public boolean isOpaque(int x, int y, int z) {
-        int idx = (x * owner.getBlockSizeY() + y) * owner.getBlockSizeZ() + z;
+        int idx = (x * owner.getSizeY() + y) * owner.getSizeZ() + z;
         return occupancy.get(idx);
     }
 
     @Override
     public void updateOccupancyMask(BlockBase block, int x, int y, int z) {
-        int idx = (x * owner.getBlockSizeY() + y) * owner.getBlockSizeZ() + z;
+        int idx = (x * owner.getSizeY() + y) * owner.getSizeZ() + z;
         boolean wasOpaque = occupancy.get(idx);
         boolean nowOpaque = !block.isTransparent();
 
@@ -106,35 +106,35 @@ public class BitsetBasedOccupancyMask implements OccupancyMask, ChunkData<ChunkB
     private void computeSideMask() {
         int m = 0;
         if (isFaceFullX(0)) m |= 1 << Direction.WEST.getId();
-        if (isFaceFullX(owner.getBlockSizeX() - 1)) m |= 1 << Direction.EAST.getId();
+        if (isFaceFullX(owner.getSizeX() - 1)) m |= 1 << Direction.EAST.getId();
         if (isFaceFullY(0)) m |= 1 << Direction.DOWN.getId();
-        if (isFaceFullY(owner.getBlockSizeY() - 1)) m |= 1 << Direction.UP.getId();
+        if (isFaceFullY(owner.getSizeY() - 1)) m |= 1 << Direction.UP.getId();
         if (isFaceFullZ(0)) m |= 1 << Direction.NORTH.getId();
-        if (isFaceFullZ(owner.getBlockSizeZ() - 1)) m |= 1 << Direction.SOUTH.getId();
+        if (isFaceFullZ(owner.getSizeZ() - 1)) m |= 1 << Direction.SOUTH.getId();
         sideOcclusionMask = m;
     }
 
     private boolean isFaceFullX(int x) {
-        for (int y = 0; y < owner.getBlockSizeY(); y++) {
+        for (int y = 0; y < owner.getSizeY(); y++) {
             long col = getZColumn(x, y);
-            if (col != (~0L >>> (64 - owner.getBlockSizeZ()))) return false;
+            if (col != (~0L >>> (64 - owner.getSizeZ()))) return false;
         }
         return true;
     }
 
     private boolean isFaceFullY(int y) {
-        for (int x = 0; x < owner.getBlockSizeX(); x++) {
+        for (int x = 0; x < owner.getSizeX(); x++) {
             long col = getZColumn(x, y);
-            if (col != (~0L >>> (64 - owner.getBlockSizeZ()))) return false;
+            if (col != (~0L >>> (64 - owner.getSizeZ()))) return false;
         }
         return true;
     }
 
     private boolean isFaceFullZ(int z) {
         long bit = 1L << z;
-        for (int x = 0; x < owner.getBlockSizeX(); x++) {
-            for (int y = 0; y < owner.getBlockSizeY(); y++) {
-                int idx = (x * owner.getBlockSizeY() + y) * owner.getBlockSizeZ() + z;
+        for (int x = 0; x < owner.getSizeX(); x++) {
+            for (int y = 0; y < owner.getSizeY(); y++) {
+                int idx = (x * owner.getSizeY() + y) * owner.getSizeZ() + z;
                 if (!occupancy.get(idx)) return false;
             }
         }

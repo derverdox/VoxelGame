@@ -44,8 +44,8 @@ public class Shaders {
     );
 
     public static void initShaders() {
-        if (!GREEDY_OPAQUE_BLOCK_SHADER.isCompiled()) {
-            throw new GdxRuntimeException("Shader-Fehler:\n" + GREEDY_OPAQUE_BLOCK_SHADER.getLog());
+        if (!SINGLE_OPAQUE_BLOCK_SHADER.isCompiled()) {
+            throw new GdxRuntimeException("Shader-Fehler:\n" + SINGLE_OPAQUE_BLOCK_SHADER.getLog());
         }
     }
 }
