@@ -36,6 +36,7 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         int counter = 0;
         for (Texture texture : TextureAtlasManager.getInstance().getBlockTextureAtlas().getTextures()) {
             texture.bind(counter++);
+            Gdx.gl.glTexParameteri(texture.glTarget, GL30.GL_TEXTURE_MAX_LEVEL, 3);
         }
         Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
 
@@ -55,6 +56,7 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
 
         Gdx.gl.glEnable(GL20.GL_CULL_FACE);
         terrainManager.getOctreeTerrainGraph().queryVisibleRegions(camera, terrainRegion -> {
+
             TerrainMesh terrainMesh = terrainRegion.getTerrainMesh();
 
             if (terrainMesh == null || terrainMesh.getAmountOfBlockFaces() == 0) {

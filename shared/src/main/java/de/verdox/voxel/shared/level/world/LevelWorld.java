@@ -18,7 +18,7 @@ public class LevelWorld implements World {
     protected final byte chunkSizeY;
     protected final byte chunkSizeZ;
 
-    private final WorldGenerator worldGenerator = new WorldGenerator(this, new BenchmarkNoiseChunkGenerator(), 4);
+    private final WorldGenerator worldGenerator = new WorldGenerator(this, new BenchmarkNoiseChunkGenerator(), 1);
     private final ChunkMap chunkMap = new ChunkMap(this);
 
     private final List<DelegateWorld> delegates = new ObjectArrayList<>();

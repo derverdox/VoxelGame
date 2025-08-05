@@ -2,6 +2,7 @@ package de.verdox.voxel.client.level;
 
 import com.badlogic.gdx.Gdx;
 import de.verdox.voxel.client.ClientBase;
+import de.verdox.voxel.client.GameSession;
 import de.verdox.voxel.client.level.chunk.ChunkRequestManager;
 import de.verdox.voxel.client.level.mesh.chunk.calculation.BitOcclusionBasedChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
@@ -141,7 +142,6 @@ public class ClientWorld extends DelegateWorld {
 
             this.maxChunk = maxChunk;
             this.minChunk = minChunk;
-            System.out.println("Removed " + chunkCounter + " chunks in " + regionCounter + " regions.");
         }
 
     }
@@ -165,7 +165,7 @@ public class ClientWorld extends DelegateWorld {
 
     @Override
     public void notifyAddChunk(Chunk chunk) {
-        Gdx.app.postRunnable(() -> {
+        GameSession.postRunnable(() -> {
             terrainManager.addChunk(chunk);
             chunkRequestManager.notifyChunkReceived(chunk.getChunkKey());
         });
@@ -173,14 +173,14 @@ public class ClientWorld extends DelegateWorld {
 
     @Override
     public void notifyRemoveChunk(Chunk chunk) {
-        Gdx.app.postRunnable(() -> {
+        GameSession.postRunnable(() -> {
             terrainManager.removeChunk(chunk);
         });
     }
 
     @Override
     public void notifyChunkUpdate(Chunk chunk, byte localX, byte localY, byte localZ, boolean wasEmptyBefore) {
-        Gdx.app.postRunnable(() -> {
+        GameSession.postRunnable(() -> {
             terrainManager.afterChunkUpdate(chunk, wasEmptyBefore);
         });
     }

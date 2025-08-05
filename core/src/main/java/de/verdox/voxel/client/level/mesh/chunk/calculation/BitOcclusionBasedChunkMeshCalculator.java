@@ -9,9 +9,12 @@ import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
+import de.verdox.voxel.shared.util.ThreadUtil;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator {
     @Override
@@ -66,7 +69,9 @@ public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator
 
             if (neighborOcclusionMap != null) {
                 //generateBlockFacesForDirection(blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk);
-                futures[dirId] = CompletableFuture.runAsync(() -> generateBlockFacesForDirection(chunk.getTerrainManager(), blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk));
+                futures[dirId] = CompletableFuture.runAsync(
+                        () -> generateBlockFacesForDirection(chunk.getTerrainManager(), blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk)
+                , Executors.newThreadPerTaskExecutor(ThreadUtil.createFactoryForName("ChunkMesh Job", true)));
             } else {
                 futures[dirId] = CompletableFuture.completedFuture(null);
             }
