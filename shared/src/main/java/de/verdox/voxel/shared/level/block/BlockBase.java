@@ -6,8 +6,13 @@ import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.data.types.Registries;
 
 public class BlockBase {
+    private ResourceLocation key;
+
     public ResourceLocation findKey() {
-        return Registries.BLOCKS.getKeyOrThrow(this);
+        if (key == null) {
+            this.key = Registries.BLOCKS.getKeyOrThrow(this);
+        }
+        return this.key;
     }
 
     public BlockModel getModel() {

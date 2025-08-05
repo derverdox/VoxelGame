@@ -17,6 +17,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator {
+    private static final ExecutorService service = Executors.newFixedThreadPool(2, ThreadUtil.createFactoryForName("Chunk Mesh Generator Thread", true));
+    private static final ExecutorService service2 = Executors.newThreadPerTaskExecutor(ThreadUtil.createFactoryForName("ChunkMesh Job", true));
+
     @Override
     public void calculateChunkMesh(TerrainFaceStorage.ChunkFaceStorage blockFaces, TerrainChunk chunk, int lodLevel) {
         if (chunk.isEmpty()) {
@@ -69,9 +72,9 @@ public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator
 
             if (neighborOcclusionMap != null) {
                 //generateBlockFacesForDirection(blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk);
-                futures[dirId] = CompletableFuture.runAsync(
-                        () -> generateBlockFacesForDirection(chunk.getTerrainManager(), blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk)
-                , Executors.newThreadPerTaskExecutor(ThreadUtil.createFactoryForName("ChunkMesh Job", true)));
+                generateBlockFacesForDirection(chunk.getTerrainManager(), blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk);
+                futures[dirId] = CompletableFuture.completedFuture(null);
+                //futures[dirId] = CompletableFuture.runAsync(() -> generateBlockFacesForDirection(chunk.getTerrainManager(), blockFaces, (byte) lodLevel, d, sx, sy, occupancyMask, neighborOcclusionMap, sz, lookupChunk), service2);
             } else {
                 futures[dirId] = CompletableFuture.completedFuture(null);
             }

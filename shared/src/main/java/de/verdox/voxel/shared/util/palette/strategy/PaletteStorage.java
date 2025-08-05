@@ -72,7 +72,6 @@ public interface PaletteStorage {
         public void fill(int id) {
             int total = owner.getTotalSize();
             int bpe = owner.getBitsPerBlock();
-            // nur 8-Bit-Fall optimiert
             if (bpe == 8) {
                 Arrays.fill(data, (byte) id);
                 return;
@@ -105,16 +104,17 @@ public interface PaletteStorage {
 
         @Override
         public int read(int idx) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitsPerBlock = owner.getBitsPerBlock();
+
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
 
             int val = (data[byteIdx] & 0xFF) >>> off;
-            int need = owner.getBitsPerBlock();
-            if (off + need > 8) {
+            if (off + bitsPerBlock > 8) {
                 val |= (data[byteIdx + 1] & 0xFF) << (8 - off);
             }
-            return val & ((1 << owner.getBitsPerBlock()) - 1);
+            return val & ((1 << bitsPerBlock) - 1);
         }
 
         @Override
