@@ -38,7 +38,7 @@ public class TextureAtlasManager {
         Gdx.app.log("Atlas", "Creating the Block atlas");
         PixmapPacker blockTexturePacker = new PixmapPacker(
             1024, 1024, Pixmap.Format.RGBA8888,
-                16, false
+                0, false
         );
         BlockModels.getBlockModels().forEach(this::registerBlockModel);
         blockModels.stream().distinct().forEach(blockModel ->
@@ -48,13 +48,11 @@ public class TextureAtlasManager {
             }));
 
         blockTextureAtlas = blockTexturePacker.generateTextureAtlas(
-            Texture.TextureFilter.MipMapNearestNearest,
             Texture.TextureFilter.Nearest,
-            true
+            Texture.TextureFilter.Nearest,
+            false
         );
         blockTexturePacker.dispose();
-
-
 
         Gdx.app.log("Atlas", "Block Atlas created with " + blockTextureAtlas.getRegions().size + " regions on " + blockTextureAtlas.getTextures().size + " texture pages.");
     }

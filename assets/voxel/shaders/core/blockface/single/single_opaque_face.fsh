@@ -30,8 +30,8 @@ void main() {
     vec2 local = fract(v_texCoord);
 
     vec3 blockLight = vec3(v_block_light_red, v_block_light_green, v_block_light_blue);
-    //vec4 texture = texture2D(u_texture, magnify(v_texCoord, resolution));
-    vec4 texture = texture2D(u_texture, v_texCoord);
+    vec4 texture = texture2D(u_texture, magnify(v_texCoord, resolution));
+    //vec4 texture = texture2D(u_texture, v_texCoord);
 
     vec3 lit = texture.rgb * (mix(0.4, 0.8, v_ambient_occlusion));
 

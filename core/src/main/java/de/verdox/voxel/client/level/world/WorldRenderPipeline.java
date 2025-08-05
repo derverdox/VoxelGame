@@ -19,7 +19,12 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
 
 
     public WorldRenderPipeline() {
-
+        for (Texture texture : TextureAtlasManager.getInstance().getBlockTextureAtlas().getTextures()) {
+            texture.bind();
+            Gdx.gl.glTexParameteri(texture.glTarget, GL30.GL_TEXTURE_MAX_LEVEL, 4);
+            Gdx.gl.glGenerateMipmap(texture.glTarget);
+            texture.setFilter(Texture.TextureFilter.MipMapNearestNearest, Texture.TextureFilter.Nearest);
+        }
     }
 
     public final void renderWorld(Camera camera, TerrainManager terrainManager, Benchmark renderBenchmark) {
@@ -32,12 +37,11 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         Gdx.gl20.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         Shaders.SINGLE_OPAQUE_BLOCK_SHADER.bind();
-
         int counter = 0;
         for (Texture texture : TextureAtlasManager.getInstance().getBlockTextureAtlas().getTextures()) {
             texture.bind(counter++);
-            Gdx.gl.glTexParameteri(texture.glTarget, GL30.GL_TEXTURE_MAX_LEVEL, 3);
         }
+
         Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
 
 
