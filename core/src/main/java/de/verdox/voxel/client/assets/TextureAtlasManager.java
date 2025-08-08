@@ -1,7 +1,6 @@
 package de.verdox.voxel.client.assets;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.PixmapPacker;
@@ -34,23 +33,39 @@ public class TextureAtlasManager {
 
     }
 
+    public int getBlockTextureAtlasSize() {
+        return 1024;
+    }
+
+    public int getBlockTextureSize() {
+        return 16;
+    }
+
     public void build() {
         Gdx.app.log("Atlas", "Creating the Block atlas");
         PixmapPacker blockTexturePacker = new PixmapPacker(
-            1024, 1024, Pixmap.Format.RGBA8888,
+                getBlockTextureAtlasSize(), getBlockTextureAtlasSize(), Pixmap.Format.RGBA8888,
                 0, false
         );
         BlockModels.getBlockModels().forEach(this::registerBlockModel);
-        blockModels.stream().distinct().forEach(blockModel ->
-            blockModel.getTexturesPerFace().values().stream().distinct().forEach(resourceLocation -> {
+
+        for (BlockModel blockModel : blockModels.stream().distinct().toList()) {
+            for (ResourceLocation resourceLocation : blockModel.getTexturesPerFace().values().stream().distinct().toList()) {
                 Gdx.app.log("Atlas", "Including " + resourceLocation.toString());
-                blockTexturePacker.pack(resourceLocation.toString(), new Pixmap(Gdx.files.internal(findFile(TextureType.BLOCKS, resourceLocation))));
-            }));
+                Pixmap pixmap = new Pixmap(Gdx.files.internal(findFile(TextureType.BLOCKS, resourceLocation)));
+
+                if(pixmap.getWidth() != getBlockTextureSize() || pixmap.getHeight() != getBlockTextureSize()) {
+                    throw new IllegalArgumentException("Currently only 16x16 block textures are supported");
+                }
+
+                blockTexturePacker.pack(resourceLocation.toString(), pixmap);
+            }
+        }
 
         blockTextureAtlas = blockTexturePacker.generateTextureAtlas(
-            Texture.TextureFilter.Nearest,
-            Texture.TextureFilter.Nearest,
-            false
+                Texture.TextureFilter.Nearest,
+                Texture.TextureFilter.Nearest,
+                false
         );
         blockTexturePacker.dispose();
 

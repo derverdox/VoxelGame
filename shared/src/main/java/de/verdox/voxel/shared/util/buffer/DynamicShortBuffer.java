@@ -69,4 +69,5 @@ public interface DynamicShortBuffer {
      * Liefert den Roh-Array (nur zum Debuggen).
      */
     short[] getSnapshot();
+    short[] getBuffer();
 }

@@ -6,7 +6,7 @@ import com.badlogic.gdx.math.collision.BoundingBox;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
+import de.verdox.voxel.client.renderer.classic.TerrainMesh;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainRegion;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;

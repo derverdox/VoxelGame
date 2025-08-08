@@ -4,7 +4,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.LongQueue;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.VoxelBase;
@@ -71,6 +70,10 @@ public class ChunkRequestManager implements DebuggableOnScreen {
 
             int horizontalRadius = ClientBase.clientSettings.horizontalViewDistance;
             int verticalRadius = ClientBase.clientSettings.verticalViewDistance;
+
+            VoxelBase.getInstance().clientInterface(clientInterface -> {
+
+            });
 
             int maxRadius = Math.max(verticalRadius, horizontalRadius);
             int counter = 0;

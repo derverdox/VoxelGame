@@ -13,7 +13,7 @@ public class ClientSettings {
 
     // Rendering
     public int horizontalViewDistance = 128;
-    public int verticalViewDistance = 16;
+    public int verticalViewDistance = 128;
     public boolean useOcclusionCulling = false;
 
     public boolean useMinMaxHeightImprovement = true;

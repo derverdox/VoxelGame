@@ -7,6 +7,7 @@ import de.verdox.voxel.client.level.mesh.chunk.calculation.ChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.terrain.graph.NaiveTerrainGraph;
 import de.verdox.voxel.client.level.mesh.terrain.graph.OctreeTerrainGraph;
 import de.verdox.voxel.client.level.mesh.terrain.graph.TerrainGraph;
+import de.verdox.voxel.client.renderer.classic.TerrainMeshService;
 import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.ChunkLightEngine;

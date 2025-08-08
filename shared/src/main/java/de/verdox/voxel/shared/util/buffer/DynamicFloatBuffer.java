@@ -69,4 +69,5 @@ public interface DynamicFloatBuffer {
      * Liefert den Roh-Array (nur zum Debuggen).
      */
     float[] getSnapshot();
+    float[] getBuffer();
 }

@@ -1,9 +1,10 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
-import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.LODChunk;
 import de.verdox.voxel.client.level.chunk.occupancy.BitsetBasedOccupancyMask;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
+import de.verdox.voxel.client.level.mesh.proto.ChunkProtoMesh;
+import de.verdox.voxel.client.level.mesh.proto.ProtoMask;
 import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.Chunk;
@@ -11,18 +12,22 @@ import de.verdox.voxel.shared.level.chunk.DelegateChunk;
 import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
 
-public class TerrainChunk extends DelegateChunk {
+public class TerrainChunk extends DelegateChunk implements RenderableChunk {
     @Getter
     private final OccupancyMask chunkOccupancyMask = new BitsetBasedOccupancyMask();
     @Getter
     private final TerrainManager terrainManager;
+    @Getter
     private LODChunk currentUsedLod;
+    @Getter
+    private final ChunkProtoMesh chunkProtoMesh;
 
     public TerrainChunk(TerrainManager terrainManager, Chunk owner) {
         super(owner);
         this.terrainManager = terrainManager;
         this.chunkOccupancyMask.setOwner(this);
         this.chunkOccupancyMask.initFromOwner();
+        this.chunkProtoMesh = new ChunkProtoMesh(this);
     }
 
     public synchronized LODChunk getLodChunk(int lodLevel) {

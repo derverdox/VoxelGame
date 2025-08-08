@@ -4,8 +4,13 @@ import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.BlockModels;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.data.types.Registries;
+import lombok.Getter;
+import lombok.Setter;
 
 public class BlockBase {
+    @Getter @Setter
+    private short graphicsBlockId;
+
     private ResourceLocation key;
 
     public ResourceLocation findKey() {

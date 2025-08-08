@@ -3,6 +3,7 @@ package de.verdox.voxel.shared.util.palette.strategy;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import lombok.Getter;
 
 import java.util.Arrays;
 
@@ -15,22 +16,18 @@ public interface PaletteStorage {
         return new LongStore(owner, bitsPerBlock);
     }
 
-    static PaletteStorage create(PaletteStrategy.Paletted<?> owner) {
-        return create(owner, owner.getBitsPerBlock());
-    }
-
     static PaletteStorage resizeIfNeeded(PaletteStrategy.Paletted<?> owner, PaletteStorage current) {
         int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
         if (needed < current.getMaxBitsPerEntry() && needed >= current.getMinBitsPerEntry()) {
             current.resizeIfNeeded();
-            owner.setBitsPerBlock(needed);
+            current.setBitsPerBlock(needed);
             return current;
         } else {
             PaletteStorage next = create(owner, needed);
             for (int i = 0; i < owner.getTotalSize(); i++) {
                 next.write(i, current.read(i));
             }
-            owner.setBitsPerBlock(needed);
+            next.setBitsPerBlock(needed);
             return next;
         }
     }
@@ -55,11 +52,35 @@ public interface PaletteStorage {
 
     void fill(int id);
 
-    class ByteStore implements PaletteStorage {
+    void setBitsPerBlock(int bitsPerBlock);
+
+    int getBitsPerBlock();
+
+    int getBitMask();
+
+    abstract class AbstractPaletteStorage implements PaletteStorage {
+        @Getter
+        protected int bitsPerBlock;
+        @Getter
+        protected int bitMask;
+
+        public AbstractPaletteStorage(int bitsPerBlock) {
+            setBitsPerBlock(bitsPerBlock);
+        }
+
+        @Override
+        public void setBitsPerBlock(int bitsPerBlock) {
+            this.bitsPerBlock = bitsPerBlock;
+            this.bitMask = (1 << bitsPerBlock) - 1;
+        }
+    }
+
+    class ByteStore extends AbstractPaletteStorage {
         private final PaletteStrategy.Paletted<?> owner;
         private byte[] data;
 
         public ByteStore(PaletteStrategy.Paletted<?> owner, int bitsPerBlock) {
+            super(bitsPerBlock);
             this.owner = owner;
             this.data = new byte[bytesFor(bitsPerBlock)];
         }
@@ -71,15 +92,14 @@ public interface PaletteStorage {
         @Override
         public void fill(int id) {
             int total = owner.getTotalSize();
-            int bpe = owner.getBitsPerBlock();
+            int bpe = getBitsPerBlock();
             if (bpe == 8) {
                 Arrays.fill(data, (byte) id);
                 return;
             }
 
-            // 1) Pattern bestimmen
             int g = gcd(bpe, 8);
-            int pLen = bpe / g;  // patternBytes
+            int pLen = bpe / g;
             byte[] pattern = new byte[pLen];
             int mask = (1 << bpe) - 1;
             id &= mask;
@@ -90,7 +110,6 @@ public interface PaletteStorage {
                         & 0xFF);
             }
 
-            // 2) Array in O(log N) füllen
             int totalBits = total * bpe;
             int bytesLen = (totalBits + 7) >>> 3;
             System.arraycopy(pattern, 0, data, 0, pLen);
@@ -104,36 +123,36 @@ public interface PaletteStorage {
 
         @Override
         public int read(int idx) {
-            int bitsPerBlock = owner.getBitsPerBlock();
-
             int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
+
+
 
             int val = (data[byteIdx] & 0xFF) >>> off;
             if (off + bitsPerBlock > 8) {
                 val |= (data[byteIdx + 1] & 0xFF) << (8 - off);
             }
-            return val & ((1 << bitsPerBlock) - 1);
+            return val & bitMask;
         }
 
         @Override
         public void write(int idx, int value) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
-            int mask = ((1 << owner.getBitsPerBlock()) - 1) << off;
+            int mask = bitMask << off;
 
             // clear + set im ersten Byte
             int b = data[byteIdx] & 0xFF;
             b = (b & ~mask) | ((value << off) & mask);
             data[byteIdx] = (byte) b;
 
-            int overflow = off + owner.getBitsPerBlock() - 8;
+            int overflow = off + bitsPerBlock - 8;
             if (overflow > 0) {
                 int mask2 = (1 << overflow) - 1;
                 int b2 = data[byteIdx + 1] & 0xFF;
-                b2 = (b2 & ~mask2) | ((value >>> (owner.getBitsPerBlock() - overflow)) & mask2);
+                b2 = (b2 & ~mask2) | ((value >>> (bitsPerBlock - overflow)) & mask2);
                 data[byteIdx + 1] = (byte) b2;
             }
         }
@@ -141,13 +160,12 @@ public interface PaletteStorage {
         @Override
         public void resizeIfNeeded() {
             int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
-            if (needed == owner.getBitsPerBlock()) return;
+            if (needed == bitsPerBlock) return;
 
             byte[] newData = new byte[bytesFor(needed)];
             // alle alten Werte umpacken
             for (int i = 0; i < owner.getTotalSize(); i++) {
                 int v = read(i);
-                // hier temporär bitsPerEntry noch alt, also Schreibmethode manuell:
                 int bitPos = i * needed;
                 int off = bitPos & 7;
                 int byteIdx = bitPos >>> 3;
@@ -168,7 +186,7 @@ public interface PaletteStorage {
             }
 
             this.data = newData;
-            owner.setBitsPerBlock(needed);
+            setBitsPerBlock(needed);
         }
 
         @Override
@@ -199,11 +217,12 @@ public interface PaletteStorage {
         }
     }
 
-    class ShortStore implements PaletteStorage {
+    class ShortStore extends AbstractPaletteStorage {
         private final PaletteStrategy.Paletted<?> owner;
         private byte[] data;
 
         public ShortStore(PaletteStrategy.Paletted<?> owner, int bitsPerBlock) {
+            super(bitsPerBlock);
             this.owner = owner;
             this.data = new byte[bytesFor(bitsPerBlock)];
         }
@@ -215,7 +234,7 @@ public interface PaletteStorage {
         @Override
         public void fill(int id) {
             int total = owner.getTotalSize();
-            int bpe = owner.getBitsPerBlock();
+            int bpe = bitsPerBlock;
             int mask = (1 << bpe) - 1;
             id &= mask;
 
@@ -243,15 +262,14 @@ public interface PaletteStorage {
             }
         }
 
-
         @Override
         public int read(int idx) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
             // Lese bitsPerEntry Bits ab off in data[]
             int val = (data[byteIdx] & 0xFF) >>> off;
-            int need = owner.getBitsPerBlock() - (8 - off);
+            int need = bitsPerBlock - (8 - off);
             int shift = 8 - off;
             while (need > 0) {
                 byteIdx++;
@@ -259,22 +277,22 @@ public interface PaletteStorage {
                 shift += 8;
                 need -= 8;
             }
-            return val & ((1 << owner.getBitsPerBlock()) - 1);
+            return val & bitMask;
         }
 
         @Override
         public void write(int idx, int value) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
-            int mask = ((1 << owner.getBitsPerBlock()) - 1) << off;
+            int mask = bitMask << off;
 
             // Clear+Set im ersten Byte
             int b = data[byteIdx] & 0xFF;
             b = (b & ~mask) | ((value << off) & mask);
             data[byteIdx] = (byte) b;
 
-            int remaining = owner.getBitsPerBlock() - (8 - off);
+            int remaining = bitsPerBlock - (8 - off);
             int shiftOut = 8 - off;
             while (remaining > 0) {
                 byteIdx++;
@@ -292,7 +310,7 @@ public interface PaletteStorage {
         @Override
         public void resizeIfNeeded() {
             int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
-            if (needed == owner.getBitsPerBlock()) return;
+            if (needed == bitsPerBlock) return;
 
             byte[] newData = new byte[bytesFor(needed)];
             // alle alten Werte umpacken
@@ -322,9 +340,8 @@ public interface PaletteStorage {
                 }
             }
 
-            this.owner.setBitsPerBlock(needed);
+            setBitsPerBlock(needed);
             this.data = newData;
-            owner.setBitsPerBlock(needed);
         }
 
         @Override
@@ -355,11 +372,12 @@ public interface PaletteStorage {
         }
     }
 
-    class IntStore implements PaletteStorage {
+    class IntStore extends AbstractPaletteStorage {
         private final PaletteStrategy.Paletted<?> owner;
         private byte[] data;
 
         public IntStore(PaletteStrategy.Paletted<?> owner, int bitsPerBlock) {
+            super(bitsPerBlock);
             this.owner = owner;
             this.data = new byte[bytesFor(bitsPerBlock)];
         }
@@ -371,7 +389,7 @@ public interface PaletteStorage {
         @Override
         public void fill(int id) {
             int total = owner.getTotalSize();
-            int bpe = owner.getBitsPerBlock();
+            int bpe = bitsPerBlock;
             int mask = (1 << bpe) - 1;
             id &= mask;
 
@@ -396,14 +414,13 @@ public interface PaletteStorage {
             }
         }
 
-
         @Override
         public int read(int idx) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
             int val = (data[byteIdx] & 0xFF) >>> off;
-            int need = owner.getBitsPerBlock() - (8 - off);
+            int need = bitsPerBlock - (8 - off);
             int shift = 8 - off;
             while (need > 0) {
                 byteIdx++;
@@ -411,21 +428,21 @@ public interface PaletteStorage {
                 shift += 8;
                 need -= 8;
             }
-            return val & ((1 << owner.getBitsPerBlock()) - 1);
+            return val & bitMask;
         }
 
         @Override
         public void write(int idx, int value) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 7;
             int byteIdx = bitPos >>> 3;
-            int mask = ((1 << owner.getBitsPerBlock()) - 1) << off;
+            int mask = bitMask << off;
 
             int b = data[byteIdx] & 0xFF;
             b = (b & ~mask) | ((value << off) & mask);
             data[byteIdx] = (byte) b;
 
-            int remaining = owner.getBitsPerBlock() - (8 - off);
+            int remaining = bitsPerBlock - (8 - off);
             int shiftOut = 8 - off;
             while (remaining > 0) {
                 byteIdx++;
@@ -443,7 +460,7 @@ public interface PaletteStorage {
         @Override
         public void resizeIfNeeded() {
             int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
-            if (needed == owner.getBitsPerBlock()) return;
+            if (needed == bitsPerBlock) return;
 
             byte[] newData = new byte[bytesFor(needed)];
             for (int i = 0; i < owner.getTotalSize(); i++) {
@@ -471,9 +488,8 @@ public interface PaletteStorage {
                 }
             }
 
-            this.owner.setBitsPerBlock(needed);
+            setBitsPerBlock(needed);
             this.data = newData;
-            owner.setBitsPerBlock(needed);
         }
 
         @Override
@@ -504,11 +520,12 @@ public interface PaletteStorage {
         }
     }
 
-    class LongStore implements PaletteStorage {
+    class LongStore extends AbstractPaletteStorage {
         private final PaletteStrategy.Paletted<?> owner;
         private long[] data;
 
         public LongStore(PaletteStrategy.Paletted<?> owner, int bitsPerBlock) {
+            super(bitsPerBlock);
             this.owner = owner;
             this.data = new long[wordsFor(bitsPerBlock)];
         }
@@ -519,36 +536,36 @@ public interface PaletteStorage {
 
         @Override
         public int read(int idx) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 63;
             int wordIdx = bitPos >>> 6;
             long seg = data[wordIdx] >>> off;
-            if (off + owner.getBitsPerBlock() > 64) {
+            if (off + bitsPerBlock > 64) {
                 seg |= data[wordIdx + 1] << (64 - off);
             }
-            return (int) (seg & ((1L << owner.getBitsPerBlock()) - 1));
+            return (int) (seg & bitMask);
         }
 
         @Override
         public void write(int idx, int value) {
-            int bitPos = idx * owner.getBitsPerBlock();
+            int bitPos = idx * bitsPerBlock;
             int off = bitPos & 63;
             int wordIdx = bitPos >>> 6;
-            long mask = ((1L << owner.getBitsPerBlock()) - 1L) << off;
+            long mask = (long) bitMask << off;
             data[wordIdx] = (data[wordIdx] & ~mask)
                     | (((long) value << off) & mask);
-            int overflow = off + owner.getBitsPerBlock() - 64;
+            int overflow = off + bitsPerBlock - 64;
             if (overflow > 0) {
                 long mask2 = (1L << overflow) - 1L;
                 data[wordIdx + 1] = (data[wordIdx + 1] & ~mask2)
-                        | ((long) value >>> (owner.getBitsPerBlock() - overflow) & mask2);
+                        | ((long) value >>> (bitsPerBlock - overflow) & mask2);
             }
         }
 
         @Override
         public void resizeIfNeeded() {
             int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
-            if (needed == owner.getBitsPerBlock()) return;
+            if (needed == bitsPerBlock) return;
 
             long[] newData = new long[wordsFor(needed)];
             for (int i = 0; i < owner.getTotalSize(); i++) {
@@ -568,9 +585,8 @@ public interface PaletteStorage {
                 }
             }
 
-            this.owner.setBitsPerBlock(needed);
             this.data = newData;
-            owner.setBitsPerBlock(needed);
+            setBitsPerBlock(needed);
         }
 
         @Override
@@ -598,7 +614,7 @@ public interface PaletteStorage {
         @Override
         public void fill(int id) {
             int total = owner.getTotalSize();
-            int bpe = owner.getBitsPerBlock();
+            int bpe = bitsPerBlock;
             long mask = ((1L << bpe) - 1L);
             long vid = id & mask;
 
@@ -622,7 +638,6 @@ public interface PaletteStorage {
                 filled += copy;
             }
         }
-
 
         @Override
         public int getMaxBitsPerEntry() {

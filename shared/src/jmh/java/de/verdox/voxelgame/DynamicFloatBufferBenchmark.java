@@ -1,6 +1,5 @@
 package de.verdox.voxelgame;
 
-import de.verdox.voxel.shared.util.buffer.SIMDDynamicFloatBuffer;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.concurrent.TimeUnit;

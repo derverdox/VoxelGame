@@ -69,4 +69,6 @@ public interface DynamicIntBuffer {
      * Liefert den Roh-Array (nur zum Debuggen).
      */
     int[] getSnapshot();
+
+    int[] getBuffer();
 }

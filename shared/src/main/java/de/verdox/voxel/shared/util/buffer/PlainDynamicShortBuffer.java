@@ -1,9 +1,12 @@
 package de.verdox.voxel.shared.util.buffer;
 
+import lombok.Getter;
+
 import java.util.Arrays;
 
 public class PlainDynamicShortBuffer implements DynamicShortBuffer {
     private final boolean alwaysExact;
+    @Getter
     protected short[] buffer;
     protected int size;
 

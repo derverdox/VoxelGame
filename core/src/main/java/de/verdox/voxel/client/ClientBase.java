@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.profiling.GLProfiler;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.esotericsoftware.kryonet.Client;
+import de.verdox.voxel.client.assets.BlockGraphicsIDManager;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.input.ClientSettings;
 import de.verdox.voxel.client.level.ClientWorld;
@@ -70,6 +71,7 @@ public class ClientBase extends Game implements DebuggableOnScreen {
 
         BlockModels.bootstrap();
         TextureAtlasManager.getInstance().build();
+        BlockGraphicsIDManager.bootstrap();
 
         Camera camera = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.near = 0.1f;

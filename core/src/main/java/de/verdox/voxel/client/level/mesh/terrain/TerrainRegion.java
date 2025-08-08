@@ -1,6 +1,7 @@
 package de.verdox.voxel.client.level.mesh.terrain;
 
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
+import de.verdox.voxel.client.renderer.classic.TerrainMesh;
 import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.LightAccessor;
@@ -52,6 +53,9 @@ public class TerrainRegion implements LightAccessor {
     }
 
     public void disposeMesh() {
+        if (terrainMesh == null) {
+            return;
+        }
         getTerrainMesh().dispose();
         setTerrainMesh(null);
     }
@@ -73,7 +77,6 @@ public class TerrainRegion implements LightAccessor {
         int heightIdx = getIndexInHeightMap(chunk.getChunkX(), chunk.getChunkZ());
 
         TerrainChunk terrainChunk;
-
 
 
         if (chunksInRegion[idx] == null) {

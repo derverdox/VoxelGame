@@ -94,9 +94,6 @@ public interface PaletteStrategy<T> {
         private Map<T, Integer> blockToId;
         @Getter
         private List<T> idToBlock;
-        @Getter
-        @Setter
-        private int bitsPerBlock;
         private int nonDefaultCount;
 
         public Paletted(ThreeDimensionalPalette<T> ctx) {
@@ -117,9 +114,8 @@ public interface PaletteStrategy<T> {
             // Default-Wert immer ID 0
             blockToId.put(ctx.getDefaultValue(), 0);
             idToBlock.add(ctx.getDefaultValue());
-            bitsPerBlock = 1;
             totalSize = ctx.getSizeX() * ctx.getSizeY() * ctx.getSizeZ();
-            storage = PaletteStorage.create(this);
+            storage = PaletteStorage.create(this, 4);
             nonDefaultCount = 0;
         }
 
@@ -204,7 +200,6 @@ public interface PaletteStrategy<T> {
             for (T entry : idToBlock) {
                 kryo.writeClassAndObject(output, entry);
             }
-            output.writeInt(bitsPerBlock, true);
             storage.write(kryo, output);
         }
 
@@ -223,9 +218,7 @@ public interface PaletteStrategy<T> {
                 blockToId.put(block, i);
                 idToBlock.add(block);
             }
-            bitsPerBlock = input.readInt(true);
-
-            storage = PaletteStorage.create(this, bitsPerBlock);
+            storage = PaletteStorage.create(this, 1);
             storage.read(kryo, input);
 
             // nonDefaultCount neu berechnen

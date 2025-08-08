@@ -1,8 +1,12 @@
 package de.verdox.voxel.client.level.mesh.block;
 
 import com.esotericsoftware.kryo.util.Null;
+import de.verdox.voxel.client.level.mesh.proto.ChunkProtoMesh;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
+import de.verdox.voxel.client.level.mesh.proto.ProtoMask;
+import de.verdox.voxel.client.level.mesh.proto.ProtoMasks;
+import de.verdox.voxel.client.level.mesh.terrain.RenderableChunk;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainChunk;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
@@ -14,18 +18,25 @@ import de.verdox.voxel.shared.util.LightUtil;
 public class BlockRenderer {
     public static BlockFace generateBlockFace(
             TerrainManager terrainManager,
-            Chunk chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
+            RenderableChunk chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
             int localX, int localY, int localZ
     ) {
 
         float lightPacked = getLightValueAt(terrainManager, chunk, blockFace.direction(), localX, localY, localZ, lodLevel);
+
         byte c1Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c1(), localX, localY, localZ, lodLevel);
         byte c2Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c2(), localX, localY, localZ, lodLevel);
         byte c3Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c3(), localX, localY, localZ, lodLevel);
         byte c4Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c4(), localX, localY, localZ, lodLevel);
 
+        byte skyLight = LightUtil.unpackSkyFromFloat(lightPacked);
+        byte redLight = LightUtil.unpackRedFromFloat(lightPacked);
+        byte greenLight = LightUtil.unpackGreenFromFloat(lightPacked);
+        byte blueLight = LightUtil.unpackBlueFromFloat(lightPacked);
 
         byte aoPacked = LightUtil.packAo(c1Ao, c2Ao, c3Ao, c4Ao);
+        ChunkProtoMesh chunkProtoMesh = chunk.getChunkProtoMesh();
+        ProtoMasks.SINGLE.storeFace(chunkProtoMesh, ProtoMask.Type.OPAQUE, (byte) localX, (byte) localY, (byte) localZ, blockFace.direction(), aoPacked, skyLight, redLight, greenLight, blueLight);
 
         return new SingleBlockFace(
                 blockFace,

@@ -2,6 +2,7 @@ package de.verdox.voxel.client.level.mesh.block.face;
 
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
@@ -98,8 +99,8 @@ public class SingleBlockFace implements BlockFace {
             float u = uv[i][0], v = uv[i][1];
 
             offset = writePosition(vertices, corners, i, offset, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
-            offset = writeUV(vertices, offset, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
-            offset = writeLight(vertices, offset, i);
+            offset = writeUVAndLight(vertices, offset, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
+            //offset = writeLight(vertices, offset, i);
 
 /*            vertices[o + 0] = corners[i][0];
             vertices[o + 1] = corners[i][1];
@@ -190,6 +191,24 @@ public class SingleBlockFace implements BlockFace {
         return offsetStart + 1;
     }
 
+    protected int writeUVAndLight(
+            float[] vertices, int offsetStart,
+            float u, float v,
+            float uLen, float vLen,
+            float uStart, float vStart,
+            float tileU, float tileV
+    ) {
+        float localU = u / uLen;
+        float localV = v / vLen;
+
+        float atlasU = uStart + localU * tileU;
+        float atlasV = vStart + localV * tileV;
+
+        float packed = packTileUVAndLights(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
+        vertices[offsetStart] = packed;
+        return offsetStart + 1;
+    }
+
     protected int writeUV(
             float[] vertices, int offsetStart,
             float u, float v,
@@ -261,7 +280,7 @@ public class SingleBlockFace implements BlockFace {
 
     @Override
     public int getFloatsPerVertex() {
-        return 4;
+        return 2;
     }
 
     @Override
@@ -461,7 +480,7 @@ public class SingleBlockFace implements BlockFace {
      * Bit-Layout (0 = LSB, 31 = MSB):
      * [ ao:2 |   z:10   |   y:10   |   x:10   ]
      */
-    protected float packPositionAndAO(int cx, int cy, int cz, int ao) {
+    public static float packPositionAndAO(int cx, int cy, int cz, int ao) {
         // Maske auf gültigen Wertebereich
         int x = cx & 0x3FF;   // 10 Bit
         int y = cy & 0x3FF;   // 10 Bit
@@ -473,5 +492,55 @@ public class SingleBlockFace implements BlockFace {
 
         // Reinterpret als Float, Bits bleiben erhalten
         return Float.intBitsToFloat(packed);
+    }
+
+    /**
+     * Packt zwei Tile-Koordinaten (u,v in [0,1] in Steps von 1/64)
+     * und vier Lichtwerte (0–15) in einen einzigen float.
+     *
+     * @param u          Tile-U-Koordinate, muss ein Vielfaches von 1/64 sein
+     * @param v          Tile-V-Koordinate, muss ein Vielfaches von 1/64 sein
+     * @param skyLight   Lichtwert Slot 0 (0–15)
+     * @param redLight   Lichtwert Slot 1 (0–15)
+     * @param greenLight Lichtwert Slot 2 (0–15)
+     * @param blueLight  Lichtwert Slot 3 (0–15)
+     * @return Float mit gepacktem Bitmuster
+     */
+    public static float packTileUVAndLights(
+            int atlasSize, int textureSize,
+            float u, float v,
+            byte skyLight, byte redLight, byte greenLight, byte blueLight
+    ) {
+        int maxTileIndex = (atlasSize / textureSize) - 1;
+
+        // 1) Tile-Index 0–63 berechnen
+        int uIndex = Math.round(u * maxTileIndex);
+        int vIndex = Math.round(v * maxTileIndex);
+
+        // Clamp zur Sicherheit
+        uIndex = Math.min(Math.max(uIndex, 0), maxTileIndex);
+        vIndex = Math.min(Math.max(vIndex, 0), maxTileIndex);
+
+        // 2) Lichtwerte auf 4 Bit maskieren
+        skyLight &= 0xF;
+        redLight &= 0xF;
+        greenLight &= 0xF;
+        blueLight &= 0xF;
+
+        // 3) Bit-Layout (LSB … MSB):
+        //    bits  0– 5: uIndex (6 Bit)
+        //    bits  6–11: vIndex (6 Bit)
+        //    bits 12–15: l0     (4 Bit)
+        //    bits 16–19: l1     (4 Bit)
+        //    bits 20–23: l2     (4 Bit)
+        //    bits 24–27: l3     (4 Bit)
+        int packedBits =
+                (blueLight << 24)
+                        | (greenLight << 20)
+                        | (redLight << 16)
+                        | (skyLight << 12)
+                        | (vIndex << 6)
+                        | (uIndex);
+        return Float.intBitsToFloat(packedBits);
     }
 }

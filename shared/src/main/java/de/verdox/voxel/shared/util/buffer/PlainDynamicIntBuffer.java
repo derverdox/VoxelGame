@@ -1,9 +1,12 @@
 package de.verdox.voxel.shared.util.buffer;
 
+import lombok.Getter;
+
 import java.util.Arrays;
 
 public class PlainDynamicIntBuffer implements DynamicIntBuffer {
     private final boolean alwaysExact;
+    @Getter
     protected int[] buffer;
     protected int size;
 
@@ -18,6 +21,12 @@ public class PlainDynamicIntBuffer implements DynamicIntBuffer {
         }
         this.buffer = new int[initialCapacity];
         this.size = 0;
+        this.alwaysExact = alwaysExact;
+    }
+
+    public PlainDynamicIntBuffer(int[] src, boolean alwaysExact) {
+        this.buffer = src;
+        this.size = buffer.length;
         this.alwaysExact = alwaysExact;
     }
 

@@ -1,5 +1,7 @@
 package de.verdox.voxel.client.level.mesh.block;
 
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.GreedyBlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
@@ -107,6 +109,32 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
     }
 
     @Override
+    public void collectFaces(float[] vertices, int[] indices, byte lodLevel, TextureAtlas textureAtlas) {
+        int vertexOffset = 0;
+        int indexOffset = 0;
+        int baseVertex = 0;
+        int amountVertices = 0;
+
+        for (Long2ObjectMap.Entry<ChunkFaces> chunkFacesEntry : this.chunkFacesInRegion.long2ObjectEntrySet()) {
+            long offsetKey = chunkFacesEntry.getLongKey();
+            ChunkFaces value = chunkFacesEntry.getValue();
+
+            int offsetX = Chunk.unpackChunkX(offsetKey) * terrainManager.getWorld().getChunkSizeX();
+            int offsetY = Chunk.unpackChunkY(offsetKey) * terrainManager.getWorld().getChunkSizeY();
+            int offsetZ = Chunk.unpackChunkZ(offsetKey) * terrainManager.getWorld().getChunkSizeZ();
+
+            for (BlockFace face : value) {
+                face.appendToBuffers(vertices, null, indices, vertexOffset, indexOffset, baseVertex, textureAtlas, (byte) lodLevel, offsetX, offsetY, offsetZ);
+
+                vertexOffset += face.getVerticesPerFace() * face.getFloatsPerVertex();
+                indexOffset += face.getIndicesPerFace();
+                baseVertex += face.getVerticesPerFace();
+                amountVertices += face.getVerticesPerFace();
+            }
+        }
+    }
+
+    @Override
     public boolean hasFacesForChunk(int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ) {
         long offsetKey = Chunk.computeChunkKey(chunkCoordinateInRegionX, chunkCoordinateInRegionY, chunkCoordinateInRegionZ);
         return chunkFacesInRegion.containsKey(offsetKey);
@@ -156,11 +184,6 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
         }
 
         @Override
-        public void generateFace(TerrainManager terrainManager, Chunk chunk, ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel, int localX, int localY, int localZ) {
-            addBlockFace(BlockRenderer.generateBlockFace(terrainManager, chunk, textureKey, blockFace, lodLevel, localX, localY, localZ));
-        }
-
-        @Override
         public void forEachFace(BlockFacesConsumer consumer) {
             for (FacesOfDirection value : directions.values()) {
                 value.forEachFace(consumer);
@@ -168,8 +191,30 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
         }
 
         @Override
+        public void collectFaces(float[] vertices, int[] indices, byte lodLevel, TextureAtlas textureAtlas, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+            int vertexOffset = 0;
+            int indexOffset = 0;
+            int baseVertex = 0;
+
+            for (ChunkFaces value : chunkFacesInRegion.values()) {
+                for (BlockFace face : value) {
+                    face.appendToBuffers(vertices, null, indices, vertexOffset, indexOffset, baseVertex, TextureAtlasManager.getInstance().getBlockTextureAtlas(), lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+
+                    vertexOffset += face.getVerticesPerFace() * face.getFloatsPerVertex();
+                    indexOffset += face.getIndicesPerFace();
+                    baseVertex += face.getVerticesPerFace();
+                }
+            }
+        }
+
+        @Override
         public int getAmountFloats() {
             return floatCount.get();
+        }
+
+        @Override
+        public int getAmountVertices() {
+            return 0;
         }
 
         @Override
@@ -334,7 +379,7 @@ public class TerrainFaceStorageImpl implements TerrainFaceStorage {
                                 }
                             }
 
-                            floatCount.addAndGet(-old.getFloatsPerVertex());
+                            floatCount.addAndGet(-old.getFloatsPerVertex() * old.getVerticesPerFace());
                             indexCount.addAndGet(-old.getIndicesPerFace());
                             sizeCount.decrementAndGet();
                         }

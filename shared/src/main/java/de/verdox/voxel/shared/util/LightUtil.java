@@ -11,6 +11,38 @@ public class LightUtil {
     }
 
     /**
+     * Extrahiert die Himmelslicht-Komponente (Bits 12–15) aus dem gepackten float.
+     */
+    public static byte unpackSkyFromFloat(float packedLight) {
+        int packed = (int) packedLight;
+        return (byte) ((packed >>> 12) & 0xF);
+    }
+
+    /**
+     * Extrahiert die Rot-Komponente (Bits 8–11) aus dem gepackten float.
+     */
+    public static byte unpackRedFromFloat(float packedLight) {
+        int packed = (int) packedLight;
+        return (byte) ((packed >>> 8) & 0xF);
+    }
+
+    /**
+     * Extrahiert die Grün-Komponente (Bits 4–7) aus dem gepackten float.
+     */
+    public static byte unpackGreenFromFloat(float packedLight) {
+        int packed = (int) packedLight;
+        return (byte) ((packed >>> 4) & 0xF);
+    }
+
+    /**
+     * Extrahiert die Blau-Komponente (Bits 0–3) aus dem gepackten float.
+     */
+    public static byte unpackBlueFromFloat(float packedLight) {
+        int packed = (int) packedLight;
+        return (byte) ( packed         & 0xF);
+    }
+
+    /**
      * Packt Sky-, R-, G-, B- (jeweils 4 Bit) und AO- (2 Bit, Werte 0–3) in einen Float.
      * Die einzelnen Bit‑Layouts sind:
      *  bits 16–17: AO (0–3)

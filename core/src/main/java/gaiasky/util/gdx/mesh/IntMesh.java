@@ -120,7 +120,7 @@ public class IntMesh implements Disposable {
         if (Gdx.gl30 != null) {
             return new VertexBufferObjectWithVAO(isStatic, maxVertices, vertexAttributes);
         } else {
-            return new VertexBufferObject(isStatic, maxVertices, vertexAttributes);
+            return new VertexBufferObjectSubData(isStatic, maxVertices, vertexAttributes);
         }
     }
 
@@ -167,7 +167,6 @@ public class IntMesh implements Disposable {
                 isVertexArray = true;
                 break;
         }
-
         addManagedMesh(Gdx.app, this);
     }
 

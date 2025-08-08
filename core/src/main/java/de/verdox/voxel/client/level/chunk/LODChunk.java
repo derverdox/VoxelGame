@@ -2,6 +2,9 @@ package de.verdox.voxel.client.level.chunk;
 
 import de.verdox.voxel.client.level.chunk.occupancy.BitsetBasedOccupancyMask;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
+import de.verdox.voxel.client.level.mesh.proto.ChunkProtoMesh;
+import de.verdox.voxel.client.level.mesh.proto.ProtoMask;
+import de.verdox.voxel.client.level.mesh.terrain.RenderableChunk;
 import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
@@ -13,12 +16,14 @@ import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
 
-public class LODChunk extends ChunkBase {
+public class LODChunk extends ChunkBase implements RenderableChunk {
     private final Chunk owner;
     @Getter
     private final OccupancyMask chunkOccupancyMask = new BitsetBasedOccupancyMask();
     @Getter
     private final int lodLevel;
+    @Getter
+    private final ChunkProtoMesh chunkProtoMesh;
 
     public static LODChunk of(Chunk parent, int lodLevel) {
         return new LODChunk(parent, lodLevel);
@@ -32,6 +37,7 @@ public class LODChunk extends ChunkBase {
         initLodLight();
         this.chunkOccupancyMask.setOwner(this);
         this.chunkOccupancyMask.initFromOwner();
+        this.chunkProtoMesh = new ChunkProtoMesh(this);
     }
 
     @Override

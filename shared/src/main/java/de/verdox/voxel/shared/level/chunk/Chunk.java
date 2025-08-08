@@ -195,4 +195,16 @@ public interface Chunk extends Box, DelegateBase<DelegateChunk> {
         }
         return z;
     }
+
+    default int getLocalXByteSize() {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(getSizeX() - 1);
+    }
+
+    default int getLocalYByteSize() {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(getSizeY() - 1);
+    }
+
+    default int getLocalZByteSize() {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(getSizeZ() - 1);
+    }
 }

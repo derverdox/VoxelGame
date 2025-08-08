@@ -18,6 +18,18 @@ public interface World extends DelegateBase<DelegateWorld> {
 
     byte getChunkSizeZ();
 
+    default int getLocalXByteSize() {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(getChunkSizeX() - 1);
+    }
+
+    default int getLocalYByteSize() {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(getChunkSizeY() - 1);
+    }
+
+    default int getLocalZByteSize() {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(getChunkSizeZ() - 1);
+    }
+
     WorldHeightMap getWorldHeightMap();
 
     Chunk getChunkNow(int chunkX, int chunkY, int chunkZ);

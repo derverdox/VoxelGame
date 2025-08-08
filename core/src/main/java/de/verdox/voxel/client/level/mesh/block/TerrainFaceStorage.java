@@ -1,7 +1,9 @@
 package de.verdox.voxel.client.level.mesh.block;
 
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.esotericsoftware.kryo.util.Null;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
+import de.verdox.voxel.client.level.mesh.terrain.RenderableChunk;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainChunk;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
 import de.verdox.voxel.client.util.RegionalLock;
@@ -33,6 +35,8 @@ public interface TerrainFaceStorage {
 
     RegionalLock getRegionalLock();
 
+    void collectFaces(float[] vertices, int[] indices, byte lodLevel, TextureAtlas textureAtlas);
+
     boolean hasFacesForChunk(int chunkCoordinateInRegionX, int chunkCoordinateInRegionY, int chunkCoordinateInRegionZ);
 
     default int getSizeU(Direction direction) {
@@ -56,15 +60,16 @@ public interface TerrainFaceStorage {
 
         boolean isEmpty();
 
-        void generateFace(
-                TerrainManager terrainManager,
-                Chunk chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
-                int localX, int localY, int localZ
-        );
+        default void generateFace(TerrainManager terrainManager, RenderableChunk chunk, ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel, int localX, int localY, int localZ) {
+            addBlockFace(BlockRenderer.generateBlockFace(terrainManager, chunk, textureKey, blockFace, lodLevel, localX, localY, localZ));
+        }
 
         void forEachFace(BlockFacesConsumer consumer);
 
+        void collectFaces(float[] vertices, int[] indices, byte lodLevel, TextureAtlas textureAtlas, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks);
+
         int getAmountFloats();
+        int getAmountVertices();
 
         int getAmountIndices();
 

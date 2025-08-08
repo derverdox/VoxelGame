@@ -27,11 +27,12 @@ public class Shaders {
             new VertexAttribute(VertexAttributes.Usage.Generic, 1, "a_ambient_occlusion")
     };
 
-    public static final VertexAttribute[] SINGLE_OPAQUE_ATTRIBUTES = new VertexAttribute[]{
+    public static final VertexAttribute[] SINGLE_OPAQUE_ATTRIBUTES_ARRAY = new VertexAttribute[]{
             new VertexAttribute(VertexAttributes.Usage.Position, 1, "a_position_and_ao"),
-            new VertexAttribute(VertexAttributes.Usage.TextureCoordinates, 2, "a_texCoord0"),
-            new VertexAttribute(VertexAttributes.Usage.Generic, 1, "a_light")
+            new VertexAttribute(VertexAttributes.Usage.TextureCoordinates, 1, "a_texCoord_and_light")
     };
+
+    public static final VertexAttributes SINGLE_OPAQUE_ATTRIBUTES = new VertexAttributes(SINGLE_OPAQUE_ATTRIBUTES_ARRAY);
 
     public static final ShaderProgram GREEDY_OPAQUE_BLOCK_SHADER = new ShaderProgram(
             Gdx.files.internal("voxel/shaders/core/blockface/greedy/greedy_opaque_face.vsh"),

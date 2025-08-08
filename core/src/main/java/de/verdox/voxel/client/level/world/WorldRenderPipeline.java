@@ -5,7 +5,7 @@ import com.badlogic.gdx.graphics.*;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.mesh.MeshWithBounds;
 import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainMesh;
+import de.verdox.voxel.client.renderer.classic.TerrainMesh;
 import de.verdox.voxel.client.renderer.DebugScreen;
 import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.client.shader.Shaders;
@@ -43,6 +43,8 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         }
 
         Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
+        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformf("atlasSize", TextureAtlasManager.getInstance().getBlockTextureAtlasSize());
+        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformf("blockTextureSize", TextureAtlasManager.getInstance().getBlockTextureSize());
 
 
         int currentChunkX = Chunk.chunkX(terrainManager.getWorld(), (int) camera.position.x);

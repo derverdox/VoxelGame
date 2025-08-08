@@ -23,6 +23,9 @@ public class ServerInterfaceImpl implements ServerInterface {
     public void onConnect(int connectionId) {
         VoxelBase.getInstance().getWorlds().forEach(world -> sendToPlayer(ServerWorldExistPacket.fromWorld(world), connectionId));
         sendToPlayer(new ServerSetPlayerWorldPacket(VoxelBase.getInstance().getStandardWorld().getUuid(), 0, 70, 0), connectionId);
+
+
+
     }
 
     @Override
