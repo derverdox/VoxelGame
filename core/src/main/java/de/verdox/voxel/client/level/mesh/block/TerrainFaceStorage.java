@@ -1,18 +1,13 @@
 package de.verdox.voxel.client.level.mesh.block;
 
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.esotericsoftware.kryo.util.Null;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
-import de.verdox.voxel.client.level.mesh.terrain.RenderableChunk;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainChunk;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
+import de.verdox.voxel.client.level.chunk.RenderableChunk;
+import de.verdox.voxel.client.level.mesh.TerrainManager;
 import de.verdox.voxel.client.util.RegionalLock;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
-import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
-
-import java.util.function.Consumer;
 
 public interface TerrainFaceStorage {
     int getScaleX();

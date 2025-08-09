@@ -2,7 +2,6 @@ package de.verdox.voxel.client.play.multiplayer;
 
 import com.esotericsoftware.kryonet.Client;
 import de.verdox.voxel.client.GameSession;
-import de.verdox.voxel.client.network.ClientConnectionListener;
 import de.verdox.voxel.shared.Bootstrap;
 import de.verdox.voxel.shared.VoxelBase;
 

@@ -2,9 +2,7 @@ package de.verdox.voxel.client.level.chunk;
 
 import de.verdox.voxel.client.level.chunk.occupancy.BitsetBasedOccupancyMask;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
-import de.verdox.voxel.client.level.mesh.proto.ChunkProtoMesh;
-import de.verdox.voxel.client.level.mesh.proto.ProtoMask;
-import de.verdox.voxel.client.level.mesh.terrain.RenderableChunk;
+import de.verdox.voxel.client.level.chunk.proto.ChunkProtoMesh;
 import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;

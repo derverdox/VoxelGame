@@ -23,7 +23,7 @@ public class ChunkBlockPalette extends ThreeDimensionalPalette<ResourceLocation>
 
     @Override
     public int getSizeY() {
-        return owner.getSizeZ();
+        return owner.getSizeY();
     }
 
 

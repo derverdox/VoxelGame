@@ -1,12 +1,13 @@
 package de.verdox.voxel.client.level;
 
-import com.badlogic.gdx.Gdx;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.GameSession;
-import de.verdox.voxel.client.level.chunk.ChunkRequestManager;
-import de.verdox.voxel.client.level.mesh.chunk.calculation.BitOcclusionBasedChunkMeshCalculator;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainRegion;
+import de.verdox.voxel.client.level.mesh.calculation.region.BufferedRegionMeshCalculator;
+import de.verdox.voxel.client.level.mesh.calculation.region.NaiveRegionMeshCalculator;
+import de.verdox.voxel.client.play.multiplayer.ChunkRequestManager;
+import de.verdox.voxel.client.level.mesh.calculation.chunk.BitOcclusionBasedChunkMeshCalculator;
+import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.level.mesh.TerrainRegion;
 import de.verdox.voxel.server.level.chunk.ChunkMap;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.world.DelegateWorld;
@@ -37,7 +38,7 @@ public class ClientWorld extends DelegateWorld {
             regionSizeZ = Math.max(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
         }
 
-        this.terrainManager = new TerrainManager(this, new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
+        this.terrainManager = new TerrainManager(this, new BufferedRegionMeshCalculator(), new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
     }
 
     @Override

@@ -1,16 +1,9 @@
 package de.verdox.voxel.client.level.mesh;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
-import com.badlogic.gdx.graphics.g3d.ModelBatch;
-import com.badlogic.gdx.graphics.g3d.ModelCache;
-import com.badlogic.gdx.graphics.g3d.ModelInstance;
-import com.badlogic.gdx.graphics.g3d.Shader;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
-import com.badlogic.gdx.math.collision.BoundingBox;
-import de.verdox.voxel.client.shader.Shaders;
 import gaiasky.util.gdx.mesh.IntMesh;
 
 public interface MeshWithBounds {
@@ -48,22 +41,6 @@ public interface MeshWithBounds {
         }
 
         public abstract void renderMesh(MESH mesh, ShaderProgram shader);
-    }
-
-    class ShortRawMeshBased extends RawMeshBased<Mesh> {
-        public ShortRawMeshBased(Mesh mesh, ShaderProgram shader, TextureAtlas textureAtlas, int atlasPage) {
-            super(mesh, shader, textureAtlas, atlasPage);
-        }
-
-        @Override
-        public void renderMesh(Mesh mesh, ShaderProgram shader) {
-            mesh.render(shader, GL20.GL_TRIANGLES);
-        }
-
-        @Override
-        public void dispose() {
-            mesh.dispose();
-        }
     }
 
     class IntRawMeshBased extends RawMeshBased<IntMesh> {

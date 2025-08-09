@@ -1,14 +1,14 @@
 package de.verdox.voxel.client.level.mesh.block;
 
 import com.esotericsoftware.kryo.util.Null;
-import de.verdox.voxel.client.level.mesh.proto.ChunkProtoMesh;
+import de.verdox.voxel.client.level.chunk.proto.ChunkProtoMesh;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
-import de.verdox.voxel.client.level.mesh.proto.ProtoMask;
-import de.verdox.voxel.client.level.mesh.proto.ProtoMasks;
-import de.verdox.voxel.client.level.mesh.terrain.RenderableChunk;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainChunk;
-import de.verdox.voxel.client.level.mesh.terrain.TerrainManager;
+import de.verdox.voxel.client.level.chunk.proto.ProtoMask;
+import de.verdox.voxel.client.level.chunk.proto.ProtoMasks;
+import de.verdox.voxel.client.level.chunk.RenderableChunk;
+import de.verdox.voxel.client.level.chunk.TerrainChunk;
+import de.verdox.voxel.client.level.mesh.TerrainManager;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
 import de.verdox.voxel.shared.level.chunk.Chunk;
@@ -16,9 +16,10 @@ import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.LightUtil;
 
 public class BlockRenderer {
-    public static BlockFace generateBlockFace(
+
+    public static void saveBlockFaceToProtoMesh(
             TerrainManager terrainManager,
-            RenderableChunk chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
+            RenderableChunk chunk, BlockModelType.BlockFace blockFace, byte lodLevel,
             int localX, int localY, int localZ
     ) {
 
@@ -36,7 +37,23 @@ public class BlockRenderer {
 
         byte aoPacked = LightUtil.packAo(c1Ao, c2Ao, c3Ao, c4Ao);
         ChunkProtoMesh chunkProtoMesh = chunk.getChunkProtoMesh();
-        ProtoMasks.SINGLE.storeFace(chunkProtoMesh, ProtoMask.Type.OPAQUE, (byte) localX, (byte) localY, (byte) localZ, blockFace.direction(), aoPacked, skyLight, redLight, greenLight, blueLight);
+        ProtoMasks.SINGLE_PER_FACE.storeFace(chunkProtoMesh, ProtoMask.Type.OPAQUE, (byte) localX, (byte) localY, (byte) localZ, blockFace.direction(), aoPacked, skyLight, redLight, greenLight, blueLight);
+    }
+
+    public static BlockFace generateBlockFace(
+            TerrainManager terrainManager,
+            RenderableChunk chunk, @Null ResourceLocation textureKey, BlockModelType.BlockFace blockFace, byte lodLevel,
+            int localX, int localY, int localZ
+    ) {
+
+        float lightPacked = getLightValueAt(terrainManager, chunk, blockFace.direction(), localX, localY, localZ, lodLevel);
+
+        byte c1Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c1(), localX, localY, localZ, lodLevel);
+        byte c2Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c2(), localX, localY, localZ, lodLevel);
+        byte c3Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c3(), localX, localY, localZ, lodLevel);
+        byte c4Ao = computeCornerOcclusion(terrainManager, chunk, blockFace.direction(), blockFace.c4(), localX, localY, localZ, lodLevel);
+
+        byte aoPacked = LightUtil.packAo(c1Ao, c2Ao, c3Ao, c4Ao);
 
         return new SingleBlockFace(
                 blockFace,

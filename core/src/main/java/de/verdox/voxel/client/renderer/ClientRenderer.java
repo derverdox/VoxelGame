@@ -5,10 +5,9 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import de.verdox.voxel.client.GameSession;
-import de.verdox.voxel.client.input.ClientSettings;
-import de.verdox.voxel.client.input.PlayerController;
-import de.verdox.voxel.client.input.PlayerInteractionRayCast;
-import de.verdox.voxel.client.level.world.WorldRenderPipeline;
+import de.verdox.voxel.client.play.input.ClientSettings;
+import de.verdox.voxel.client.play.input.PlayerController;
+import de.verdox.voxel.client.play.input.PlayerInteractionRayCast;
 import de.verdox.voxel.shared.util.Benchmark;
 import lombok.Getter;
 

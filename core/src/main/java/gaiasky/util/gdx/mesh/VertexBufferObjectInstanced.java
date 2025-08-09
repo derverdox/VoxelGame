@@ -178,36 +178,23 @@ public class VertexBufferObjectInstanced implements IntVertexData {
 
             for (int i = 0; i < numAttributes; i++) {
                 VertexAttribute attribute = attributes.get(i);
-                if (locations == null) {
-                    cachedLocations.add(shader.getAttributeLocation(attribute.alias));
-                } else {
-                    cachedLocations.add(locations[i]);
-                }
-
-                int location = cachedLocations.get(i);
-                if (location < 0) {
-                    continue;
-                }
+                int location = (locations == null)
+                        ? shader.getAttributeLocation(attribute.alias)
+                        : locations[i];
+                cachedLocations.add(location);
+                if (location < 0) continue;
 
                 shader.enableVertexAttribute(location);
-                shader.setVertexAttribute(location, attribute.numComponents, attribute.type, attribute.normalized, attributes.vertexSize, attribute.offset);
+                shader.setVertexAttribute(location, attribute.numComponents, attribute.type,
+                        attribute.normalized, attributes.vertexSize, attribute.offset);
             }
         }
 
+        // NUR lesen, nicht adden
         for (int i = 0; i < numAttributes; i++) {
-            VertexAttribute attribute = attributes.get(i);
-            if (locations == null) {
-                cachedLocations.add(shader.getAttributeLocation(attribute.alias));
-            } else {
-                cachedLocations.add(locations[i]);
-            }
             int location = cachedLocations.get(i);
-            if (location < 0) {
-                continue;
-            }
-            if (divisor >= 0) {
-                Gdx.gl30.glVertexAttribDivisor(location, divisor);
-            }
+            if (location < 0) continue;
+            if (divisor >= 0) Gdx.gl30.glVertexAttribDivisor(location, divisor);
         }
     }
 

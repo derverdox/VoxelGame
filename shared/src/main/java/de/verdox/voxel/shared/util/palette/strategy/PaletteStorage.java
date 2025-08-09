@@ -93,25 +93,27 @@ public interface PaletteStorage {
         public void fill(int id) {
             int total = owner.getTotalSize();
             int bpe = getBitsPerBlock();
+
+            int totalBits = total * bpe;
+            int bytesLen = (totalBits + 7) >>> 3;
+
             if (bpe == 8) {
-                Arrays.fill(data, (byte) id);
+                Arrays.fill(data, 0, bytesLen, (byte) id);
                 return;
             }
 
             int g = gcd(bpe, 8);
             int pLen = bpe / g;
-            byte[] pattern = new byte[pLen];
+
             int mask = (1 << bpe) - 1;
             id &= mask;
+
+            byte[] pattern = new byte[pLen];
             for (int i = 0; i < pLen; i++) {
                 int start = (i * 8) % bpe;
-                pattern[i] = (byte) (((id >>> start)
-                        | (id << (bpe - start)))
-                        & 0xFF);
+                pattern[i] = (byte) (((id >>> start) | (id << (bpe - start))) & 0xFF);
             }
 
-            int totalBits = total * bpe;
-            int bytesLen = (totalBits + 7) >>> 3;
             System.arraycopy(pattern, 0, data, 0, pLen);
             int filled = pLen;
             while (filled < bytesLen) {
@@ -123,17 +125,17 @@ public interface PaletteStorage {
 
         @Override
         public int read(int idx) {
-            int bitPos = idx * bitsPerBlock;
-            int off = bitPos & 7;
-            int byteIdx = bitPos >>> 3;
+            final int bpe = bitsPerBlock; // lokal cachen
+            final int bitPos = idx * bpe;
+            final int off = bitPos & 7;
+            final int byteIdx = bitPos >>> 3;
 
+            // Sicher lesen, High-Byte am Ende als 0 behandeln
+            final int lo = data[byteIdx] & 0xFF;
+            final int hi = (byteIdx + 1 < data.length) ? (data[byteIdx + 1] & 0xFF) : 0;
 
-
-            int val = (data[byteIdx] & 0xFF) >>> off;
-            if (off + bitsPerBlock > 8) {
-                val |= (data[byteIdx + 1] & 0xFF) << (8 - off);
-            }
-            return val & bitMask;
+            final int two = lo | (hi << 8);
+            return (two >>> off) & bitMask;
         }
 
         @Override
@@ -162,9 +164,12 @@ public interface PaletteStorage {
             int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
             if (needed == bitsPerBlock) return;
 
-            byte[] newData = new byte[bytesFor(needed)];
+            int total = owner.getTotalSize();
+            int bytesLen = ((total * needed) + 7) >>> 3;
+            byte[] newData = new byte[bytesLen];
+
             // alle alten Werte umpacken
-            for (int i = 0; i < owner.getTotalSize(); i++) {
+            for (int i = 0; i < total; i++) {
                 int v = read(i);
                 int bitPos = i * needed;
                 int off = bitPos & 7;
@@ -187,6 +192,16 @@ public interface PaletteStorage {
 
             this.data = newData;
             setBitsPerBlock(needed);
+        }
+
+        // Hilfsfunktion (wie gehabt)
+        private static int gcd(int a, int b) {
+            while (b != 0) {
+                int t = a % b;
+                a = b;
+                b = t;
+            }
+            return a;
         }
 
         @Override

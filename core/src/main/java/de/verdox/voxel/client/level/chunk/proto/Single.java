@@ -1,0 +1,414 @@
+package de.verdox.voxel.client.level.chunk.proto;
+
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.IntArray;
+import de.verdox.voxel.client.assets.TextureAtlasManager;
+import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
+import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.shared.data.registry.ResourceLocation;
+import de.verdox.voxel.shared.level.block.BlockBase;
+import de.verdox.voxel.shared.level.block.BlockModelType;
+import de.verdox.voxel.shared.util.Direction;
+import de.verdox.voxel.shared.util.LightUtil;
+import lombok.Getter;
+
+public class Single extends ProtoMask {
+    public static final byte DIRECTION_ID_SIZE_BITS = 3;
+    public static final byte AO_SIZE_BITS = 8;
+    public static final byte SKY_LIGHT_B = 4;
+    public static final byte RED_LIGHT_B = 4;
+    public static final byte GREEN_LIGHT_B = 4;
+    public static final byte BLUE_LIGHT_B = 4;
+
+    @Getter
+    private final byte maskId;
+
+    Single(byte maskId) {
+        this.maskId = maskId;
+    }
+
+    /**
+     * Speichert ein Face bit-kompakt und effizient, ohne globalen Cursor.
+     */
+    public void storeFace(
+            ChunkProtoMesh chunkProtoMesh,
+            Type faceType,
+            byte x, byte y, byte z,
+            Direction dir, byte ao,
+            byte skyLight, byte redLight,
+            byte greenLight, byte blueLight
+    ) {
+        ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
+        byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
+        byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
+        byte localZByteSize = (byte) chunkProtoMesh.getLocalZByteSize();
+
+        int bitsPerFace = getBitSizePerFace(localXByteSize, localYByteSize, localZByteSize);
+        long bitOffset = (long) storage.getFaceCount() * bitsPerFace;
+
+        storage.writeBitsAt(bitOffset, x, localXByteSize);
+        bitOffset += localXByteSize;
+
+        storage.writeBitsAt(bitOffset, y, localYByteSize);
+        bitOffset += localYByteSize;
+
+        storage.writeBitsAt(bitOffset, z, localZByteSize);
+        bitOffset += localZByteSize;
+
+        storage.writeBitsAt(bitOffset, dir.getId(), DIRECTION_ID_SIZE_BITS);
+        bitOffset += DIRECTION_ID_SIZE_BITS;
+
+        storage.writeBitsAt(bitOffset, ao, AO_SIZE_BITS);
+        bitOffset += AO_SIZE_BITS;
+
+        storage.writeBitsAt(bitOffset, skyLight, SKY_LIGHT_B);
+        bitOffset += SKY_LIGHT_B;
+
+        storage.writeBitsAt(bitOffset, redLight, RED_LIGHT_B);
+        bitOffset += RED_LIGHT_B;
+
+        storage.writeBitsAt(bitOffset, greenLight, GREEN_LIGHT_B);
+        bitOffset += GREEN_LIGHT_B;
+
+        storage.writeBitsAt(bitOffset, blueLight, BLUE_LIGHT_B);
+
+        storage.faceCount++;
+    }
+
+    public ChunkProtoMesh.FaceData get(ChunkProtoMesh chunkProtoMesh, Type faceType, int index) {
+        ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
+        byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
+        byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
+        byte localZByteSize = (byte) chunkProtoMesh.getLocalZByteSize();
+
+        int bitsPerFace = getBitSizePerFace(localXByteSize, localYByteSize, localZByteSize);
+        int offset = index * bitsPerFace;
+
+        byte x = (byte) storage.readBits(offset, localXByteSize);
+        offset += localXByteSize;
+
+        byte y = (byte) storage.readBits(offset, localYByteSize);
+        offset += localYByteSize;
+
+        byte z = (byte) storage.readBits(offset, localZByteSize);
+        offset += localZByteSize;
+
+        Direction d = Direction.values()[(int) storage.readBits(offset, DIRECTION_ID_SIZE_BITS)];
+        offset += DIRECTION_ID_SIZE_BITS;
+
+        byte ao = (byte) storage.readBits(offset, AO_SIZE_BITS);
+        offset += AO_SIZE_BITS;
+
+        byte sky = (byte) storage.readBits(offset, SKY_LIGHT_B);
+        offset += SKY_LIGHT_B;
+
+        byte red = (byte) storage.readBits(offset, RED_LIGHT_B);
+        offset += RED_LIGHT_B;
+
+        byte green = (byte) storage.readBits(offset, GREEN_LIGHT_B);
+        offset += GREEN_LIGHT_B;
+
+        byte blue = (byte) storage.readBits(offset, BLUE_LIGHT_B);
+
+        return new ChunkProtoMesh.FaceData(x, y, z, d, ao, sky, red, green, blue);
+    }
+
+    @Override
+    public int getFloatsPerVertex() {
+        return 2;
+    }
+
+    @Override
+    public int getVerticesPerFace() {
+        return 4;
+    }
+
+    @Override
+    public int getIndicesPerFace() {
+        return 6;
+    }
+
+    @Override
+    public void appendToBuffers(ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray vertices, IntArray indices, int baseVertexIndex, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+        ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
+        byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
+        byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
+        byte localZByteSize = (byte) chunkProtoMesh.getLocalZByteSize();
+
+        int vertsPerFace      = getVerticesPerFace();
+
+        for (int faceId = 0; faceId < storage.getFaceCount(); faceId++) {
+            int faceBaseVertexIdx    = baseVertexIndex  + faceId * vertsPerFace;
+
+            int bitsPerFace = getBitSizePerFace(localXByteSize, localYByteSize, localZByteSize);
+            int offset = faceId * bitsPerFace;
+
+            byte localX = (byte) storage.readBits(offset, localXByteSize);
+            offset += localXByteSize;
+
+            byte localY = (byte) storage.readBits(offset, localYByteSize);
+            offset += localYByteSize;
+
+            byte localZ = (byte) storage.readBits(offset, localZByteSize);
+            offset += localZByteSize;
+
+            Direction faceDir = Direction.values()[(int) storage.readBits(offset, DIRECTION_ID_SIZE_BITS)];
+            offset += DIRECTION_ID_SIZE_BITS;
+
+            byte ambientOcclusion = (byte) storage.readBits(offset, AO_SIZE_BITS);
+            offset += AO_SIZE_BITS;
+
+            byte sky = (byte) storage.readBits(offset, SKY_LIGHT_B);
+            offset += SKY_LIGHT_B;
+
+            byte red = (byte) storage.readBits(offset, RED_LIGHT_B);
+            offset += RED_LIGHT_B;
+
+            byte green = (byte) storage.readBits(offset, GREEN_LIGHT_B);
+            offset += GREEN_LIGHT_B;
+
+            byte blue = (byte) storage.readBits(offset, BLUE_LIGHT_B);
+
+            BlockBase blockBase = chunkProtoMesh.getParent().getBlockAt(localX, localY, localZ);
+            BlockModelType.BlockFace blockFaceDefinition = blockBase.getModel().getBlockModelType().getBlockFace(faceDir).getFirst();
+            ResourceLocation textureName = blockBase.getModel().getTextureOfFace(blockBase.getModel().getBlockModelType().getNameOfFace(blockFaceDefinition));
+
+            TextureRegion region = null;
+            if (textureName != null) {
+                region = textureAtlas.findRegion(textureName.toString());
+            }
+
+            float lodScale = LODUtil.getLodScale(lodLevel);
+
+
+            float[][] corners = new float[][]{
+                    {blockFaceDefinition.c1().getCornerX(localX, lodScale), blockFaceDefinition.c1().getCornerY(localY, lodScale), blockFaceDefinition.c1().getCornerZ(localZ, lodScale)},
+                    {blockFaceDefinition.c2().getCornerX(localX, lodScale), blockFaceDefinition.c2().getCornerY(localY, lodScale), blockFaceDefinition.c2().getCornerZ(localZ, lodScale)},
+                    {blockFaceDefinition.c3().getCornerX(localX, lodScale), blockFaceDefinition.c3().getCornerY(localY, lodScale), blockFaceDefinition.c3().getCornerZ(localZ, lodScale)},
+                    {blockFaceDefinition.c4().getCornerX(localX, lodScale), blockFaceDefinition.c4().getCornerY(localY, lodScale), blockFaceDefinition.c4().getCornerZ(localZ, lodScale)}
+            };
+
+            float uLen = (int) (Math.abs(corners[1][0] - corners[0][0]) + Math.abs(corners[1][1] - corners[0][1]) + Math.abs(corners[1][2] - corners[0][2]));
+            float vLen = Math.abs(corners[3][0] - corners[0][0]) + Math.abs(corners[3][1] - corners[0][1]) + Math.abs(corners[3][2] - corners[0][2]);
+
+            float[] c0 = {0f, 0f};
+            float[] c1 = {0f, vLen};
+            float[] c2 = {uLen, 0f};
+            float[] c3 = {uLen, vLen};
+
+            float[][] uv = new float[][]{
+                    c0,
+                    c1,
+                    c2,
+                    c3,
+            };
+
+
+            // Atlas-Region
+            float uStart = region.getU(), vStart = region.getV();
+            float tileU = region.getU2() - uStart;
+            float tileV = region.getV2() - vStart;
+
+            for (int i = 0; i < getVerticesPerFace(); i++) {
+                float u = uv[i][0], v = uv[i][1];
+
+                writePositionToBuffer(vertices, corners, i, ambientOcclusion, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+                writeUVAndLightToBuffer(vertices, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
+            }
+
+            indices.add(faceBaseVertexIdx + 0);
+            indices.add(faceBaseVertexIdx + 1);
+            indices.add(faceBaseVertexIdx + 3);
+            indices.add(faceBaseVertexIdx + 3);
+            indices.add(faceBaseVertexIdx + 2);
+            indices.add(faceBaseVertexIdx + 0);
+        }
+    }
+
+    private void writePositionToBuffer(FloatArray vertices, float[][] corners, int cornerIndex, byte aoPacked, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+        int x = (int) corners[cornerIndex][0] + offsetXInBlocks;
+        int y = (int) corners[cornerIndex][1] + offsetYInBlocks;
+        int z = (int) corners[cornerIndex][2] + offsetZInBlocks;
+
+
+        byte aoAtCorner = LightUtil.unpackAo(aoPacked, cornerIndex);
+
+        float packedPositionAndAo = SingleBlockFace.packPositionAndAO(x, y, z, aoAtCorner);
+
+        vertices.add(packedPositionAndAo);
+    }
+
+    private void writeUVAndLightToBuffer(
+            FloatArray vertices,
+            float u, float v,
+            float uLen, float vLen,
+            float uStart, float vStart,
+            float tileU, float tileV
+    ) {
+        float localU = u / uLen;
+        float localV = v / vLen;
+
+        float atlasU = uStart + localU * tileU;
+        float atlasV = vStart + localV * tileV;
+
+        float packed = SingleBlockFace.packTileUVAndLights(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
+        vertices.add(packed);
+    }
+
+    private int getBitSizePerFace(byte localXByteSize, byte localYByteSize, byte localZByteSize) {
+        return localXByteSize
+                + localYByteSize
+                + localZByteSize
+                + DIRECTION_ID_SIZE_BITS
+                + AO_SIZE_BITS
+                + SKY_LIGHT_B + RED_LIGHT_B + GREEN_LIGHT_B + BLUE_LIGHT_B;
+    }
+
+    @Override
+    @Deprecated
+    public void appendToArrays(
+            ChunkProtoMesh chunkProtoMesh, Type faceType,
+            float[] vertices, int[] intIndices,
+            int vertexOffsetFloats, int indexOffset,
+            int baseVertexIndex, TextureAtlas textureAtlas,
+            byte lodLevel, int offsetXInBlocks,
+            int offsetYInBlocks, int offsetZInBlocks
+    ) {
+        ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
+        byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
+        byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
+        byte localZByteSize = (byte) chunkProtoMesh.getLocalZByteSize();
+
+        int floatsPerVertex   = getFloatsPerVertex();
+        int vertsPerFace      = getVerticesPerFace();
+        int floatsPerFace     = floatsPerVertex * vertsPerFace;
+        int indicesPerFace    = getIndicesPerFace();
+
+        for (int faceId = 0; faceId < storage.getFaceCount(); faceId++) {
+            int faceVertOffsetFloats = vertexOffsetFloats + faceId * floatsPerFace;
+            int faceIdxOffset        = indexOffset      + faceId * indicesPerFace;
+            int faceBaseVertexIdx    = baseVertexIndex  + faceId * vertsPerFace;
+
+            int bitsPerFace = getBitSizePerFace(localXByteSize, localYByteSize, localZByteSize);
+            int offset = faceId * bitsPerFace;
+
+            byte localX = (byte) storage.readBits(offset, localXByteSize);
+            offset += localXByteSize;
+
+            byte localY = (byte) storage.readBits(offset, localYByteSize);
+            offset += localYByteSize;
+
+            byte localZ = (byte) storage.readBits(offset, localZByteSize);
+            offset += localZByteSize;
+
+            Direction faceDir = Direction.values()[(int) storage.readBits(offset, DIRECTION_ID_SIZE_BITS)];
+            offset += DIRECTION_ID_SIZE_BITS;
+
+            byte ambientOcclusion = (byte) storage.readBits(offset, AO_SIZE_BITS);
+            offset += AO_SIZE_BITS;
+
+            byte sky = (byte) storage.readBits(offset, SKY_LIGHT_B);
+            offset += SKY_LIGHT_B;
+
+            byte red = (byte) storage.readBits(offset, RED_LIGHT_B);
+            offset += RED_LIGHT_B;
+
+            byte green = (byte) storage.readBits(offset, GREEN_LIGHT_B);
+            offset += GREEN_LIGHT_B;
+
+            byte blue = (byte) storage.readBits(offset, BLUE_LIGHT_B);
+
+            BlockBase blockBase = chunkProtoMesh.getParent().getBlockAt(localX, localY, localZ);
+            BlockModelType.BlockFace blockFaceDefinition = blockBase.getModel().getBlockModelType().getBlockFace(faceDir).getFirst();
+            ResourceLocation textureName = blockBase.getModel().getTextureOfFace(blockBase.getModel().getBlockModelType().getNameOfFace(blockFaceDefinition));
+
+            TextureRegion region = null;
+            if (textureName != null) {
+                region = textureAtlas.findRegion(textureName.toString());
+            }
+
+            float lodScale = LODUtil.getLodScale(lodLevel);
+
+
+            float[][] corners = new float[][]{
+                    {blockFaceDefinition.c1().getCornerX(localX, lodScale), blockFaceDefinition.c1().getCornerY(localY, lodScale), blockFaceDefinition.c1().getCornerZ(localZ, lodScale)},
+                    {blockFaceDefinition.c2().getCornerX(localX, lodScale), blockFaceDefinition.c2().getCornerY(localY, lodScale), blockFaceDefinition.c2().getCornerZ(localZ, lodScale)},
+                    {blockFaceDefinition.c3().getCornerX(localX, lodScale), blockFaceDefinition.c3().getCornerY(localY, lodScale), blockFaceDefinition.c3().getCornerZ(localZ, lodScale)},
+                    {blockFaceDefinition.c4().getCornerX(localX, lodScale), blockFaceDefinition.c4().getCornerY(localY, lodScale), blockFaceDefinition.c4().getCornerZ(localZ, lodScale)}
+            };
+
+            float uLen = (int) (Math.abs(corners[1][0] - corners[0][0]) + Math.abs(corners[1][1] - corners[0][1]) + Math.abs(corners[1][2] - corners[0][2]));
+            float vLen = Math.abs(corners[3][0] - corners[0][0]) + Math.abs(corners[3][1] - corners[0][1]) + Math.abs(corners[3][2] - corners[0][2]);
+
+            float[] c0 = {0f, 0f};
+            float[] c1 = {0f, vLen};
+            float[] c2 = {uLen, 0f};
+            float[] c3 = {uLen, vLen};
+
+            float[][] uv = new float[][]{
+                    c0,
+                    c1,
+                    c2,
+                    c3,
+            };
+
+
+            // Atlas-Region
+            float uStart = region.getU(), vStart = region.getV();
+            float tileU = region.getU2() - uStart;
+            float tileV = region.getV2() - vStart;
+
+            for (int i = 0; i < getVerticesPerFace(); i++) {
+                int vOff = faceVertOffsetFloats + i * floatsPerVertex;
+                float u = uv[i][0], v = uv[i][1];
+
+                vOff = writePosition(vertices, corners, i, ambientOcclusion, vOff, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+                vOff = writeUVAndLight(vertices, vOff, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
+            }
+
+            intIndices[faceIdxOffset  + 0] = (faceBaseVertexIdx + 0);
+            intIndices[faceIdxOffset  + 1] = (faceBaseVertexIdx  + 1);
+            intIndices[faceIdxOffset  + 2] = (faceBaseVertexIdx  + 3);
+
+            intIndices[faceIdxOffset  + 3] = (faceBaseVertexIdx  + 3);
+            intIndices[faceIdxOffset + 4] = (faceBaseVertexIdx + 2);
+            intIndices[faceIdxOffset  + 5] = (faceBaseVertexIdx  + 0);
+        }
+    }
+
+    @Deprecated
+    private int writePosition(float[] vertices, float[][] corners, int cornerIndex, byte aoPacked, int offsetStart, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+        int x = (int) corners[cornerIndex][0] + offsetXInBlocks;
+        int y = (int) corners[cornerIndex][1] + offsetYInBlocks;
+        int z = (int) corners[cornerIndex][2] + offsetZInBlocks;
+
+
+        byte aoAtCorner = LightUtil.unpackAo(aoPacked, cornerIndex);
+
+        float packedPositionAndAo = SingleBlockFace.packPositionAndAO(x, y, z, aoAtCorner);
+
+        vertices[offsetStart] = packedPositionAndAo;
+        return offsetStart + 1;
+    }
+
+    @Deprecated
+    private int writeUVAndLight(
+            float[] vertices, int offsetStart,
+            float u, float v,
+            float uLen, float vLen,
+            float uStart, float vStart,
+            float tileU, float tileV
+    ) {
+        float localU = u / uLen;
+        float localV = v / vLen;
+
+        float atlasU = uStart + localU * tileU;
+        float atlasV = vStart + localV * tileV;
+
+        float packed = SingleBlockFace.packTileUVAndLights(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
+        vertices[offsetStart] = packed;
+        return offsetStart + 1;
+    }
+}
