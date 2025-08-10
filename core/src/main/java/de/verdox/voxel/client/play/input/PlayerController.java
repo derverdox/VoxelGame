@@ -113,6 +113,7 @@ public class PlayerController implements DebuggableOnScreen {
 
     @Override
     public void debugText(DebugScreen debugScreen) {
+        debugScreen.addDebugTextLine("OpenGL: " + Gdx.graphics.getGLVersion().getRendererString() + " / " + Gdx.graphics.getGLVersion().getVersionString());
         debugScreen.addDebugTextLine("FPS: " + Gdx.graphics.getFramesPerSecond());
         debugScreen.addDebugTextLine("Pos: " + position + ", Yaw: " + yaw + ", Pitch: " + pitch);
         debugScreen.addDebugTextLine("Velocity: " + movementVec);

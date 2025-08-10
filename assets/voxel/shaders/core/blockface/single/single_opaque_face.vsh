@@ -1,3 +1,5 @@
+#version 330
+
 uniform mat4 u_projViewTrans;
 uniform mat4 u_worldTrans;
 uniform float atlasSize;

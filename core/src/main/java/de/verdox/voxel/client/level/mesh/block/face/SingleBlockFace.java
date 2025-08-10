@@ -185,7 +185,7 @@ public class SingleBlockFace implements BlockFace {
 
         byte aoAtCorner = LightUtil.unpackAo(this.aoPacked, cornerIndex);
 
-        float packedPositionAndAo = packPositionAndAO(x, y, z, aoAtCorner);
+        float packedPositionAndAo = packPositionAndAOForCorner(x, y, z, aoAtCorner);
 
         vertices[offsetStart] = packedPositionAndAo;
         return offsetStart + 1;
@@ -204,7 +204,7 @@ public class SingleBlockFace implements BlockFace {
         float atlasU = uStart + localU * tileU;
         float atlasV = vStart + localV * tileV;
 
-        float packed = packTileUVAndLights(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
+        float packed = packTileUVAndLightsForCorner(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
         vertices[offsetStart] = packed;
         return offsetStart + 1;
     }
@@ -480,7 +480,7 @@ public class SingleBlockFace implements BlockFace {
      * Bit-Layout (0 = LSB, 31 = MSB):
      * [ ao:2 |   z:10   |   y:10   |   x:10   ]
      */
-    public static float packPositionAndAO(int cx, int cy, int cz, int ao) {
+    public static float packPositionAndAOForCorner(int cx, int cy, int cz, int ao) {
         // Maske auf gültigen Wertebereich
         int x = cx & 0x3FF;   // 10 Bit
         int y = cy & 0x3FF;   // 10 Bit
@@ -506,7 +506,7 @@ public class SingleBlockFace implements BlockFace {
      * @param blueLight  Lichtwert Slot 3 (0–15)
      * @return Float mit gepacktem Bitmuster
      */
-    public static float packTileUVAndLights(
+    public static float packTileUVAndLightsForCorner(
             int atlasSize, int textureSize,
             float u, float v,
             byte skyLight, byte redLight, byte greenLight, byte blueLight

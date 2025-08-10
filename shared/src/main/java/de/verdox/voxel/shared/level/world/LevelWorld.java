@@ -2,6 +2,7 @@ package de.verdox.voxel.shared.level.world;
 
 import de.verdox.voxel.server.level.chunk.ChunkMap;
 import de.verdox.voxel.server.level.generator.BenchmarkNoiseChunkGenerator;
+import de.verdox.voxel.server.level.generator.DebugChunkGenerator;
 import de.verdox.voxel.server.level.generator.WorldGenerator;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;

@@ -5,6 +5,8 @@ import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.mesh.MeshWithBounds;
 import de.verdox.voxel.client.level.mesh.TerrainRegion;
 import de.verdox.voxel.client.renderer.shader.Shaders;
+import de.verdox.voxel.client.util.InstancedTerrainMesh;
+import de.verdox.voxel.shared.util.TerrainRenderStats;
 import gaiasky.util.gdx.mesh.IntMesh;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,17 +26,35 @@ public class TerrainMesh {
 
     private int amountBlockFaces;
     private int numVertices;
-    private int numIndices;
+    private int numIntIndices;
     private float[] vertices;
     private int[] intIndices;
-    private int verticesCount;
-    private int indicesCount;
+
+    private float[] instances;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private int amountInstanceVertices;
 
 
     public int getAmountOfBlockFaces() {
         return this.amountBlockFaces;
+    }
+
+    public void count(TerrainRenderStats stats) {
+        if (this.vertices != null) {
+            stats.amountFloatVerticesVRAM += vertices.length;
+        }
+        if (this.instances != null) {
+            stats.amountFloatVerticesVRAM += instances.length;
+        }
+        if (this.intIndices != null) {
+            stats.amountIntIndicesVRAM += intIndices.length;
+        }
+        stats.amountVerticesDrawn += numVertices;
+        stats.amountFacesDrawn += amountBlockFaces;
+        if(amountBlockFaces > 0 && !dirty) {
+            stats.drawnMeshes += 1;
+        }
     }
 
     public void setMeshData(float[] vertices, int[] indices, int amountFaces, int numVertices, int numIndices) {
@@ -45,7 +65,19 @@ public class TerrainMesh {
 
             this.amountBlockFaces = amountFaces;
             this.numVertices = numVertices;
-            this.numIndices = numIndices;
+            this.numIntIndices = numIndices;
+        } finally {
+            this.dirty = true;
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void setInstances(float[] instances, int amountFaces, int amountVertices) {
+        lock.writeLock().lock();
+        try {
+            this.instances = instances;
+            this.amountBlockFaces = amountFaces;
+            this.amountInstanceVertices = amountVertices;
         } finally {
             this.dirty = true;
             lock.writeLock().unlock();
@@ -61,10 +93,7 @@ public class TerrainMesh {
 
                 this.amountBlockFaces = 0;
                 numVertices = 0;
-                numIndices = 0;
-
-                verticesCount = 0;
-                indicesCount = 0;
+                numIntIndices = 0;
 
                 vertices = null;
                 intIndices = null;
@@ -79,7 +108,7 @@ public class TerrainMesh {
             return calculatedMesh;
         }
         dirty = false;
-        if (amountBlockFaces == 0 || vertices == null || intIndices == null) {
+        if (amountBlockFaces == 0) {
             return null;
         }
         int minChunkX = world.getTerrainManager().getBounds().getMinChunkX(terrainRegion.getRegionX());
@@ -93,23 +122,36 @@ public class TerrainMesh {
                 this.calculatedMesh.dispose();
             }
 
-            IntMesh mesh = new IntMesh(
-                    true,
-                    numVertices,
-                    numIndices,
-                    Shaders.SINGLE_OPAQUE_ATTRIBUTES_ARRAY
-            );
+            if (instances != null) {
+                InstancedTerrainMesh instancedTerrainMesh = new InstancedTerrainMesh(
+                        amountInstanceVertices,
+                        Shaders.SINGLE_OPAQUE_ATTRIBUTES_ARRAY
+                );
 
-            mesh.setVertices(vertices);
-            mesh.setIndices(intIndices);
+                instancedTerrainMesh.setInstances(instances);
+                this.calculatedMesh = new MeshWithBounds.InstancedBasedMesh(instancedTerrainMesh, Shaders.SINGLE_INSTANCED_OPAQUE_BLOCK_SHADER, TextureAtlasManager.getInstance().getBlockTextureAtlas(), 0);
+            } else if (vertices != null && intIndices != null && numVertices > 0 && numIntIndices > 0) {
+                IntMesh mesh = new IntMesh(
+                        true,
+                        numVertices,
+                        numIntIndices,
+                        Shaders.SINGLE_OPAQUE_ATTRIBUTES_ARRAY
+                );
 
-            calculatedMesh = new MeshWithBounds.IntRawMeshBased(mesh, Shaders.SINGLE_OPAQUE_BLOCK_SHADER, TextureAtlasManager
-                    .getInstance().getBlockTextureAtlas(), 0);
-            calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
+                mesh.setVertices(vertices);
+                mesh.setIndices(intIndices);
+
+                calculatedMesh = new MeshWithBounds.IntRawMeshBased(mesh, Shaders.SINGLE_PER_CORNER_OPAQUE_BLOCK_SHADER, TextureAtlasManager.getInstance().getBlockTextureAtlas(), 0);
+                calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
+            } else {
+                return null;
+            }
+
+            this.calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
             return calculatedMesh;
         } finally {
-            vertices = null;
-            intIndices = null;
+/*            vertices = null;
+            intIndices = null;*/
             lock.writeLock().unlock();
         }
     }

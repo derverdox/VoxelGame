@@ -6,7 +6,7 @@ import personthecat.fastnoise.FastNoise;
 import personthecat.fastnoise.data.FractalType;
 import personthecat.fastnoise.data.NoiseType;
 
-public class BenchmarkNoiseChunkGenerator implements ChunkGenerator {
+public class PlanetGenerator implements ChunkGenerator{
     FastNoise noise = FastNoise.builder()
             .type(NoiseType.PERLIN)
             .fractal(FractalType.FBM)
@@ -15,6 +15,14 @@ public class BenchmarkNoiseChunkGenerator implements ChunkGenerator {
 
     @Override
     public void generateNoise(Chunk gameChunk) {
+        if (
+                gameChunk.getChunkX() < 0 || gameChunk.getSizeX() > 1000 ||
+                        gameChunk.getChunkY() < 0 || gameChunk.getSizeY() > 1000 ||
+                        gameChunk.getChunkZ() < 0 || gameChunk.getSizeZ() > 1000
+        ) {
+            return;
+        }
+
         int minHeight = 40;
         int noiseMaxHeight = 145;
 

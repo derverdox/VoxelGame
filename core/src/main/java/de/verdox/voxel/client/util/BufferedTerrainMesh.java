@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.utils.Array;
 import de.verdox.voxel.client.level.mesh.TerrainRegion;
 import de.verdox.voxel.shared.level.world.World;
+import de.verdox.voxel.shared.util.FormatUtil;
 import gaiasky.util.gdx.mesh.*;
 
 import java.util.HashMap;
@@ -60,10 +61,10 @@ public class BufferedTerrainMesh {
             System.out.println("\t\t Rendered Faces per Chunk: " + maxRenderedFacesPerChunk);
             System.out.println("\t\t Rendered Vertices per Chunk: " + maxRenderedVertices);
             System.out.println("\t\t Rendered Indices per Chunk: " + maxRenderedIndices);
-            System.out.println("\t\tNeeded VRAM per Chunk: " + formatBytes(neededVRAMForVertices) + " + " + formatBytes(neededVRAMForIndices) + " = " + formatBytes(neededVRAMForVertices + neededVRAMForIndices));
+            System.out.println("\t\tNeeded VRAM per Chunk: " + FormatUtil.formatBytes(neededVRAMForVertices) + " + " + FormatUtil.formatBytes(neededVRAMForIndices) + " = " + FormatUtil.formatBytes(neededVRAMForVertices + neededVRAMForIndices));
             System.out.println("\t\tChunks per Region: " + amountChunksPerRegion);
-            System.out.println("\t\tNeeded VRAM per Region: " + formatBytes(neededVRAMForVertices * amountChunksPerRegion) + " + " + formatBytes(neededVRAMForIndices * amountChunksPerRegion) + " = " + formatBytes((neededVRAMForVertices + neededVRAMForIndices) * amountChunksPerRegion));
-            System.out.println("\t\tNeeded VRAM for Render distance: " + formatBytes((long) neededVRAMForVertices * maxChunksRendered) + " + " + formatBytes((long) neededVRAMForIndices * maxChunksRendered) + " = " + formatBytes((long) (neededVRAMForVertices + neededVRAMForIndices) * maxChunksRendered));
+            System.out.println("\t\tNeeded VRAM per Region: " + FormatUtil.formatBytes(neededVRAMForVertices * amountChunksPerRegion) + " + " + FormatUtil.formatBytes(neededVRAMForIndices * amountChunksPerRegion) + " = " + FormatUtil.formatBytes((neededVRAMForVertices + neededVRAMForIndices) * amountChunksPerRegion));
+            System.out.println("\t\tNeeded VRAM for Render distance: " + FormatUtil.formatBytes((long) neededVRAMForVertices * maxChunksRendered) + " + " + FormatUtil.formatBytes((long) neededVRAMForIndices * maxChunksRendered) + " = " + FormatUtil.formatBytes((long) (neededVRAMForVertices + neededVRAMForIndices) * maxChunksRendered));
 
 
         }
@@ -99,18 +100,5 @@ public class BufferedTerrainMesh {
      */
     static void clearAllMeshes(Application app) {
         meshes.remove(app);
-    }
-
-    public static String formatBytes(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        // Einheiten-Labels für 1024er-Potenzen
-        String[] units = {"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"};
-        // Berechne, welche Potenz von 1024 wir brauchen
-        int exp = (int) (Math.log(bytes) / Math.log(1024));
-        double value = bytes / Math.pow(1024, exp);
-        // Format mit zwei Nachkommastellen
-        return String.format(Locale.US, "%.2f %s", value, units[exp - 1]);
     }
 }

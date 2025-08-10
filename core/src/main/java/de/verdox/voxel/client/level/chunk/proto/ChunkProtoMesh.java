@@ -7,6 +7,7 @@ import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
 import lombok.Getter;
 
+import java.nio.FloatBuffer;
 import java.util.Arrays;
 
 /**
@@ -38,33 +39,6 @@ public class ChunkProtoMesh {
         return storage;
     }
 
-    public void appendToArrays(ProtoMask.Type type, float[] vertices, int[] indices, int baseVertexIndexOffset, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
-        ProtoMeshStorage[] storagesForType = facesPerMask[type.ordinal()];
-        if (storagesForType == null) {
-            return;
-        }
-
-        int vertexOffset = 0;
-        int indexOffset = 0;
-        int vertexIndexOffset = baseVertexIndexOffset;
-
-        for (int i = 0; i < ProtoMasks.getMASKS().size(); i++) {
-            ProtoMask mask = ProtoMasks.getMASKS().get(i);
-            ProtoMeshStorage storage = storagesForType[i];
-            if (storage == null) {
-                continue;
-            }
-
-            int faceCount = storage.getFaceCount();
-
-            mask.appendToArrays(this, type, vertices, indices, vertexOffset, indexOffset, vertexIndexOffset, textureAtlas, lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
-
-            vertexOffset += faceCount * mask.getVerticesPerFace() * mask.getFloatsPerVertex();
-            indexOffset += faceCount * mask.getIndicesPerFace();
-            vertexIndexOffset += faceCount * mask.getVerticesPerFace();
-        }
-    }
-
     public void appendToBuffers(ProtoMask.Type type, FloatArray vertices, IntArray indices, int baseVertexIndexOffset, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         ProtoMeshStorage[] storagesForType = facesPerMask[type.ordinal()];
         if (storagesForType == null) {
@@ -85,6 +59,22 @@ public class ChunkProtoMesh {
             mask.appendToBuffers(this, type, vertices, indices, vertexIndexOffset, textureAtlas, lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
 
             vertexIndexOffset += faceCount * mask.getVerticesPerFace();
+        }
+    }
+
+    public void appendToInstances(ProtoMask.Type type, FloatArray instances, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+        ProtoMeshStorage[] storagesForType = facesPerMask[type.ordinal()];
+        if (storagesForType == null) {
+            return;
+        }
+
+        for (int i = 0; i < ProtoMasks.getMASKS().size(); i++) {
+            ProtoMask mask = ProtoMasks.getMASKS().get(i);
+            ProtoMeshStorage storage = storagesForType[i];
+            if (storage == null) {
+                continue;
+            }
+            mask.appendToInstances(this, type, instances, textureAtlas, lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
         }
     }
 
@@ -137,40 +127,6 @@ public class ChunkProtoMesh {
             amount += storage.getFaceCount() * mask.getIndicesPerFace();
         }
         return amount;
-    }
-
-    public float[] createArrayForVertices(ProtoMask.Type type) {
-        ProtoMeshStorage[] storagesForType = facesPerMask[type.ordinal()];
-        if (storagesForType == null) {
-            return DUMMY_FLOAT_ARRAY;
-        }
-        int amount = 0;
-        for (int i = 0; i < ProtoMasks.getMASKS().size(); i++) {
-            ProtoMask mask = ProtoMasks.getMASKS().get(i);
-            ProtoMeshStorage storage = storagesForType[i];
-            if (storage == null) {
-                continue;
-            }
-            amount += storage.getFaceCount() * mask.getVerticesPerFace() * mask.getFloatsPerVertex();
-        }
-        return new float[amount];
-    }
-
-    public int[] createArrayForIndices(ProtoMask.Type type) {
-        ProtoMeshStorage[] storagesForType = facesPerMask[type.ordinal()];
-        if (storagesForType == null) {
-            return DUMMY_INT_ARRAY;
-        }
-        int amount = 0;
-        for (int i = 0; i < ProtoMasks.getMASKS().size(); i++) {
-            ProtoMask mask = ProtoMasks.getMASKS().get(i);
-            ProtoMeshStorage storage = storagesForType[i];
-            if (storage == null) {
-                continue;
-            }
-            amount += storage.getFaceCount() * mask.getIndicesPerFace();
-        }
-        return new int[amount];
     }
 
     public void clear() {

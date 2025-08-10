@@ -29,6 +29,12 @@ public class TerrainRegion implements LightAccessor {
     @Setter
     private TerrainMesh terrainMesh;
 
+    @Getter @Setter
+    private int renderedChunks;
+
+    @Getter @Setter
+    public int renderedFaces = 0;
+
     public TerrainRegion(TerrainManager terrainManager, int regionX, int regionY, int regionZ) {
         this.terrainManager = terrainManager;
         this.regionX = regionX;

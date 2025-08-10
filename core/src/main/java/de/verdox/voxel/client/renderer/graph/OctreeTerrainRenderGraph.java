@@ -6,7 +6,9 @@ import de.verdox.voxel.client.level.mesh.MeshWithBounds;
 import de.verdox.voxel.client.level.mesh.TerrainManager;
 import de.verdox.voxel.client.level.mesh.TerrainRegion;
 import de.verdox.voxel.client.renderer.classic.TerrainMesh;
+import de.verdox.voxel.client.renderer.shader.Shaders;
 import de.verdox.voxel.shared.level.chunk.Chunk;
+import de.verdox.voxel.shared.util.TerrainRenderStats;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
@@ -56,7 +58,7 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
     /**
      * Frustum-Query: Frustum ins lokalen Koordinaten testen und Callback mit Welt-Box
      */
-    public void queryVisibleRegions(Camera camera, FrustumCallback frustumCallback) {
+    public int queryVisibleRegions(Camera camera, FrustumCallback frustumCallback) {
         int chunkX = Chunk.chunkX(terrainManager.getWorld(), (int) camera.position.x);
         int chunkY = Chunk.chunkY(terrainManager.getWorld(), (int) camera.position.y);
         int chunkZ = Chunk.chunkZ(terrainManager.getWorld(), (int) camera.position.z);
@@ -72,7 +74,7 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
         int maxBlockY = terrainManager.getBounds().getMaxBlockY(worldRegionY, chunkSizeY());
         int maxBlockZ = terrainManager.getBounds().getMaxBlockZ(worldRegionZ, chunkSizeZ());
 
-        root.queryFrustum(camera, frustumCallback, worldRegionX, worldRegionY, worldRegionZ, minBlockX, minBlockY, minBlockZ, maxBlockX, maxBlockY, maxBlockZ);
+        return root.queryFrustum(camera, frustumCallback, worldRegionX, worldRegionY, worldRegionZ, minBlockX, minBlockY, minBlockZ, maxBlockX, maxBlockY, maxBlockZ);
     }
 
     @Override
@@ -86,8 +88,8 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
     }
 
     @Override
-    public void renderTerrain(Camera camera, ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
-        queryVisibleRegions(camera, terrainRegion -> {
+    public int renderTerrain(Camera camera, ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ, TerrainRenderStats renderStats) {
+        return queryVisibleRegions(camera, terrainRegion -> {
 
             TerrainMesh terrainMesh = terrainRegion.getTerrainMesh();
 
@@ -99,16 +101,22 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
                     .getCenterRegionY(), terrainManager
                     .getCenterRegionZ(), terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
 
+
+
             if (terrainMesh.getLodLevel() != lodLevel) {
                 //TODO: Recompute
                 return;
             }
+
             MeshWithBounds mesh = terrainMesh.getOrGenerateMeshFromFaces(terrainManager.getWorld(), terrainRegion);
+
             if (mesh == null) {
                 return;
             }
 
             mesh.render(camera);
+            terrainMesh.count(renderStats);
+            renderStats.drawnChunks += terrainRegion.getRenderedChunks();
         });
     }
 
@@ -152,13 +160,14 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
             }
         }
 
-        private void queryFrustum(
+        private int queryFrustum(
                 Camera camera,
                 FrustumCallback frustumCallback,
                 int cameraRegionXWorld, int cameraRegionYWorld, int cameraRegionZWorld,
                 int minBlockXCameraWorld, int minBlockYCameraWorld, int minBlockZCameraWorld,
                 int maxBlockXCameraWorld, int maxBlockYCameraWorld, int maxBlockZCameraWorld
         ) {
+            int amountFacesRendered = 0;
             if (!isInFrustum(
                     camera,
                     minBlockXCameraWorld, minBlockYCameraWorld, minBlockZCameraWorld,
@@ -166,7 +175,7 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
                     this.minBlockX, this.minBlockY, this.minBlockZ,
                     this.maxBlockX, this.maxBlockY, this.maxBlockZ)
             ) {
-                return;
+                return 0;
             }
 
             for (int i = 0; i < this.regionsThisHeight.size(); i++) {
@@ -193,6 +202,7 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
                     TerrainRegion terrainRegion = terrainManager.getRegion(relativeRegionX + cameraRegionXWorld, relativeRegionY + cameraRegionYWorld, relativeRegionZ + cameraRegionZWorld);
                     if (terrainRegion != null) {
                         frustumCallback.onSeeRegion(terrainRegion);
+                        amountFacesRendered += terrainRegion.renderedFaces;
                     }
                 }
             }
@@ -200,9 +210,10 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
             // 3. Traversiere Kinder-Knoten rekursiv
             if (children != null) {
                 for (OctreeNode child : children) {
-                    child.queryFrustum(camera, frustumCallback, cameraRegionXWorld, cameraRegionYWorld, cameraRegionZWorld, minBlockXCameraWorld, minBlockYCameraWorld, minBlockZCameraWorld, maxBlockXCameraWorld, maxBlockYCameraWorld, maxBlockZCameraWorld);
+                    amountFacesRendered += child.queryFrustum(camera, frustumCallback, cameraRegionXWorld, cameraRegionYWorld, cameraRegionZWorld, minBlockXCameraWorld, minBlockYCameraWorld, minBlockZCameraWorld, maxBlockXCameraWorld, maxBlockYCameraWorld, maxBlockZCameraWorld);
                 }
             }
+            return amountFacesRendered;
         }
 
         private boolean isInFrustum(

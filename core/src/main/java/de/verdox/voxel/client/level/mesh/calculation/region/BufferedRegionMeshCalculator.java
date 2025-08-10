@@ -13,7 +13,9 @@ import de.verdox.voxel.client.renderer.classic.TerrainMesh;
 public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
     @Override
     public void updateTerrainMesh(TerrainRegion terrainRegion, int lodLevel) {
+        terrainRegion.setRenderedChunks(0);
         if(terrainRegion.isAirRegion()) {
+            terrainRegion.setRenderedFaces(0);
             return;
         }
 
@@ -25,6 +27,8 @@ public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
 
         FloatArray verts = new FloatArray();
         IntArray idxs = new IntArray();
+
+        FloatArray instances = new FloatArray();
 
         int numVertices = 0;
         int numIndices = 0;
@@ -47,6 +51,7 @@ public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
             int offsetZInBlocks = terrainRegion.getBounds().getOffsetZ(terrainChunk.getChunkZ()) * terrainRegion.getTerrainManager().getWorld().getChunkSizeZ();
 
             renderableChunk.getChunkProtoMesh().appendToBuffers(ProtoMask.Type.OPAQUE, verts, idxs, vertexIndexOffset, textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+            renderableChunk.getChunkProtoMesh().appendToInstances(ProtoMask.Type.OPAQUE, instances, textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
 
             int storageVertices = renderableChunk.getChunkProtoMesh().getAmountVertices(ProtoMask.Type.OPAQUE);
             int storageIndices = renderableChunk.getChunkProtoMesh().getAmountIndices(ProtoMask.Type.OPAQUE);
@@ -56,14 +61,18 @@ public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
             numIndices += storageIndices;
             amountFaces += storageFaces;
             vertexIndexOffset += storageVertices;
+            terrainRegion.setRenderedChunks(terrainRegion.getRenderedChunks() + 1);
         }
 
         if (amountFaces > 0) {
             verts.shrink();
             idxs.shrink();
+            instances.shrink();
             terrainMesh.setMeshData(verts.toArray(), idxs.toArray(), amountFaces, numVertices, numIndices);
+            //terrainMesh.setInstances(instances.toArray(), amountFaces, numVertices);
         }
 
+        terrainRegion.setRenderedFaces(amountFaces);
         long duration = System.nanoTime() - start;
         regionCalculatorThroughput.add(duration);
     }

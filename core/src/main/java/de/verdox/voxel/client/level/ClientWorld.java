@@ -3,7 +3,6 @@ package de.verdox.voxel.client.level;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.GameSession;
 import de.verdox.voxel.client.level.mesh.calculation.region.BufferedRegionMeshCalculator;
-import de.verdox.voxel.client.level.mesh.calculation.region.NaiveRegionMeshCalculator;
 import de.verdox.voxel.client.play.multiplayer.ChunkRequestManager;
 import de.verdox.voxel.client.level.mesh.calculation.chunk.BitOcclusionBasedChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.TerrainManager;

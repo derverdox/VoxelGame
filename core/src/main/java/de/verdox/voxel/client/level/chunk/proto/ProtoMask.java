@@ -5,6 +5,8 @@ import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
 import it.unimi.dsi.fastutil.floats.FloatArrays;
 
+import java.nio.FloatBuffer;
+
 public abstract class ProtoMask {
     public abstract byte getMaskId();
 
@@ -24,19 +26,6 @@ public abstract class ProtoMask {
         return new int[amountFaces * getIndicesPerFace()];
     }
 
-    public abstract void appendToArrays(
-            ChunkProtoMesh chunkProtoMesh,
-            Type faceType,
-            float[] vertices,
-            int[] intIndices,
-            int vertexOffsetFloats,
-            int indexOffset,
-            int baseVertexIndex,
-            TextureAtlas textureAtlas,
-            byte lodLevel,
-            int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
-    );
-
     public abstract void appendToBuffers(
             ChunkProtoMesh chunkProtoMesh,
             Type faceType,
@@ -47,6 +36,11 @@ public abstract class ProtoMask {
             byte lodLevel,
             int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
     );
+
+    public abstract void appendToInstances(
+            ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas,
+            byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks);
+
 
     public enum Type {
         OPAQUE,

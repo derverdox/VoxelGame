@@ -1,11 +1,12 @@
 package de.verdox.voxel.client.renderer.shader;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.GdxRuntimeException;
+import de.verdox.voxel.client.assets.TextureAtlasManager;
 
 public class Shaders {
     public static final VertexAttribute[] SINGLE_OPAQUE_ATTRIBUTES_ARRAY = new VertexAttribute[]{
@@ -15,14 +16,40 @@ public class Shaders {
 
     public static final VertexAttributes SINGLE_OPAQUE_ATTRIBUTES = new VertexAttributes(SINGLE_OPAQUE_ATTRIBUTES_ARRAY);
 
-    public static final ShaderProgram SINGLE_OPAQUE_BLOCK_SHADER = new ShaderProgram(
+    public static final ShaderProgram SINGLE_PER_CORNER_OPAQUE_BLOCK_SHADER = new ShaderProgram(
             Gdx.files.internal("voxel/shaders/core/blockface/single/single_opaque_face.vsh"),
             Gdx.files.internal("voxel/shaders/core/blockface/single/single_opaque_face.fsh")
     );
 
+    public static final ShaderProgram SINGLE_INSTANCED_OPAQUE_BLOCK_SHADER = new ShaderProgram(
+            Gdx.files.internal("voxel/shaders/core/blockface/single/instanced_single_opaque_face.vsh"),
+            Gdx.files.internal("voxel/shaders/core/blockface/single/single_opaque_face.fsh")
+    );
+
     public static void initShaders() {
-        if (!SINGLE_OPAQUE_BLOCK_SHADER.isCompiled()) {
-            throw new GdxRuntimeException("Shader-Fehler:\n" + SINGLE_OPAQUE_BLOCK_SHADER.getLog());
+        initShader(SINGLE_PER_CORNER_OPAQUE_BLOCK_SHADER);
+        initShader(SINGLE_INSTANCED_OPAQUE_BLOCK_SHADER);
+    }
+
+    private static void initShader(ShaderProgram shaderProgram) {
+        if (!shaderProgram.isCompiled()) {
+            throw new GdxRuntimeException("Shader [" + shaderProgram.getHandle() + "] compiling error:\n" + shaderProgram.getLog());
         }
+    }
+
+    private static int currentBoundShaderHandle = -1;
+
+    public static void resetCurrentShader() {
+        currentBoundShaderHandle = -1;
+    }
+
+    public static void loadShaderForBlockRendering(ShaderProgram shaderProgram) {
+        if (currentBoundShaderHandle != shaderProgram.getHandle()) {
+            shaderProgram.bind();
+            currentBoundShaderHandle = shaderProgram.getHandle();
+        }
+
+        shaderProgram.setUniformf("atlasSize", TextureAtlasManager.getInstance().getBlockTextureAtlasSize());
+        shaderProgram.setUniformf("blockTextureSize", TextureAtlasManager.getInstance().getBlockTextureSize());
     }
 }

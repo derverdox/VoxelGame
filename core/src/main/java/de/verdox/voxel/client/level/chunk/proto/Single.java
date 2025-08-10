@@ -10,9 +10,12 @@ import de.verdox.voxel.client.util.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.block.BlockModelType;
+import de.verdox.voxel.shared.util.BitPackingUtil;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.LightUtil;
 import lombok.Getter;
+
+import java.nio.FloatBuffer;
 
 public class Single extends ProtoMask {
     public static final byte DIRECTION_ID_SIZE_BITS = 3;
@@ -137,10 +140,10 @@ public class Single extends ProtoMask {
         byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
         byte localZByteSize = (byte) chunkProtoMesh.getLocalZByteSize();
 
-        int vertsPerFace      = getVerticesPerFace();
+        int vertsPerFace = getVerticesPerFace();
 
         for (int faceId = 0; faceId < storage.getFaceCount(); faceId++) {
-            int faceBaseVertexIdx    = baseVertexIndex  + faceId * vertsPerFace;
+            int faceBaseVertexIdx = baseVertexIndex + faceId * vertsPerFace;
 
             int bitsPerFace = getBitSizePerFace(localXByteSize, localYByteSize, localZByteSize);
             int offset = faceId * bitsPerFace;
@@ -214,8 +217,8 @@ public class Single extends ProtoMask {
             for (int i = 0; i < getVerticesPerFace(); i++) {
                 float u = uv[i][0], v = uv[i][1];
 
-                writePositionToBuffer(vertices, corners, i, ambientOcclusion, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
-                writeUVAndLightToBuffer(vertices, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
+                writeCornerPositionToBuffer(vertices, corners, i, ambientOcclusion, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+                writeCornerUVAndLightToBuffer(vertices, u, v, uLen, vLen, uStart, vStart, tileU, tileV, sky, red, green, blue);
             }
 
             indices.add(faceBaseVertexIdx + 0);
@@ -227,70 +230,15 @@ public class Single extends ProtoMask {
         }
     }
 
-    private void writePositionToBuffer(FloatArray vertices, float[][] corners, int cornerIndex, byte aoPacked, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
-        int x = (int) corners[cornerIndex][0] + offsetXInBlocks;
-        int y = (int) corners[cornerIndex][1] + offsetYInBlocks;
-        int z = (int) corners[cornerIndex][2] + offsetZInBlocks;
-
-
-        byte aoAtCorner = LightUtil.unpackAo(aoPacked, cornerIndex);
-
-        float packedPositionAndAo = SingleBlockFace.packPositionAndAO(x, y, z, aoAtCorner);
-
-        vertices.add(packedPositionAndAo);
-    }
-
-    private void writeUVAndLightToBuffer(
-            FloatArray vertices,
-            float u, float v,
-            float uLen, float vLen,
-            float uStart, float vStart,
-            float tileU, float tileV
-    ) {
-        float localU = u / uLen;
-        float localV = v / vLen;
-
-        float atlasU = uStart + localU * tileU;
-        float atlasV = vStart + localV * tileV;
-
-        float packed = SingleBlockFace.packTileUVAndLights(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
-        vertices.add(packed);
-    }
-
-    private int getBitSizePerFace(byte localXByteSize, byte localYByteSize, byte localZByteSize) {
-        return localXByteSize
-                + localYByteSize
-                + localZByteSize
-                + DIRECTION_ID_SIZE_BITS
-                + AO_SIZE_BITS
-                + SKY_LIGHT_B + RED_LIGHT_B + GREEN_LIGHT_B + BLUE_LIGHT_B;
-    }
-
     @Override
-    @Deprecated
-    public void appendToArrays(
-            ChunkProtoMesh chunkProtoMesh, Type faceType,
-            float[] vertices, int[] intIndices,
-            int vertexOffsetFloats, int indexOffset,
-            int baseVertexIndex, TextureAtlas textureAtlas,
-            byte lodLevel, int offsetXInBlocks,
-            int offsetYInBlocks, int offsetZInBlocks
-    ) {
+    public void appendToInstances(ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
         byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
         byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
         byte localZByteSize = (byte) chunkProtoMesh.getLocalZByteSize();
-
-        int floatsPerVertex   = getFloatsPerVertex();
-        int vertsPerFace      = getVerticesPerFace();
-        int floatsPerFace     = floatsPerVertex * vertsPerFace;
-        int indicesPerFace    = getIndicesPerFace();
+        int blockAtlasSize = TextureAtlasManager.getInstance().getBlockTextureAtlasSize();
 
         for (int faceId = 0; faceId < storage.getFaceCount(); faceId++) {
-            int faceVertOffsetFloats = vertexOffsetFloats + faceId * floatsPerFace;
-            int faceIdxOffset        = indexOffset      + faceId * indicesPerFace;
-            int faceBaseVertexIdx    = baseVertexIndex  + faceId * vertsPerFace;
-
             int bitsPerFace = getBitSizePerFace(localXByteSize, localYByteSize, localZByteSize);
             int offset = faceId * bitsPerFace;
 
@@ -329,57 +277,71 @@ public class Single extends ProtoMask {
                 region = textureAtlas.findRegion(textureName.toString());
             }
 
-            float lodScale = LODUtil.getLodScale(lodLevel);
-
-
-            float[][] corners = new float[][]{
-                    {blockFaceDefinition.c1().getCornerX(localX, lodScale), blockFaceDefinition.c1().getCornerY(localY, lodScale), blockFaceDefinition.c1().getCornerZ(localZ, lodScale)},
-                    {blockFaceDefinition.c2().getCornerX(localX, lodScale), blockFaceDefinition.c2().getCornerY(localY, lodScale), blockFaceDefinition.c2().getCornerZ(localZ, lodScale)},
-                    {blockFaceDefinition.c3().getCornerX(localX, lodScale), blockFaceDefinition.c3().getCornerY(localY, lodScale), blockFaceDefinition.c3().getCornerZ(localZ, lodScale)},
-                    {blockFaceDefinition.c4().getCornerX(localX, lodScale), blockFaceDefinition.c4().getCornerY(localY, lodScale), blockFaceDefinition.c4().getCornerZ(localZ, lodScale)}
-            };
-
-            float uLen = (int) (Math.abs(corners[1][0] - corners[0][0]) + Math.abs(corners[1][1] - corners[0][1]) + Math.abs(corners[1][2] - corners[0][2]));
-            float vLen = Math.abs(corners[3][0] - corners[0][0]) + Math.abs(corners[3][1] - corners[0][1]) + Math.abs(corners[3][2] - corners[0][2]);
-
-            float[] c0 = {0f, 0f};
-            float[] c1 = {0f, vLen};
-            float[] c2 = {uLen, 0f};
-            float[] c3 = {uLen, vLen};
-
-            float[][] uv = new float[][]{
-                    c0,
-                    c1,
-                    c2,
-                    c3,
-            };
-
-
-            // Atlas-Region
             float uStart = region.getU(), vStart = region.getV();
-            float tileU = region.getU2() - uStart;
-            float tileV = region.getV2() - vStart;
 
-            for (int i = 0; i < getVerticesPerFace(); i++) {
-                int vOff = faceVertOffsetFloats + i * floatsPerVertex;
-                float u = uv[i][0], v = uv[i][1];
-
-                vOff = writePosition(vertices, corners, i, ambientOcclusion, vOff, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
-                vOff = writeUVAndLight(vertices, vOff, u, v, uLen, vLen, uStart, vStart, tileU, tileV);
-            }
-
-            intIndices[faceIdxOffset  + 0] = (faceBaseVertexIdx + 0);
-            intIndices[faceIdxOffset  + 1] = (faceBaseVertexIdx  + 1);
-            intIndices[faceIdxOffset  + 2] = (faceBaseVertexIdx  + 3);
-
-            intIndices[faceIdxOffset  + 3] = (faceBaseVertexIdx  + 3);
-            intIndices[faceIdxOffset + 4] = (faceBaseVertexIdx + 2);
-            intIndices[faceIdxOffset  + 5] = (faceBaseVertexIdx  + 0);
+            writeFaceToInstances(
+                    floatBuffer, faceDir,
+                    (int) (uStart * blockAtlasSize), (int) (vStart * blockAtlasSize),
+                    localX, localY, localZ,
+                    ambientOcclusion,
+                    sky, red, green, blue,
+                    offsetXInBlocks, offsetYInBlocks, offsetZInBlocks
+            );
         }
     }
 
-    @Deprecated
-    private int writePosition(float[] vertices, float[][] corners, int cornerIndex, byte aoPacked, int offsetStart, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+    private void writeFaceToInstances(
+            FloatArray instanceBuffer,
+            Direction faceDir,
+            int u, int v,
+            byte localX, byte localY, byte localZ,
+            byte aoPacked, byte skyLight, byte redLight, byte greenLight, byte blueLight,
+            int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks
+    ) {
+        int meshX = localX + offsetXInBlocks;
+        int meshY = localY + offsetYInBlocks;
+        int meshZ = localZ + offsetZInBlocks;
+
+        int offset = 0;
+        float packedCoordsAndAO = BitPackingUtil.packToFloat(offset, meshX, 8);
+        offset += 8;
+
+        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, meshY, 8);
+        offset += 8;
+
+        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, meshZ, 8);
+        offset += 8;
+
+        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, aoPacked, AO_SIZE_BITS);
+
+        offset = 0;
+
+        float packedDirUVAndLight = BitPackingUtil.packToFloat(offset, faceDir.getId(), DIRECTION_ID_SIZE_BITS);
+        offset += DIRECTION_ID_SIZE_BITS;
+
+        packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, u, 6);
+        offset += 6;
+
+        packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, v, 6);
+        offset += 6;
+
+        packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, skyLight, SKY_LIGHT_B);
+        offset += SKY_LIGHT_B;
+
+        packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, redLight, RED_LIGHT_B);
+        offset += RED_LIGHT_B;
+
+        packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, greenLight, GREEN_LIGHT_B);
+        offset += GREEN_LIGHT_B;
+
+        packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, blueLight, BLUE_LIGHT_B);
+        offset += BLUE_LIGHT_B;
+
+        instanceBuffer.add(packedCoordsAndAO);
+        instanceBuffer.add(packedDirUVAndLight);
+    }
+
+    private void writeCornerPositionToBuffer(FloatArray vertices, float[][] corners, int cornerIndex, byte aoPacked, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         int x = (int) corners[cornerIndex][0] + offsetXInBlocks;
         int y = (int) corners[cornerIndex][1] + offsetYInBlocks;
         int z = (int) corners[cornerIndex][2] + offsetZInBlocks;
@@ -387,19 +349,18 @@ public class Single extends ProtoMask {
 
         byte aoAtCorner = LightUtil.unpackAo(aoPacked, cornerIndex);
 
-        float packedPositionAndAo = SingleBlockFace.packPositionAndAO(x, y, z, aoAtCorner);
+        float packedPositionAndAo = SingleBlockFace.packPositionAndAOForCorner(x, y, z, aoAtCorner);
 
-        vertices[offsetStart] = packedPositionAndAo;
-        return offsetStart + 1;
+        vertices.add(packedPositionAndAo);
     }
 
-    @Deprecated
-    private int writeUVAndLight(
-            float[] vertices, int offsetStart,
+    private void writeCornerUVAndLightToBuffer(
+            FloatArray vertices,
             float u, float v,
             float uLen, float vLen,
             float uStart, float vStart,
-            float tileU, float tileV
+            float tileU, float tileV,
+            byte sky, byte red, byte green, byte blue
     ) {
         float localU = u / uLen;
         float localV = v / vLen;
@@ -407,8 +368,18 @@ public class Single extends ProtoMask {
         float atlasU = uStart + localU * tileU;
         float atlasV = vStart + localV * tileV;
 
-        float packed = SingleBlockFace.packTileUVAndLights(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV, (byte) 15, (byte) 0, (byte) 0, (byte) 0);
-        vertices[offsetStart] = packed;
-        return offsetStart + 1;
+        float packed = SingleBlockFace.packTileUVAndLightsForCorner(TextureAtlasManager.getInstance().getBlockTextureAtlasSize(), TextureAtlasManager.getInstance().getBlockTextureSize(), atlasU, atlasV,
+                sky, red, green, blue
+        );
+        vertices.add(packed);
+    }
+
+    private int getBitSizePerFace(byte localXByteSize, byte localYByteSize, byte localZByteSize) {
+        return localXByteSize
+                + localYByteSize
+                + localZByteSize
+                + DIRECTION_ID_SIZE_BITS
+                + AO_SIZE_BITS
+                + SKY_LIGHT_B + RED_LIGHT_B + GREEN_LIGHT_B + BLUE_LIGHT_B;
     }
 }

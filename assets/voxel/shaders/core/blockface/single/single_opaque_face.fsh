@@ -1,3 +1,5 @@
+#version 130
+
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -35,7 +37,10 @@ void main() {
 
     vec3 lit = texture.rgb * (mix(0.4, 0.8, v_ambient_occlusion));
 
+    //lit = vec3(1.0, 1.0, 1.0) * (mix(0.4, 0.8, v_ambient_occlusion));
+
     gl_FragColor = vec4(lit, texture.a);
+
 
 }
 

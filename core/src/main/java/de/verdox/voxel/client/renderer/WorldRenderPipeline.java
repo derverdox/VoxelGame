@@ -1,6 +1,7 @@
 package de.verdox.voxel.client.renderer;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Graphics;
 import com.badlogic.gdx.graphics.*;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
@@ -8,11 +9,14 @@ import de.verdox.voxel.client.level.mesh.TerrainManager;
 import de.verdox.voxel.client.renderer.shader.Shaders;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Benchmark;
+import de.verdox.voxel.shared.util.TerrainRenderStats;
 import lombok.Getter;
 
 public class WorldRenderPipeline implements DebuggableOnScreen {
     @Getter
     private int centerChunkX, centerChunkY, centerChunkZ;
+    private int amountFacesDrawn;
+    private TerrainRenderStats terrainRenderStats = new TerrainRenderStats();
 
 
     public WorldRenderPipeline() {
@@ -25,6 +29,8 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
     }
 
     public final void renderWorld(Camera camera, TerrainManager terrainManager, Benchmark renderBenchmark) {
+        terrainRenderStats.reset();
+        terrainRenderStats.maxDrawableChunks = ClientBase.clientSettings.horizontalViewDistance * ClientBase.clientSettings.verticalViewDistance * ClientBase.clientSettings.horizontalViewDistance;
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glDepthFunc(GL20.GL_LEQUAL);
         Gdx.gl.glDepthMask(true);
@@ -33,16 +39,10 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
 
         Gdx.gl20.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.bind();
         int counter = 0;
         for (Texture texture : TextureAtlasManager.getInstance().getBlockTextureAtlas().getTextures()) {
             texture.bind(counter++);
         }
-
-        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformMatrix("u_projViewTrans", camera.combined);
-        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformf("atlasSize", TextureAtlasManager.getInstance().getBlockTextureAtlasSize());
-        Shaders.SINGLE_OPAQUE_BLOCK_SHADER.setUniformf("blockTextureSize", TextureAtlasManager.getInstance().getBlockTextureSize());
-
 
         int currentChunkX = Chunk.chunkX(terrainManager.getWorld(), (int) camera.position.x);
         int currentChunkY = Chunk.chunkY(terrainManager.getWorld(), (int) camera.position.y);
@@ -58,15 +58,18 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         renderBenchmark.startSection("Render Visible regions");
 
         Gdx.gl.glEnable(GL20.GL_CULL_FACE);
-        terrainManager.getTerrainRenderGraph().renderTerrain(camera, terrainManager.getWorld(), ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
+        amountFacesDrawn = terrainManager.getTerrainRenderGraph().renderTerrain(camera, terrainManager.getWorld(), ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance, terrainRenderStats);
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
         renderBenchmark.endSection();
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glEnable(GL20.GL_BLEND);
+        Shaders.resetCurrentShader();
     }
 
     @Override
     public void debugText(DebugScreen debugScreen) {
-
+        for (String printToLine : terrainRenderStats.printToLines()) {
+            debugScreen.addDebugTextLine(printToLine);
+        }
     }
 }

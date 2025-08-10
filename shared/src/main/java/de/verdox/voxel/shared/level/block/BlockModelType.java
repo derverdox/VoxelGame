@@ -71,11 +71,17 @@ public class BlockModelType {
             var c3 = new Vector3f(c0).add(new Vector3f(uDir).mul(uGrowth)).add(new Vector3f(vDir).mul(vGrowth));
 
 
+
+            var bc0 = new BlockModelCoordinate((byte) 0, c0.x, c0.y, c0.z);
+            var bc1 = new BlockModelCoordinate((byte) 1, c1.x, c1.y, c1.z);
+            var bc2 = new BlockModelCoordinate((byte) 2, c2.x, c2.y, c2.z);
+            var bc3 = new BlockModelCoordinate((byte) 3, c3.x, c3.y, c3.z);
+
             return new BlockFace(
-                    new BlockModelCoordinate((byte) 0, c0.x, c0.y, c0.z),
-                    new BlockModelCoordinate((byte) 1, c1.x, c1.y, c1.z),
-                    new BlockModelCoordinate((byte) 2, c2.x, c2.y, c2.z),
-                    new BlockModelCoordinate((byte) 3, c3.x, c3.y, c3.z),
+                    bc0,
+                    bc1,
+                    bc2,
+                    bc3,
                     direction.getOffsetX(), direction.getOffsetY(), direction.getOffsetZ(),
                     Direction.fromOffsets((int) direction.getUDirection()[0], (int) direction.getUDirection()[1], (int) direction.getUDirection()[2]),
                     Direction.fromOffsets((int) direction.getVDirection()[0], (int) direction.getVDirection()[1], (int) direction.getVDirection()[2])

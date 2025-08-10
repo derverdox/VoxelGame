@@ -3,6 +3,7 @@ package de.verdox.voxel.client;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.profiling.GLErrorListener;
 import com.badlogic.gdx.graphics.profiling.GLProfiler;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.BufferUtils;
@@ -85,6 +86,11 @@ public class ClientBase extends Game implements DebuggableOnScreen {
         worldRendererProfiler.enable();
 
         SinglePlayerHandler.createNewWorldAndJoin();
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        clientRenderer.getDebugScreen().resize(width, height);
     }
 
     @Override

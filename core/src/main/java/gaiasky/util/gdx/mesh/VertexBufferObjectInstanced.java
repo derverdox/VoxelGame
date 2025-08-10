@@ -149,7 +149,6 @@ public class VertexBufferObjectInstanced implements IntVertexData {
         bindAttributes(shader, locations, instanceAttributes, instanceBufferHandle, cachedLocationsInstance, 1);
         isDirtyInstance = bindData(gl, instanceBufferHandle, isDirtyInstance, bufferInstance, byteBufferInstance);
         isBoundInstance = true;
-
     }
 
     private void bindAttributes(ShaderProgram shader, int[] locations, VertexAttributes attributes, int bufferHandle, IntArray cachedLocations, int divisor) {
@@ -190,7 +189,6 @@ public class VertexBufferObjectInstanced implements IntVertexData {
             }
         }
 
-        // NUR lesen, nicht adden
         for (int i = 0; i < numAttributes; i++) {
             int location = cachedLocations.get(i);
             if (location < 0) continue;

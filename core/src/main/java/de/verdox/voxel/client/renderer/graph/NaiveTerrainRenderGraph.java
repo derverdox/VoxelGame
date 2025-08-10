@@ -10,6 +10,7 @@ import de.verdox.voxel.client.renderer.classic.TerrainMesh;
 import de.verdox.voxel.client.level.mesh.TerrainRegion;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
+import de.verdox.voxel.shared.util.TerrainRenderStats;
 import de.verdox.voxel.shared.util.ThreadUtil;
 import de.verdox.voxel.shared.util.datastructure.LongQueue;
 import it.unimi.dsi.fastutil.longs.*;
@@ -74,7 +75,8 @@ public class NaiveTerrainRenderGraph implements TerrainRenderGraph {
     }
 
     @Override
-    public synchronized void renderTerrain(Camera camera, ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
+    public synchronized int renderTerrain(Camera camera, ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ, TerrainRenderStats renderStats) {
+        int amountFacesRendered = 0;
         visited.clear();
         queue.clear();
 
@@ -140,7 +142,10 @@ public class NaiveTerrainRenderGraph implements TerrainRenderGraph {
                 if (mesh == null) {
                     continue;
                 }
+                amountFacesRendered += terrainRegion.getRenderedFaces();
                 mesh.render(camera);
+                terrainMesh.count(renderStats);
+                renderStats.drawnChunks += terrainRegion.getRenderedChunks();
             }
 
 
@@ -189,6 +194,7 @@ public class NaiveTerrainRenderGraph implements TerrainRenderGraph {
         if (removeCameraNodeAfter) {
             removeRegion(regionX, regionY, regionZ);
         }
+        return amountFacesRendered;
     }
 
     private synchronized RegionNode addRegionInternal(int x, int y, int z) {
