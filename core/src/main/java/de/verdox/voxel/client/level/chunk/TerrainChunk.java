@@ -36,7 +36,7 @@ public class TerrainChunk extends DelegateChunk implements RenderableChunk {
         }
         // Only cache the last used lod chunk
         if (currentUsedLod == null || currentUsedLod.getLodLevel() != lodLevel) {
-            currentUsedLod = LODChunk.of(owner, lodLevel);
+            currentUsedLod = LODChunk.of(this, lodLevel);
             currentUsedLod.init();
         }
         return currentUsedLod;

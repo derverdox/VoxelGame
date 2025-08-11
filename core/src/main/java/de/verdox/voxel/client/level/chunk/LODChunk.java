@@ -8,14 +8,22 @@ import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.Chunk;
-import de.verdox.voxel.shared.level.chunk.ChunkBase;
+import de.verdox.voxel.shared.level.chunk.DelegateChunk;
+import de.verdox.voxel.shared.level.chunk.data.palette.ChunkBlockPalette;
+import de.verdox.voxel.shared.level.chunk.data.sliced.DepthMap;
+import de.verdox.voxel.shared.level.chunk.data.sliced.HeightMap;
+import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.lighting.ChunkLightData;
+import de.verdox.voxel.shared.util.Delegate;
+import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
 
-public class LODChunk extends ChunkBase implements RenderableChunk {
-    private final Chunk owner;
+import java.util.List;
+
+public class LODChunk implements Delegate<TerrainChunk>, RenderableChunk {
+    private final TerrainChunk owner;
     @Getter
     private final OccupancyMask chunkOccupancyMask = new BitsetBasedOccupancyMask();
     @Getter
@@ -23,12 +31,11 @@ public class LODChunk extends ChunkBase implements RenderableChunk {
     @Getter
     private final ChunkProtoMesh chunkProtoMesh;
 
-    public static LODChunk of(Chunk parent, int lodLevel) {
+    public static LODChunk of(TerrainChunk parent, int lodLevel) {
         return new LODChunk(parent, lodLevel);
     }
 
-    private LODChunk(Chunk parent, int lodLevel) {
-        super(parent.getWorld(), parent.getChunkX(), parent.getChunkY(), parent.getChunkZ());
+    private LODChunk(TerrainChunk parent, int lodLevel) {
         this.owner = parent;
         this.lodLevel = lodLevel;
         initLodChunk();
@@ -36,6 +43,7 @@ public class LODChunk extends ChunkBase implements RenderableChunk {
         this.chunkOccupancyMask.setOwner(this);
         this.chunkOccupancyMask.initFromOwner();
         this.chunkProtoMesh = new ChunkProtoMesh(this);
+        this.subscribe(parent);
     }
 
     @Override
@@ -45,6 +53,66 @@ public class LODChunk extends ChunkBase implements RenderableChunk {
         int lodZ = localZ(localZ);
         updateBlockAt(lodX, lodY, lodZ, true, true);
         this.chunkOccupancyMask.updateOccupancyMask(newBlock, lodX, lodY, lodZ);
+    }
+
+    @Override
+    public void init() {
+
+    }
+
+    @Override
+    public int getChunkX() {
+        return this.owner.getChunkX();
+    }
+
+    @Override
+    public int getChunkY() {
+        return this.owner.getChunkY();
+    }
+
+    @Override
+    public int getChunkZ() {
+        return this.owner.getChunkZ();
+    }
+
+    @Override
+    public ChunkBlockPalette getChunkBlockPalette() {
+        return null;
+    }
+
+    @Override
+    public HeightMap getHeightMap() {
+        return this.owner.getHeightMap();
+    }
+
+    @Override
+    public DepthMap getDepthMap() {
+        return this.owner.getDepthMap();
+    }
+
+    @Override
+    public ChunkLightData getChunkLightData() {
+        return null;
+    }
+
+    @Override
+    public World getWorld() {
+        return this.owner.getWorld();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return this.owner.isEmpty();
+    }
+
+    @Override
+    public boolean hasNeighborsToAllSides() {
+        return this.owner.hasNeighborsToAllSides();
+    }
+
+    @Override
+    public <SELF extends Chunk> SELF getNeighborChunk(Direction direction) {
+        return (SELF) ((TerrainChunk)this.owner.getNeighborChunk(direction)).getLodChunk(lodLevel);
     }
 
     @Override
@@ -151,5 +219,15 @@ public class LODChunk extends ChunkBase implements RenderableChunk {
                 }
             }
         }
+    }
+
+    @Override
+    public List<DelegateChunk> getDelegates() {
+        return List.of();
+    }
+
+    @Override
+    public TerrainChunk getOwner() {
+        return this.owner;
     }
 }

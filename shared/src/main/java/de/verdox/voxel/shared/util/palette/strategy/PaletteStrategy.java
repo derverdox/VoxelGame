@@ -221,7 +221,6 @@ public interface PaletteStrategy<T> {
             storage = PaletteStorage.create(this, 1);
             storage.read(kryo, input);
 
-            // nonDefaultCount neu berechnen
             nonDefaultCount = 0;
             for (int i = 0; i < totalSize; i++) {
                 if (storage.read(i) != 0) {
