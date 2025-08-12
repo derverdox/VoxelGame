@@ -6,7 +6,7 @@ import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.GreedyBlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
 import de.verdox.voxel.client.level.mesh.TerrainManager;
-import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.client.util.RegionalLock;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;

@@ -125,7 +125,7 @@ public interface PaletteStorage {
 
         @Override
         public int read(int idx) {
-            final int bpe = bitsPerBlock; // lokal cachen
+            final int bpe = bitsPerBlock;
             final int bitPos = idx * bpe;
             final int off = bitPos & 7;
             final int byteIdx = bitPos >>> 3;

@@ -3,7 +3,7 @@ package de.verdox.voxel.client.level.mesh.block.face;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
-import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
 import de.verdox.voxel.shared.util.Direction;

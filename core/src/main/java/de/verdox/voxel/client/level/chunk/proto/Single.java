@@ -6,7 +6,7 @@ import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
-import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.block.BlockModelType;
@@ -14,8 +14,6 @@ import de.verdox.voxel.shared.util.BitPackingUtil;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.LightUtil;
 import lombok.Getter;
-
-import java.nio.FloatBuffer;
 
 public class Single extends ProtoMask {
     public static final byte DIRECTION_ID_SIZE_BITS = 3;

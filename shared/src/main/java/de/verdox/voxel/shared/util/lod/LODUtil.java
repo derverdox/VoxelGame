@@ -1,4 +1,4 @@
-package de.verdox.voxel.client.util;
+package de.verdox.voxel.shared.util.lod;
 
 import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.util.RegionBounds;

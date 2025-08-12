@@ -9,7 +9,7 @@ import de.verdox.voxel.client.level.mesh.calculation.region.RegionMeshCalculator
 import de.verdox.voxel.client.renderer.graph.OctreeTerrainRenderGraph;
 import de.verdox.voxel.client.renderer.graph.TerrainRenderGraph;
 import de.verdox.voxel.client.renderer.classic.TerrainMeshService;
-import de.verdox.voxel.client.util.LODUtil;
+import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.ChunkLightEngine;
 import de.verdox.voxel.shared.util.Direction;

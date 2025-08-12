@@ -6,12 +6,12 @@ import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.utils.Array;
 import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.util.FormatUtil;
 import gaiasky.util.gdx.mesh.*;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class BufferedTerrainMesh {

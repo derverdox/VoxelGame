@@ -3,6 +3,9 @@ package de.verdox.voxel.shared.util.palette.strategy;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import de.verdox.voxel.shared.util.lod.GridDim;
+import de.verdox.voxel.shared.util.lod.LodPyramid;
+import de.verdox.voxel.shared.util.lod.OccupancyFn;
 import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -96,6 +99,33 @@ public interface PaletteStrategy<T> {
         private List<T> idToBlock;
         private int nonDefaultCount;
 
+        private LodPyramid lod;       // null = LOD aus
+        private int lodBlockId = -1;  // ID des LOD-Blocks in DIESER Palette (>=0), 0 = Default/AIR
+
+        public void enableLOD(int maxLevel, T lodBlock) {
+            if (maxLevel <= 0) {
+                lod = null;
+                return;
+            }
+
+            // LOD-Block sicher registrieren (kann auch Default sein, aber üblich: spezieller “LOD”-Block)
+            this.lodBlockId = blockToId.get(lodBlock);
+
+            // Pyramide anlegen
+            GridDim dim = new GridDim(ctx.getSizeX(), ctx.getSizeY(), ctx.getSizeZ());
+            OccupancyFn occ = id -> id != blockToId.get(ctx.getDefaultValue());
+            this.lod = new LodPyramid(dim, maxLevel, occ, lodBlockId);
+
+            // Einmaliger Aufbau aus dem aktuellen Storage
+            this.lod.rebuildFromSource(this::readId);
+        }
+
+        // --- HILFE: int ID Reader für LodPyramid ---
+        private int readId(int x, int y, int z) {
+            int idx = ctx.computeIndex((short) x, (short) y, (short) z);
+            return storage.read(idx);
+        }
+
         public Paletted(ThreeDimensionalPalette<T> ctx) {
             this.ctx = ctx;
             initFromContext();
@@ -186,7 +216,14 @@ public interface PaletteStrategy<T> {
             if (wasDefault && !nowDefault) nonDefaultCount++;
             else if (!wasDefault && nowDefault) nonDefaultCount--;
 
-            storage.write(idx, id);
+            if (oldId != id) {
+                storage.write(idx, id);
+
+                if (lod != null) {
+                    // Achtung: x,y,z sind signed shorts → als 0..65535 interpretieren, aber unsere Chunk-Dims sind kleiner.
+                    lod.onCellChange(x & 0xFFFF, y & 0xFFFF, z & 0xFFFF, oldId, id);
+                }
+            }
 
             if (nonDefaultCount == totalSize) {
                 ctx.setStrategy(new Uniform<>(block), ThreeDimensionalPalette.State.UNIFORM);
