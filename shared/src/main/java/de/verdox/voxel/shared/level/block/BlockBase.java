@@ -10,6 +10,8 @@ import lombok.Setter;
 public class BlockBase {
     @Getter @Setter
     private short graphicsBlockId;
+    @Getter @Setter
+    private short materialID;
 
     private ResourceLocation key;
 

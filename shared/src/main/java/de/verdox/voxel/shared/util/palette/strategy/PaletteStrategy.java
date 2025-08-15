@@ -23,6 +23,8 @@ public interface PaletteStrategy<T> {
 
     void read(Kryo kryo, Input input, ThreeDimensionalPalette<T> context);
 
+    long contentHash();
+
     class Empty<T> implements PaletteStrategy<T> {
 
         public Empty() {
@@ -48,6 +50,11 @@ public interface PaletteStrategy<T> {
         @Override
         public void read(Kryo kryo, Input input, ThreeDimensionalPalette<T> ctx) {
             ctx.setStrategy(new Empty<>(), ThreeDimensionalPalette.State.EMPTY);
+        }
+
+        @Override
+        public long contentHash() {
+            return 0;
         }
     }
 
@@ -83,6 +90,11 @@ public interface PaletteStrategy<T> {
         public void read(Kryo kryo, Input input, ThreeDimensionalPalette<T> ctx) {
             T v = (T) kryo.readClassAndObject(input);
             ctx.setStrategy(new Uniform<>(v), ThreeDimensionalPalette.State.UNIFORM);
+        }
+
+        @Override
+        public long contentHash() {
+            return 0;
         }
     }
 
@@ -265,41 +277,10 @@ public interface PaletteStrategy<T> {
                 }
             }
         }
-    }
-
-    class Delegated<T> implements PaletteStrategy<T> {
-        private final ThreeDimensionalPalette<T> ctx;
-        private final ThreeDimensionalPalette<T> parent;
-
-        public Delegated(ThreeDimensionalPalette<T> ctx, ThreeDimensionalPalette<T> parent) {
-            this.ctx = ctx;
-            this.parent = parent;
-        }
 
         @Override
-        public T get(short x, short y, short z, ThreeDimensionalPalette<T> context) {
-            if (parent.getStrategy() instanceof PaletteStrategy.Empty<T> empty) {
-                return empty.get(x, y, z, context);
-            } else if (parent.getStrategy() instanceof PaletteStrategy.Uniform<T> uniform) {
-                return uniform.get(x, y, z, context);
-            }
-
-            return null;
-        }
-
-        @Override
-        public void set(short x, short y, short z, T block, ThreeDimensionalPalette<T> context) {
-
-        }
-
-        @Override
-        public void write(Kryo kryo, Output output) {
-
-        }
-
-        @Override
-        public void read(Kryo kryo, Input input, ThreeDimensionalPalette<T> context) {
-
+        public long contentHash() {
+            return 0;
         }
     }
 }

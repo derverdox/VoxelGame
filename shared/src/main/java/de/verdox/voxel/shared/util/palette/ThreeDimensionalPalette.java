@@ -85,4 +85,8 @@ public abstract class ThreeDimensionalPalette<T> implements NetworkSerializable,
     public int computeIndex(short x, short y, short z) {
         return x + getSizeX() * (y + getSizeY() * z);
     }
+
+    public long contentHash() {
+        return this.strategy.contentHash();
+    }
 }
