@@ -2,7 +2,6 @@ package de.verdox.voxel.shared.level.world;
 
 import de.verdox.voxel.server.level.chunk.ChunkMap;
 import de.verdox.voxel.server.level.generator.BenchmarkNoiseChunkGenerator;
-import de.verdox.voxel.server.level.generator.DebugChunkGenerator;
 import de.verdox.voxel.server.level.generator.WorldGenerator;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
@@ -63,13 +62,11 @@ public class LevelWorld implements World {
 
     @Override
     public Chunk getChunkNow(int chunkX, int chunkY, int chunkZ) {
-        //TODO:
-        return null;
+        return chunkMap.getChunk(chunkX, chunkY, chunkZ).orElse(null);
     }
 
     @Override
     public Chunk getChunkNow(long chunkKey) {
-        //TODO:
-        return null;
+        return chunkMap.getChunk(Chunk.unpackChunkX(chunkKey), Chunk.unpackChunkY(chunkKey), Chunk.unpackChunkZ(chunkKey)).orElse(null);
     }
 }
