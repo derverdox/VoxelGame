@@ -29,8 +29,9 @@ const vec3 NORMALS[6] = vec3[6](NEG_X, POS_X, NEG_Y, POS_Y, NEG_Z, POS_Z);
 const vec3 UDIRS[6] = vec3[6](POS_Y, POS_Y, POS_X, POS_X, NEG_X, POS_X);
 const vec3 VDIRS[6] = vec3[6](NEG_Z, POS_Z, POS_Z, NEG_Z, POS_Y, POS_Y);
 
-const float CUBE_BOUNDING_BOX_HALF = 0.5f;
 const float LOD_SCALE = 1.0f;
+const float CUBE_BOUNDING_BOX_HALF = 0.5f;
+
 
 float unpackCornerAO(uint aopacked, int cornerId) {
     uint s = (aopacked >> uint((cornerId) * 2)) & 0x3u;
@@ -50,8 +51,7 @@ vec3 computeCornerLocal(
     vec3 c0 = CUBE_BOUNDING_BOX_HALF * n - CUBE_BOUNDING_BOX_HALF * u - CUBE_BOUNDING_BOX_HALF * v;
     vec3 corner = c0 + u * (uGrowth * a_corner_pos.x) + v * (vGrowth * a_corner_pos.y);
 
-    vec3 blockCenter = blockIndex + vec3(CUBE_BOUNDING_BOX_HALF);
-    return (blockCenter + corner) * LOD_SCALE;
+    return (blockIndex + vec3(CUBE_BOUNDING_BOX_HALF) + corner) * LOD_SCALE;
 }
 
 /** Variante, die direkt Weltkoordinaten (vor MVP) liefert */

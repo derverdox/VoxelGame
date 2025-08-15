@@ -39,7 +39,11 @@ public final class CoalescingScheduler<K> {
                 job.run();                  // deckt alle bis hier koaleszierten Wünsche ab
                 e.processed.set(req);
             }
-        } finally {
+        }
+        catch (Throwable t) {
+            t.printStackTrace();
+        }
+        finally {
             e.running.set(false);
             // Falls währenddessen Neues kam -> sofort weiterlaufen
             if (e.processed.get() != e.requested.get()

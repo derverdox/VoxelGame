@@ -18,9 +18,6 @@ import java.util.Arrays;
  * Kompakter und effizienter Bit-Packer für Block-Faces
  */
 public class ChunkProtoMesh {
-    private static final float[] DUMMY_FLOAT_ARRAY = new float[0];
-    private static final int[] DUMMY_INT_ARRAY = new int[0];
-
     @Getter
     private final Chunk parent;
     private final ProtoMeshStorage[][] facesPerMask;
@@ -62,7 +59,7 @@ public class ChunkProtoMesh {
         }
     }
 
-    public void appendToInstances(ProtoMask.Type type, FloatArray instances, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+    public void appendToInstances(ProtoMask.Type type, FloatArray instances, TextureAtlas textureAtlas, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         ProtoMeshStorage[] storagesForType = facesPerMask[type.ordinal()];
         if (storagesForType == null) {
             return;
@@ -74,7 +71,7 @@ public class ChunkProtoMesh {
             if (storage == null) {
                 continue;
             }
-            mask.appendToInstances(this, type, instances, textureAtlas, lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+            mask.appendToInstances(this, type, instances, textureAtlas, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
         }
     }
 

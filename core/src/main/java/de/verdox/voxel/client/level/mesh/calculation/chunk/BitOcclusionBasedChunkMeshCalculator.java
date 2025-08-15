@@ -33,7 +33,7 @@ public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator
         if (lodLevel == 0) {
             lookupChunk = chunk;
         } else {
-            lookupChunk = chunk.getLodChunk(1);
+            lookupChunk = chunk.getLodChunk(lodLevel);
         }
 
         lookupChunk.getChunkProtoMesh().clear();

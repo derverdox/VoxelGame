@@ -11,6 +11,7 @@ import de.verdox.voxel.client.renderer.DebuggableOnScreen;
 import de.verdox.voxel.shared.util.RegionBounds;
 import de.verdox.voxel.shared.util.ThreadUtil;
 import de.verdox.voxel.shared.util.concurrent.CoalescingScheduler;
+import de.verdox.voxel.shared.util.lod.LODUtil;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,6 +60,12 @@ public class TerrainMeshService implements DebuggableOnScreen {
                     terrainManager.getCenterRegionX(), terrainManager.getCenterRegionY(), terrainManager.getCenterRegionZ(),
                     region.getRegionX(), region.getRegionY(), region.getRegionZ()
             );
+
+/*            int maxLOD = LODUtil.getMaxLod(chunk.getWorld());
+            for (int i = 0; i <= maxLOD; i++) {
+                chunkMeshCalculator.calculateChunkMesh(chunk, i);
+            }*/
+
             chunkMeshCalculator.calculateChunkMesh(chunk, lod);
 
             regionSched.request(rk, () -> {

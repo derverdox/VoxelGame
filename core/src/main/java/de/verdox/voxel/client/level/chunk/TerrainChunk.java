@@ -21,16 +21,23 @@ public class TerrainChunk extends DelegateChunk implements RenderableChunk {
     @Getter
     private final ChunkProtoMesh chunkProtoMesh;
 
+    private final LODChunk[] lods;
+
+    private final ChunkLODPyramid chunkLODPyramid;
+
     public TerrainChunk(TerrainManager terrainManager, Chunk owner) {
         super(owner);
         this.terrainManager = terrainManager;
         this.chunkOccupancyMask.setOwner(this);
         this.chunkOccupancyMask.initFromOwner();
         this.chunkProtoMesh = new ChunkProtoMesh(this);
+        this.chunkLODPyramid = new ChunkLODPyramid(this);
+
+        this.lods = new LODChunk[LODUtil.getMaxLod(getWorld())];
     }
 
     public synchronized LODChunk getLodChunk(int lodLevel) {
-        int maxLod = LODUtil.getMaxLod(getWorld());
+/*        int maxLod = LODUtil.getMaxLod(getWorld());
         if (lodLevel < 0 || lodLevel > maxLod) {
             throw new IllegalArgumentException("Lod Level must be between 0 and " + maxLod);
         }
@@ -38,8 +45,8 @@ public class TerrainChunk extends DelegateChunk implements RenderableChunk {
         if (currentUsedLod == null || currentUsedLod.getLodLevel() != lodLevel) {
             currentUsedLod = LODChunk.of(this, lodLevel);
             currentUsedLod.init();
-        }
-        return currentUsedLod;
+        }*/
+        return lods[lodLevel - 1];
     }
 
     @Override
@@ -55,5 +62,6 @@ public class TerrainChunk extends DelegateChunk implements RenderableChunk {
     @Override
     public void notifySetBlock(BlockBase newBlock, int localX, int localY, int localZ) {
         this.chunkOccupancyMask.updateOccupancyMask(newBlock, localX, localY, localZ);
+        this.chunkLODPyramid.blockChange(newBlock, localX, localY, localZ);
     }
 }

@@ -39,7 +39,7 @@ public abstract class ProtoMask {
 
     public abstract void appendToInstances(
             ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas,
-            byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks);
+            int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks);
 
 
     public enum Type {

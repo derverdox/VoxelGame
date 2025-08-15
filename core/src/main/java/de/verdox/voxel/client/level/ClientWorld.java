@@ -2,11 +2,13 @@ package de.verdox.voxel.client.level;
 
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.GameSession;
+import de.verdox.voxel.client.level.chunk.proto.Single;
 import de.verdox.voxel.client.level.mesh.calculation.region.BufferedRegionMeshCalculator;
 import de.verdox.voxel.client.play.multiplayer.ChunkRequestManager;
 import de.verdox.voxel.client.level.mesh.calculation.chunk.BitOcclusionBasedChunkMeshCalculator;
 import de.verdox.voxel.client.level.mesh.TerrainManager;
 import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.client.renderer.GraphicalConstants;
 import de.verdox.voxel.server.level.chunk.ChunkMap;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.world.DelegateWorld;
@@ -19,7 +21,7 @@ import lombok.Getter;
 
 @Getter
 public class ClientWorld extends DelegateWorld {
-    private static final int SCALE_FACTOR = 8;
+    private static final int SCALE_FACTOR = 4;
     private long minChunk;
     private long maxChunk;
     private final TerrainManager terrainManager;
@@ -32,9 +34,9 @@ public class ClientWorld extends DelegateWorld {
         int regionSizeZ = 1;
 
         if (ClientBase.clientSettings != null) {
-            regionSizeX = Math.max(regionSizeX, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
-            regionSizeY = Math.max(regionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR);
-            regionSizeZ = Math.max(regionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR);
+            regionSizeX = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
+            regionSizeY = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR));
+            regionSizeZ = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
         }
 
         this.terrainManager = new TerrainManager(this, new BufferedRegionMeshCalculator(), new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);

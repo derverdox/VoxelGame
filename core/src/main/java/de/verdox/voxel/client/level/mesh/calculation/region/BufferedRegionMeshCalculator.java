@@ -51,7 +51,7 @@ public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
             int offsetZInBlocks = terrainRegion.getBounds().getOffsetZ(terrainChunk.getChunkZ()) * terrainRegion.getTerrainManager().getWorld().getChunkSizeZ();
 
             renderableChunk.getChunkProtoMesh().appendToBuffers(ProtoMask.Type.OPAQUE, verts, idxs, vertexIndexOffset, textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
-            renderableChunk.getChunkProtoMesh().appendToInstances(ProtoMask.Type.OPAQUE, instances, textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+            renderableChunk.getChunkProtoMesh().appendToInstances(ProtoMask.Type.OPAQUE, instances, textureAtlas, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
 
             int storageVertices = renderableChunk.getChunkProtoMesh().getAmountVertices(ProtoMask.Type.OPAQUE);
             int storageIndices = renderableChunk.getChunkProtoMesh().getAmountIndices(ProtoMask.Type.OPAQUE);
@@ -68,8 +68,8 @@ public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
             verts.shrink();
             idxs.shrink();
             instances.shrink();
-            terrainMesh.setMeshData(verts.toArray(), idxs.toArray(), amountFaces, numVertices, numIndices);
-            //terrainMesh.setInstances(instances.toArray(), amountFaces, numVertices);
+            //terrainMesh.setMeshData(verts.toArray(), idxs.toArray(), amountFaces, numVertices, numIndices, lodLevel);
+            terrainMesh.setInstances(instances.toArray(), amountFaces, numVertices, lodLevel);
         }
 
         terrainRegion.setRenderedFaces(amountFaces);

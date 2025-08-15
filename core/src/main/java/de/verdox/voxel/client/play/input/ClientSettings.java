@@ -12,7 +12,7 @@ public class ClientSettings {
     public int sneakKey = Input.Keys.SHIFT_LEFT;
 
     // Rendering
-    public int horizontalViewDistance = 32;
+    public int horizontalViewDistance = 64;
     public int verticalViewDistance = 16;
     public boolean useOcclusionCulling = false;
 

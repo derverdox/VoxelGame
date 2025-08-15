@@ -6,6 +6,7 @@ import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
+import de.verdox.voxel.client.renderer.GraphicalConstants;
 import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockBase;
@@ -229,7 +230,7 @@ public class Single extends ProtoMask {
     }
 
     @Override
-    public void appendToInstances(ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+    public void appendToInstances(ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
         byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
         byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
@@ -301,14 +302,16 @@ public class Single extends ProtoMask {
         int meshZ = localZ + offsetZInBlocks;
 
         int offset = 0;
-        float packedCoordsAndAO = BitPackingUtil.packToFloat(offset, meshX, 8);
-        offset += 8;
+        int coordinateBytes = GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES;
 
-        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, meshY, 8);
-        offset += 8;
+        float packedCoordsAndAO = BitPackingUtil.packToFloat(offset, meshX, coordinateBytes);
+        offset += coordinateBytes;
 
-        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, meshZ, 8);
-        offset += 8;
+        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, meshY, coordinateBytes);
+        offset += coordinateBytes;
+
+        packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, meshZ, coordinateBytes);
+        offset += coordinateBytes;
 
         packedCoordsAndAO = BitPackingUtil.packToFloat(packedCoordsAndAO, offset, aoPacked, AO_SIZE_BITS);
 

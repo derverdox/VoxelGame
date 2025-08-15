@@ -57,7 +57,7 @@ public class TerrainMesh {
         }
     }
 
-    public void setMeshData(float[] vertices, int[] indices, int amountFaces, int numVertices, int numIndices) {
+    public void setMeshData(float[] vertices, int[] indices, int amountFaces, int numVertices, int numIndices, int lodLevel) {
         lock.writeLock().lock();
         try {
             this.vertices = vertices;
@@ -68,11 +68,12 @@ public class TerrainMesh {
             this.numIntIndices = numIndices;
         } finally {
             this.dirty = true;
+            this.lodLevel = lodLevel;
             lock.writeLock().unlock();
         }
     }
 
-    public void setInstances(float[] instances, int amountFaces, int amountVertices) {
+    public void setInstances(float[] instances, int amountFaces, int amountVertices, int lodLevel) {
         lock.writeLock().lock();
         try {
             this.instances = instances;
@@ -80,6 +81,7 @@ public class TerrainMesh {
             this.amountInstanceVertices = amountVertices;
         } finally {
             this.dirty = true;
+            this.lodLevel = lodLevel;
             lock.writeLock().unlock();
         }
     }

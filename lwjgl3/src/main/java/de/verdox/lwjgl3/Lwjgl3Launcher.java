@@ -25,8 +25,10 @@ public class Lwjgl3Launcher {
             8, 8, 8, 8, // R,G,B,A bits
             16,         // depth bits
             0,          // stencil bits
-            16          // MSAA samples
+            0          // MSAA samples
         );
+
+        configuration.useVsync(false);
         //// Vsync limits the frames per second to what your hardware can display, and helps eliminate
         //// screen tearing. This setting doesn't always work on Linux, so the line after is a safeguard.
 

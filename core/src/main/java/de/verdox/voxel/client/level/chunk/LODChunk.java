@@ -112,7 +112,7 @@ public class LODChunk implements Delegate<TerrainChunk>, RenderableChunk {
 
     @Override
     public <SELF extends Chunk> SELF getNeighborChunk(Direction direction) {
-        return (SELF) ((TerrainChunk)this.owner.getNeighborChunk(direction)).getLodChunk(lodLevel);
+        return (SELF) ((TerrainChunk) this.owner.getNeighborChunk(direction)).getLodChunk(lodLevel);
     }
 
     @Override
@@ -120,7 +120,8 @@ public class LODChunk implements Delegate<TerrainChunk>, RenderableChunk {
         int lodX = localX(localX);
         int lodY = localY(localY);
         int lodZ = localZ(localZ);
-        return super.getBlockAt(lodX, lodY, lodZ);
+        //return super.getBlockAt(lodX, lodY, lodZ);
+        return null;
     }
 
     @Override
@@ -159,10 +160,9 @@ public class LODChunk implements Delegate<TerrainChunk>, RenderableChunk {
                         }
                     }
 
-
                     if (counter >= accuracy) {
                         if (updateBlocks && lodBlock != null) {
-                            super.setBlockAt(lodBlock, lodX, lodY, lodZ);
+                            //super.setBlockAt(lodBlock, lodX, lodY, lodZ);
                         }
                         if (updateLights) {
                             byte skyLight = owner.getChunkLightData().getSkyLight(lodX + x, lodY + y, lodZ + z);
@@ -191,9 +191,11 @@ public class LODChunk implements Delegate<TerrainChunk>, RenderableChunk {
     private void initLodChunk() {
         if (owner.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.EMPTY)) {
             this.getChunkBlockPalette().setStrategy(new PaletteStrategy.Empty<>(), ThreeDimensionalPalette.State.EMPTY);
-        } else if (owner.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.UNIFORM) && owner.getChunkBlockPalette().getStrategy() instanceof PaletteStrategy.Uniform<?> strategy) {
+        } else if (owner.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.UNIFORM) && owner
+                .getChunkBlockPalette().getStrategy() instanceof PaletteStrategy.Uniform<?> strategy) {
 
-            this.getChunkBlockPalette().setStrategy(new PaletteStrategy.Uniform<>((ResourceLocation) strategy.getUniformValue()), ThreeDimensionalPalette.State.UNIFORM);
+            this.getChunkBlockPalette()
+                .setStrategy(new PaletteStrategy.Uniform<>((ResourceLocation) strategy.getUniformValue()), ThreeDimensionalPalette.State.UNIFORM);
         } else {
             for (int x = 0; x < getSizeX(); x++) {
                 for (int y = 0; y < getSizeY(); y++) {
