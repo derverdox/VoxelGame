@@ -8,6 +8,8 @@ import de.verdox.voxel.client.GameSession;
 import de.verdox.voxel.client.play.input.ClientSettings;
 import de.verdox.voxel.client.play.input.PlayerController;
 import de.verdox.voxel.client.play.input.PlayerInteractionRayCast;
+import de.verdox.voxel.client.renderer.debug.DebugScreen;
+import de.verdox.voxel.client.renderer.debug.DebuggableOnScreen;
 import de.verdox.voxel.shared.util.Benchmark;
 import lombok.Getter;
 

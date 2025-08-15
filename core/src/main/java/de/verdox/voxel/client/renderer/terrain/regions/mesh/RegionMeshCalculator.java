@@ -1,6 +1,6 @@
-package de.verdox.voxel.client.level.mesh.calculation.region;
+package de.verdox.voxel.client.renderer.terrain.regions.mesh;
 
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainRegion;
 import de.verdox.voxel.client.util.ThroughputBenchmark;
 
 public interface RegionMeshCalculator {

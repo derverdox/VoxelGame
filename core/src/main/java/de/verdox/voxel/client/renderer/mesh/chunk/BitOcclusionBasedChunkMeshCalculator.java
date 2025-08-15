@@ -1,20 +1,18 @@
-package de.verdox.voxel.client.level.mesh.calculation.chunk;
+package de.verdox.voxel.client.renderer.mesh.chunk;
 
+import de.verdox.voxel.client.level.TerrainManager;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
-import de.verdox.voxel.client.level.mesh.block.BlockRenderer;
+import de.verdox.voxel.client.renderer.mesh.BlockRenderer;
 import de.verdox.voxel.client.level.chunk.RenderableChunk;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.renderer.terrain.regions.RegionalizedTerrainManager;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.util.Direction;
-import de.verdox.voxel.shared.util.ThreadUtil;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class BitOcclusionBasedChunkMeshCalculator implements ChunkMeshCalculator {
     @Override

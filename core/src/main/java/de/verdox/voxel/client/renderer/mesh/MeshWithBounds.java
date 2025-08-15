@@ -1,4 +1,4 @@
-package de.verdox.voxel.client.level.mesh;
+package de.verdox.voxel.client.renderer.mesh;
 
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;

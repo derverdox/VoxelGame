@@ -1,6 +1,6 @@
-package de.verdox.voxel.client.level.mesh.calculation.chunk;
+package de.verdox.voxel.client.renderer.mesh.chunk;
 
-import de.verdox.voxel.client.level.mesh.block.BlockRenderer;
+import de.verdox.voxel.client.renderer.mesh.BlockRenderer;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
 import de.verdox.voxel.shared.data.types.BlockModelTypes;
 import de.verdox.voxel.shared.data.types.BlockModels;

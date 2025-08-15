@@ -1,14 +1,14 @@
-package de.verdox.voxel.client.level.mesh.block;
+package de.verdox.voxel.client.renderer.mesh;
 
 import com.esotericsoftware.kryo.util.Null;
 import de.verdox.voxel.client.level.chunk.proto.ChunkProtoMesh;
+import de.verdox.voxel.client.level.TerrainManager;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
 import de.verdox.voxel.client.level.chunk.proto.ProtoMask;
 import de.verdox.voxel.client.level.chunk.proto.ProtoMasks;
 import de.verdox.voxel.client.level.chunk.RenderableChunk;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;
 import de.verdox.voxel.shared.level.chunk.Chunk;
@@ -37,7 +37,7 @@ public class BlockRenderer {
 
         byte aoPacked = LightUtil.packAo(c1Ao, c2Ao, c3Ao, c4Ao);
         ChunkProtoMesh chunkProtoMesh = chunk.getChunkProtoMesh();
-        ProtoMasks.SINGLE_PER_FACE.storeFace(chunkProtoMesh, ProtoMask.Type.OPAQUE, (byte) localX, (byte) localY, (byte) localZ, blockFace.direction(), aoPacked, skyLight, redLight, greenLight, blueLight);
+        ProtoMasks.SINGLE_PER_FACE.storeFace(chunkProtoMesh, ProtoMask.FaceType.OPAQUE, (byte) localX, (byte) localY, (byte) localZ, blockFace.direction(), aoPacked, skyLight, redLight, greenLight, blueLight);
     }
 
     public static BlockFace generateBlockFace(
@@ -74,7 +74,7 @@ public class BlockRenderer {
                         relY < 0 || relY >= chunkToAsk.getSizeY() ||
                         relZ < 0 || relZ >= chunkToAsk.getSizeZ()
         ) {
-            chunkToAsk = chunkToAsk.getWorld().getChunkNow(chunkToAsk.getChunkX() + (direction.getOffsetX()), chunkToAsk.getChunkY() + (direction.getOffsetY()), chunkToAsk.getChunkZ() + (direction.getOffsetZ()));
+            chunkToAsk = terrainManager.getChunkNow(chunkToAsk.getChunkX() + (direction.getOffsetX()), chunkToAsk.getChunkY() + (direction.getOffsetY()), chunkToAsk.getChunkZ() + (direction.getOffsetZ()));
         }
         if (chunkToAsk == null) {
             return LightUtil.packLightToFloat((byte) 15, (byte) 0, (byte) 0, (byte) 0);

@@ -5,7 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.VertexAttribute;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.utils.Array;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainRegion;
 import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.util.FormatUtil;

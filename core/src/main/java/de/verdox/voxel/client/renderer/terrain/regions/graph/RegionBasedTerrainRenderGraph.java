@@ -1,10 +1,10 @@
-package de.verdox.voxel.client.renderer.graph;
+package de.verdox.voxel.client.renderer.terrain.regions.graph;
 
 import com.badlogic.gdx.graphics.Camera;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.shared.util.TerrainRenderStats;
 
-public interface TerrainRenderGraph {
+public interface RegionBasedTerrainRenderGraph {
     void addRegion(int x, int y, int z);
 
     void removeRegion(int x, int y, int z);

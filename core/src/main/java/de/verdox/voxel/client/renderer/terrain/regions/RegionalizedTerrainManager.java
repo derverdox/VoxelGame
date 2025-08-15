@@ -1,14 +1,16 @@
-package de.verdox.voxel.client.level.mesh;
+package de.verdox.voxel.client.renderer.terrain.regions;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Camera;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
-import de.verdox.voxel.client.level.mesh.calculation.chunk.ChunkMeshCalculator;
-import de.verdox.voxel.client.level.mesh.calculation.region.RegionMeshCalculator;
-import de.verdox.voxel.client.renderer.graph.OctreeTerrainRenderGraph;
-import de.verdox.voxel.client.renderer.graph.TerrainRenderGraph;
-import de.verdox.voxel.client.renderer.classic.TerrainMeshService;
+import de.verdox.voxel.client.level.TerrainManager;
+import de.verdox.voxel.client.renderer.mesh.chunk.ChunkMeshCalculator;
+import de.verdox.voxel.client.renderer.terrain.regions.mesh.RegionMeshCalculator;
+import de.verdox.voxel.client.renderer.terrain.regions.graph.OctreeRegionBasedTerrainRenderGraph;
+import de.verdox.voxel.client.renderer.terrain.regions.graph.RegionBasedTerrainRenderGraph;
+import de.verdox.voxel.shared.util.TerrainRenderStats;
 import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.ChunkLightEngine;
@@ -20,9 +22,9 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 
-public class TerrainManager {
+public class RegionalizedTerrainManager implements TerrainManager {
     @Getter
-    private final TerrainRenderGraph terrainRenderGraph;
+    private final RegionBasedTerrainRenderGraph regionBasedTerrainRenderGraph;
     @Getter
     private final TerrainMeshService meshService;
     @Getter
@@ -42,16 +44,17 @@ public class TerrainManager {
     @Getter
     private int centerChunkX, centerChunkY, centerChunkZ;
 
-    public TerrainManager(ClientWorld world, RegionMeshCalculator regionMeshCalculator, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
+    public RegionalizedTerrainManager(ClientWorld world, RegionMeshCalculator regionMeshCalculator, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
         this.world = world;
         this.bounds = new RegionBounds(regionSizeX, regionSizeY, regionSizeZ);
         this.meshService = new TerrainMeshService(this, regionMeshCalculator, chunkMeshCalculator);
-        this.terrainRenderGraph = new OctreeTerrainRenderGraph(this, 4, 8, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
+        this.regionBasedTerrainRenderGraph = new OctreeRegionBasedTerrainRenderGraph(this, 4, 8, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
         this.lightEngine = new ChunkLightEngine();
         Gdx.app.log("Terrain Manager", "Initialized terrain manager with size [" + regionSizeX + ", " + regionSizeY + ", " + regionSizeZ + "]");
     }
 
-    public void setCenterChunk(int chunkX, int chunkY, int chunkZ) {
+    @Override
+    public void setCameraChunk(int chunkX, int chunkY, int chunkZ) {
         centerChunkX = chunkX;
         centerChunkY = chunkY;
         centerChunkZ = chunkZ;
@@ -61,10 +64,7 @@ public class TerrainManager {
         centerRegionZ = bounds.getRegionZ(chunkZ);
     }
 
-    public TerrainChunk getChunkNow(long chunkKey) {
-        return getChunkNow(Chunk.unpackChunkX(chunkKey), Chunk.unpackChunkY(chunkKey), Chunk.unpackChunkZ(chunkKey));
-    }
-
+    @Override
     public TerrainChunk getChunkNow(int chunkX, int chunkY, int chunkZ) {
         int regionX = bounds.getRegionX(chunkX);
         int regionY = bounds.getRegionY(chunkY);
@@ -77,17 +77,14 @@ public class TerrainManager {
         return terrainRegion.getTerrainChunk(chunkX, chunkY, chunkZ);
     }
 
-    public TerrainChunk getTerrainChunk(Chunk chunk) {
-        return getChunkNow(chunk.getChunkX(), chunk.getChunkY(), chunk.getChunkZ());
-    }
-
+    @Override
     public void addChunk(Chunk chunk) {
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
         int regionZ = bounds.getRegionZ(chunk.getChunkZ());
 
         long regionKey = Chunk.computeChunkKey(regionX, regionY, regionZ);
-        terrainRenderGraph.addRegion(regionX, regionY, regionZ);
+        regionBasedTerrainRenderGraph.addRegion(regionX, regionY, regionZ);
 
         TerrainRegion terrainRegion;
         if (!terrainRegions.containsKey(regionKey)) {
@@ -121,6 +118,7 @@ public class TerrainManager {
         }
     }
 
+    @Override
     public void removeChunk(Chunk chunk) {
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
@@ -143,7 +141,7 @@ public class TerrainManager {
                     }
                 }
 
-                terrainRenderGraph.removeRegion(regionX, regionY, regionZ);
+                regionBasedTerrainRenderGraph.removeRegion(regionX, regionY, regionZ);
                 if (terrainRegion.getTerrainMesh() != null) {
                     terrainRegion.disposeMesh();
                 }
@@ -160,6 +158,7 @@ public class TerrainManager {
         }
     }
 
+    @Override
     public void afterChunkUpdate(Chunk chunk, boolean wasEmptyBefore) {
         int regionX = bounds.getRegionX(chunk.getChunkX());
         int regionY = bounds.getRegionY(chunk.getChunkY());
@@ -172,25 +171,9 @@ public class TerrainManager {
         }
     }
 
-    public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors) {
-/*        int lodLevelOfRegion = world.computeLodLevel(centerRegionX, centerRegionY, centerRegionZ, terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
-        updateMesh(terrainRegion, updateNeighbors, lodLevelOfRegion);*/
-    }
-
-    public void updateMesh(TerrainRegion terrainRegion, boolean updateNeighbors, int lodLevel) {
-/*        this.meshStorage.recalculateMeshForLodLevel(terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ(), true, lodLevel);
-        if (!updateNeighbors) {
-            return;
-        }
-        for (int i = 0; i < Direction.values().length; i++) {
-            Direction direction = Direction.values()[i];
-
-            TerrainRegion neighbor = terrainRegion.getNeighbor(direction);
-            if (neighbor == null) {
-                continue;
-            }
-            updateMesh(neighbor, false);
-        }*/
+    @Override
+    public int renderTerrain(Camera camera, ClientWorld world, int viewDistanceX, int viewDistanceY, int viewDistanceZ, TerrainRenderStats renderStats) {
+        return regionBasedTerrainRenderGraph.renderTerrain(camera, world, viewDistanceX, viewDistanceY, viewDistanceZ, renderStats);
     }
 
     public TerrainRegion getRegionOfChunk(int chunkX, int chunkY, int chunkZ) {

@@ -1,13 +1,13 @@
-package de.verdox.voxel.client.renderer.graph;
+package de.verdox.voxel.client.renderer.terrain.regions.graph;
 
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
-import de.verdox.voxel.client.renderer.classic.TerrainMesh;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.client.renderer.terrain.regions.RegionalizedTerrainManager;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainMesh;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainRegion;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Direction;
 import de.verdox.voxel.shared.util.TerrainRenderStats;
@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-public class NaiveTerrainRenderGraph implements TerrainRenderGraph {
+public class NaiveRegionBasedTerrainRenderGraph implements RegionBasedTerrainRenderGraph {
     private final Long2ObjectOpenHashMap<RegionNode> regions = new Long2ObjectOpenHashMap<>();
 
     private final LongSet visited = new LongOpenHashSet();
@@ -28,13 +28,13 @@ public class NaiveTerrainRenderGraph implements TerrainRenderGraph {
     private final Map<PlaneKey, NavigableSet<Integer>> xyIndex = new HashMap<>();
     private final Map<PlaneKey, NavigableSet<Integer>> xzIndex = new HashMap<>();
     private final Map<PlaneKey, NavigableSet<Integer>> yzIndex = new HashMap<>();
-    private final TerrainManager terrainManager;
+    private final RegionalizedTerrainManager terrainManager;
     private final int chunkSizeX;
     private final int chunkSizeY;
     private final int chunkSizeZ;
     private final Executor service = Executors.newSingleThreadExecutor(ThreadUtil.createFactoryForName("Terrain Graph Calculation Thread", true));
 
-    public NaiveTerrainRenderGraph(TerrainManager terrainManager, int chunkSizeX, int chunkSizeY, int chunkSizeZ) {
+    public NaiveRegionBasedTerrainRenderGraph(RegionalizedTerrainManager terrainManager, int chunkSizeX, int chunkSizeY, int chunkSizeZ) {
         this.terrainManager = terrainManager;
         this.chunkSizeX = chunkSizeX;
         this.chunkSizeY = chunkSizeY;
@@ -134,11 +134,14 @@ public class NaiveTerrainRenderGraph implements TerrainRenderGraph {
 
                 int lodLevel = terrainManager.computeLodLevel(regionX, regionY, regionZ, nx, ny, nz);
                 if (terrainMesh.getLodLevel() != lodLevel) {
-                    terrainManager.updateMesh(terrainRegion, false, lodLevel);
                     continue;
                 }
 
-                var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, terrainRegion);
+                int minBlockX = terrainRegion.getBounds().getMinBlockX(regionX, world.getChunkSizeX());
+                int minBlockY = terrainRegion.getBounds().getMinBlockY(regionY, world.getChunkSizeY());
+                int minBlockZ = terrainRegion.getBounds().getMinBlockZ(regionZ, world.getChunkSizeZ());
+
+                var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, minBlockX, minBlockY, minBlockZ);
                 if (mesh == null) {
                     continue;
                 }

@@ -1,25 +1,23 @@
-package de.verdox.voxel.client.renderer.graph;
+package de.verdox.voxel.client.renderer.terrain.regions.graph;
 
 import com.badlogic.gdx.graphics.Camera;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.mesh.MeshWithBounds;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
-import de.verdox.voxel.client.renderer.classic.TerrainMesh;
-import de.verdox.voxel.client.renderer.shader.Shaders;
+import de.verdox.voxel.client.renderer.terrain.regions.RegionalizedTerrainManager;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainRegion;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainMesh;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.TerrainRenderStats;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 
-public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
-    private final TerrainManager terrainManager;
+public class OctreeRegionBasedTerrainRenderGraph implements RegionBasedTerrainRenderGraph {
+    private final RegionalizedTerrainManager terrainManager;
     private final byte maxDepth;
     private final byte maxRegionsPerNode;
     private final OctreeNode root;
 
-    public OctreeTerrainRenderGraph(TerrainManager terrainManager, int maxDepth, int maxRegionsPerNode, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
+    public OctreeRegionBasedTerrainRenderGraph(RegionalizedTerrainManager terrainManager, int maxDepth, int maxRegionsPerNode, int viewDistanceX, int viewDistanceY, int viewDistanceZ) {
         this.terrainManager = terrainManager;
         this.maxDepth = (byte) maxDepth;
         this.maxRegionsPerNode = (byte) maxRegionsPerNode;
@@ -102,13 +100,16 @@ public class OctreeTerrainRenderGraph implements TerrainRenderGraph {
                     .getCenterRegionZ(), terrainRegion.getRegionX(), terrainRegion.getRegionY(), terrainRegion.getRegionZ());
 
 
-
             if (terrainMesh.getLodLevel() != lodLevel) {
                 //TODO: Recompute
                 return;
             }
 
-            MeshWithBounds mesh = terrainMesh.getOrGenerateMeshFromFaces(terrainManager.getWorld(), terrainRegion);
+            int minBlockX = terrainRegion.getBounds().getMinBlockX(terrainRegion.getRegionX(), world.getChunkSizeX());
+            int minBlockY = terrainRegion.getBounds().getMinBlockY(terrainRegion.getRegionY(), world.getChunkSizeY());
+            int minBlockZ = terrainRegion.getBounds().getMinBlockZ(terrainRegion.getRegionZ(), world.getChunkSizeZ());
+
+            var mesh = terrainMesh.getOrGenerateMeshFromFaces(world, minBlockX, minBlockY, minBlockZ);
 
             if (mesh == null) {
                 return;

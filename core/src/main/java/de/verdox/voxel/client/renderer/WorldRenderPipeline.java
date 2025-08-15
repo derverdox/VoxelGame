@@ -1,11 +1,12 @@
 package de.verdox.voxel.client.renderer;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Graphics;
 import com.badlogic.gdx.graphics.*;
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.assets.TextureAtlasManager;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.level.TerrainManager;
+import de.verdox.voxel.client.renderer.debug.DebugScreen;
+import de.verdox.voxel.client.renderer.debug.DebuggableOnScreen;
 import de.verdox.voxel.client.renderer.shader.Shaders;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Benchmark;
@@ -58,7 +59,7 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         renderBenchmark.startSection("Render Visible regions");
 
         Gdx.gl.glEnable(GL20.GL_CULL_FACE);
-        amountFacesDrawn = terrainManager.getTerrainRenderGraph().renderTerrain(camera, terrainManager.getWorld(), ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance, terrainRenderStats);
+        terrainManager.renderTerrain(camera, terrainManager.getWorld(), ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance, terrainRenderStats);
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
         renderBenchmark.endSection();
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);

@@ -1,4 +1,4 @@
-package de.verdox.voxel.client.level.mesh.calculation.region;
+package de.verdox.voxel.client.renderer.terrain.regions.mesh;
 
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.utils.FloatArray;
@@ -7,8 +7,8 @@ import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.chunk.RenderableChunk;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
 import de.verdox.voxel.client.level.chunk.proto.ProtoMask;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
-import de.verdox.voxel.client.renderer.classic.TerrainMesh;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainRegion;
+import de.verdox.voxel.client.renderer.terrain.regions.TerrainMesh;
 
 public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
     @Override
@@ -50,12 +50,12 @@ public class BufferedRegionMeshCalculator implements RegionMeshCalculator {
             int offsetYInBlocks = terrainRegion.getBounds().getOffsetY(terrainChunk.getChunkY()) * terrainRegion.getTerrainManager().getWorld().getChunkSizeY();
             int offsetZInBlocks = terrainRegion.getBounds().getOffsetZ(terrainChunk.getChunkZ()) * terrainRegion.getTerrainManager().getWorld().getChunkSizeZ();
 
-            renderableChunk.getChunkProtoMesh().appendToBuffers(ProtoMask.Type.OPAQUE, verts, idxs, vertexIndexOffset, textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
-            renderableChunk.getChunkProtoMesh().appendToInstances(ProtoMask.Type.OPAQUE, instances, textureAtlas, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+            renderableChunk.getChunkProtoMesh().appendToBuffers(ProtoMask.FaceType.OPAQUE, verts, idxs, vertexIndexOffset, textureAtlas, (byte) lodLevel, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
+            renderableChunk.getChunkProtoMesh().appendToInstances(ProtoMask.FaceType.OPAQUE, instances, textureAtlas, offsetXInBlocks, offsetYInBlocks, offsetZInBlocks);
 
-            int storageVertices = renderableChunk.getChunkProtoMesh().getAmountVertices(ProtoMask.Type.OPAQUE);
-            int storageIndices = renderableChunk.getChunkProtoMesh().getAmountIndices(ProtoMask.Type.OPAQUE);
-            int storageFaces = renderableChunk.getChunkProtoMesh().getAmountFaces(ProtoMask.Type.OPAQUE);
+            int storageVertices = renderableChunk.getChunkProtoMesh().getAmountVertices(ProtoMask.FaceType.OPAQUE);
+            int storageIndices = renderableChunk.getChunkProtoMesh().getAmountIndices(ProtoMask.FaceType.OPAQUE);
+            int storageFaces = renderableChunk.getChunkProtoMesh().getAmountFaces(ProtoMask.FaceType.OPAQUE);
 
             numVertices += storageVertices;
             numIndices += storageIndices;

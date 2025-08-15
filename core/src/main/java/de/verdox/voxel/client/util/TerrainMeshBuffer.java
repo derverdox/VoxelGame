@@ -1,9 +1,8 @@
 package de.verdox.voxel.client.util;
 
 import de.verdox.voxel.client.assets.TextureAtlasManager;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.renderer.terrain.regions.RegionalizedTerrainManager;
 import de.verdox.voxel.client.level.mesh.block.TerrainFaceStorage;
-import de.verdox.voxel.client.renderer.classic.TerrainMeshService;
 import de.verdox.voxel.client.renderer.shader.Shaders;
 import de.verdox.voxel.shared.util.RegionBounds;
 import de.verdox.voxel.shared.util.buffer.DynamicFloatBuffer;
@@ -27,10 +26,10 @@ public class TerrainMeshBuffer {
     private final ShortList meshBuffersOnCPUOrder = new ShortArrayList();
     private final ShortList meshBuffersOnGPUOrder = new ShortArrayList();
 
-    private final TerrainManager parent;
+    private final RegionalizedTerrainManager parent;
     private IntMesh mesh;
 
-    public TerrainMeshBuffer(TerrainManager parent) {
+    public TerrainMeshBuffer(RegionalizedTerrainManager parent) {
         this.parent = parent;
         RegionBounds bounds = parent.getBounds();
 

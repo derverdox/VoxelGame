@@ -17,7 +17,6 @@ import de.verdox.voxel.shared.util.LightUtil;
 import lombok.Getter;
 
 public class Single extends ProtoMask {
-    public static final byte DIRECTION_ID_SIZE_BITS = 3;
     public static final byte AO_SIZE_BITS = 8;
     public static final byte SKY_LIGHT_B = 4;
     public static final byte RED_LIGHT_B = 4;
@@ -36,7 +35,7 @@ public class Single extends ProtoMask {
      */
     public void storeFace(
             ChunkProtoMesh chunkProtoMesh,
-            Type faceType,
+            FaceType faceType,
             byte x, byte y, byte z,
             Direction dir, byte ao,
             byte skyLight, byte redLight,
@@ -59,8 +58,8 @@ public class Single extends ProtoMask {
         storage.writeBitsAt(bitOffset, z, localZByteSize);
         bitOffset += localZByteSize;
 
-        storage.writeBitsAt(bitOffset, dir.getId(), DIRECTION_ID_SIZE_BITS);
-        bitOffset += DIRECTION_ID_SIZE_BITS;
+        storage.writeBitsAt(bitOffset, dir.getId(), GraphicalConstants.DIRECTION_BIT_SIZE);
+        bitOffset += GraphicalConstants.DIRECTION_BIT_SIZE;
 
         storage.writeBitsAt(bitOffset, ao, AO_SIZE_BITS);
         bitOffset += AO_SIZE_BITS;
@@ -79,7 +78,7 @@ public class Single extends ProtoMask {
         storage.faceCount++;
     }
 
-    public ChunkProtoMesh.FaceData get(ChunkProtoMesh chunkProtoMesh, Type faceType, int index) {
+    public ChunkProtoMesh.FaceData get(ChunkProtoMesh chunkProtoMesh, FaceType faceType, int index) {
         ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
         byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
         byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
@@ -97,8 +96,8 @@ public class Single extends ProtoMask {
         byte z = (byte) storage.readBits(offset, localZByteSize);
         offset += localZByteSize;
 
-        Direction d = Direction.values()[(int) storage.readBits(offset, DIRECTION_ID_SIZE_BITS)];
-        offset += DIRECTION_ID_SIZE_BITS;
+        Direction d = Direction.values()[(int) storage.readBits(offset, GraphicalConstants.DIRECTION_BIT_SIZE)];
+        offset += GraphicalConstants.DIRECTION_BIT_SIZE;
 
         byte ao = (byte) storage.readBits(offset, AO_SIZE_BITS);
         offset += AO_SIZE_BITS;
@@ -133,7 +132,7 @@ public class Single extends ProtoMask {
     }
 
     @Override
-    public void appendToBuffers(ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray vertices, IntArray indices, int baseVertexIndex, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+    public void appendToBuffers(ChunkProtoMesh chunkProtoMesh, FaceType faceType, FloatArray vertices, IntArray indices, int baseVertexIndex, TextureAtlas textureAtlas, byte lodLevel, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
         byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
         byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
@@ -156,8 +155,8 @@ public class Single extends ProtoMask {
             byte localZ = (byte) storage.readBits(offset, localZByteSize);
             offset += localZByteSize;
 
-            Direction faceDir = Direction.values()[(int) storage.readBits(offset, DIRECTION_ID_SIZE_BITS)];
-            offset += DIRECTION_ID_SIZE_BITS;
+            Direction faceDir = Direction.values()[(int) storage.readBits(offset, GraphicalConstants.DIRECTION_BIT_SIZE)];
+            offset += GraphicalConstants.DIRECTION_BIT_SIZE;
 
             byte ambientOcclusion = (byte) storage.readBits(offset, AO_SIZE_BITS);
             offset += AO_SIZE_BITS;
@@ -230,7 +229,7 @@ public class Single extends ProtoMask {
     }
 
     @Override
-    public void appendToInstances(ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
+    public void appendToInstances(ChunkProtoMesh chunkProtoMesh, FaceType faceType, FloatArray floatBuffer, TextureAtlas textureAtlas, int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks) {
         ProtoMeshStorage storage = chunkProtoMesh.getStorage(faceType, this);
         byte localXByteSize = (byte) chunkProtoMesh.getLocalXByteSize();
         byte localYByteSize = (byte) chunkProtoMesh.getLocalYByteSize();
@@ -250,8 +249,8 @@ public class Single extends ProtoMask {
             byte localZ = (byte) storage.readBits(offset, localZByteSize);
             offset += localZByteSize;
 
-            Direction faceDir = Direction.values()[(int) storage.readBits(offset, DIRECTION_ID_SIZE_BITS)];
-            offset += DIRECTION_ID_SIZE_BITS;
+            Direction faceDir = Direction.values()[(int) storage.readBits(offset, GraphicalConstants.DIRECTION_BIT_SIZE)];
+            offset += GraphicalConstants.DIRECTION_BIT_SIZE;
 
             byte ambientOcclusion = (byte) storage.readBits(offset, AO_SIZE_BITS);
             offset += AO_SIZE_BITS;
@@ -317,8 +316,8 @@ public class Single extends ProtoMask {
 
         offset = 0;
 
-        float packedDirUVAndLight = BitPackingUtil.packToFloat(offset, faceDir.getId(), DIRECTION_ID_SIZE_BITS);
-        offset += DIRECTION_ID_SIZE_BITS;
+        float packedDirUVAndLight = BitPackingUtil.packToFloat(offset, faceDir.getId(), GraphicalConstants.DIRECTION_BIT_SIZE);
+        offset += GraphicalConstants.DIRECTION_BIT_SIZE;
 
         packedDirUVAndLight = BitPackingUtil.packToFloat(packedDirUVAndLight, offset, u, 6);
         offset += 6;
@@ -379,7 +378,7 @@ public class Single extends ProtoMask {
         return localXByteSize
                 + localYByteSize
                 + localZByteSize
-                + DIRECTION_ID_SIZE_BITS
+                + GraphicalConstants.DIRECTION_BIT_SIZE
                 + AO_SIZE_BITS
                 + SKY_LIGHT_B + RED_LIGHT_B + GREEN_LIGHT_B + BLUE_LIGHT_B;
     }

@@ -3,14 +3,11 @@ package de.verdox.voxel.client.level.chunk.proto;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.utils.FloatArray;
 import com.badlogic.gdx.utils.IntArray;
-import it.unimi.dsi.fastutil.floats.FloatArrays;
-
-import java.nio.FloatBuffer;
 
 public abstract class ProtoMask {
     public abstract byte getMaskId();
 
-    public abstract ChunkProtoMesh.FaceData get(ChunkProtoMesh chunkProtoMesh, Type faceType, int index);
+    public abstract ChunkProtoMesh.FaceData get(ChunkProtoMesh chunkProtoMesh, FaceType faceType, int index);
 
     public abstract int getFloatsPerVertex();
 
@@ -28,7 +25,7 @@ public abstract class ProtoMask {
 
     public abstract void appendToBuffers(
             ChunkProtoMesh chunkProtoMesh,
-            Type faceType,
+            FaceType faceType,
             FloatArray vertices,
             IntArray indices,
             int baseVertexIndex,
@@ -38,11 +35,11 @@ public abstract class ProtoMask {
     );
 
     public abstract void appendToInstances(
-            ChunkProtoMesh chunkProtoMesh, Type faceType, FloatArray floatBuffer, TextureAtlas textureAtlas,
+            ChunkProtoMesh chunkProtoMesh, FaceType faceType, FloatArray floatBuffer, TextureAtlas textureAtlas,
             int offsetXInBlocks, int offsetYInBlocks, int offsetZInBlocks);
 
 
-    public enum Type {
+    public enum FaceType {
         OPAQUE,
         TRANSPARENT
     }

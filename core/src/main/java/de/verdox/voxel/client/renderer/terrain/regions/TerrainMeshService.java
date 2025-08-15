@@ -1,34 +1,28 @@
-package de.verdox.voxel.client.renderer.classic;
+package de.verdox.voxel.client.renderer.terrain.regions;
 
 import de.verdox.voxel.client.ClientBase;
-import de.verdox.voxel.client.level.mesh.calculation.chunk.ChunkMeshCalculator;
+import de.verdox.voxel.client.renderer.mesh.chunk.ChunkMeshCalculator;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
-import de.verdox.voxel.client.level.mesh.calculation.region.RegionMeshCalculator;
-import de.verdox.voxel.client.renderer.DebugScreen;
-import de.verdox.voxel.client.renderer.DebuggableOnScreen;
-import de.verdox.voxel.shared.util.RegionBounds;
+import de.verdox.voxel.client.renderer.terrain.regions.mesh.RegionMeshCalculator;
+import de.verdox.voxel.client.renderer.debug.DebugScreen;
+import de.verdox.voxel.client.renderer.debug.DebuggableOnScreen;
 import de.verdox.voxel.shared.util.ThreadUtil;
 import de.verdox.voxel.shared.util.concurrent.CoalescingScheduler;
-import de.verdox.voxel.shared.util.lod.LODUtil;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.logging.Logger;
 
 public class TerrainMeshService implements DebuggableOnScreen {
-    public static final Logger LOGGER = Logger.getLogger(TerrainMeshService.class.getSimpleName());
     private final ExecutorService chunkMeshing = Executors.newFixedThreadPool(4, ThreadUtil.createFactoryForName("Chunk Meshing Thread", true));
     private final ExecutorService regionMeshing = Executors.newFixedThreadPool(4, ThreadUtil.createFactoryForName("Region Meshing Thread", true));
-    private final TerrainManager terrainManager;
+    private final RegionalizedTerrainManager terrainManager;
     private final RegionMeshCalculator regionMeshCalculator;
     private final ChunkMeshCalculator chunkMeshCalculator;
 
     private final CoalescingScheduler<Long> chunkSched;
     private final CoalescingScheduler<Long> regionSched;
 
-    public TerrainMeshService(TerrainManager terrainManager, RegionMeshCalculator regionMeshCalculator, ChunkMeshCalculator chunkMeshCalculator) {
+    public TerrainMeshService(RegionalizedTerrainManager terrainManager, RegionMeshCalculator regionMeshCalculator, ChunkMeshCalculator chunkMeshCalculator) {
         this.terrainManager = terrainManager;
         this.regionMeshCalculator = regionMeshCalculator;
         this.chunkMeshCalculator = chunkMeshCalculator;
@@ -41,8 +35,8 @@ public class TerrainMeshService implements DebuggableOnScreen {
         }
     }
 
-    public RegionBounds getBounds() {
-        return terrainManager.getBounds();
+    private boolean skip(TerrainChunk chunk) {
+        return chunk.isEmpty() || !chunk.hasNeighborsToAllSides();
     }
 
 
@@ -60,12 +54,6 @@ public class TerrainMeshService implements DebuggableOnScreen {
                     terrainManager.getCenterRegionX(), terrainManager.getCenterRegionY(), terrainManager.getCenterRegionZ(),
                     region.getRegionX(), region.getRegionY(), region.getRegionZ()
             );
-
-/*            int maxLOD = LODUtil.getMaxLod(chunk.getWorld());
-            for (int i = 0; i <= maxLOD; i++) {
-                chunkMeshCalculator.calculateChunkMesh(chunk, i);
-            }*/
-
             chunkMeshCalculator.calculateChunkMesh(chunk, lod);
 
             regionSched.request(rk, () -> {
@@ -86,14 +74,6 @@ public class TerrainMeshService implements DebuggableOnScreen {
             );
             regionMeshCalculator.updateTerrainMesh(region, lod);
         });
-    }
-
-    public void updateChunkMesh(TerrainRegion region, TerrainChunk chunk) {
-        createChunkMesh(region, chunk);
-    }
-
-    private boolean skip(TerrainChunk chunk) {
-        return chunk.isEmpty() || !chunk.hasNeighborsToAllSides();
     }
 
     @Override

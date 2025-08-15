@@ -1,8 +1,7 @@
-package de.verdox.voxel.client.level.mesh;
+package de.verdox.voxel.client.renderer.terrain.regions;
 
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
-import de.verdox.voxel.client.renderer.classic.TerrainMesh;
 import de.verdox.voxel.shared.level.world.World;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.lighting.LightAccessor;
@@ -13,7 +12,7 @@ import lombok.Setter;
 
 public class TerrainRegion implements LightAccessor {
     @Getter
-    private final TerrainManager terrainManager;
+    private final RegionalizedTerrainManager terrainManager;
     @Getter
     private final int regionX, regionY, regionZ;
     @Getter
@@ -35,7 +34,7 @@ public class TerrainRegion implements LightAccessor {
     @Getter @Setter
     public int renderedFaces = 0;
 
-    public TerrainRegion(TerrainManager terrainManager, int regionX, int regionY, int regionZ) {
+    public TerrainRegion(RegionalizedTerrainManager terrainManager, int regionX, int regionY, int regionZ) {
         this.terrainManager = terrainManager;
         this.regionX = regionX;
         this.regionY = regionY;

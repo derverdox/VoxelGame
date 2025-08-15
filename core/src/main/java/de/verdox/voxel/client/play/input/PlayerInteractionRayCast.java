@@ -7,8 +7,8 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.GridPoint3;
 import com.badlogic.gdx.math.Vector3;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.renderer.DebugScreen;
-import de.verdox.voxel.client.renderer.DebuggableOnScreen;
+import de.verdox.voxel.client.renderer.debug.DebugScreen;
+import de.verdox.voxel.client.renderer.debug.DebuggableOnScreen;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 

@@ -5,7 +5,7 @@ import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.GreedyBlockFace;
 import de.verdox.voxel.client.level.mesh.block.face.SingleBlockFace;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.renderer.terrain.regions.RegionalizedTerrainManager;
 import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.client.util.RegionalLock;
 import de.verdox.voxel.shared.level.chunk.Chunk;
@@ -26,13 +26,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TerrainFaceStorageImpl implements TerrainFaceStorage {
     @Getter
-    private final TerrainManager terrainManager;
+    private final RegionalizedTerrainManager terrainManager;
     private final Long2ObjectMap<ChunkFaces> chunkFacesInRegion = new Long2ObjectOpenHashMap<>();
     private final int lodLevel;
     @Getter
     private final RegionalLock regionalLock = new RegionalLock();
 
-    public TerrainFaceStorageImpl(TerrainManager terrainManager, byte lodLevel) {
+    public TerrainFaceStorageImpl(RegionalizedTerrainManager terrainManager, byte lodLevel) {
         this.terrainManager = terrainManager;
         this.lodLevel = lodLevel;
     }

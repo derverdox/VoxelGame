@@ -1,4 +1,4 @@
-package de.verdox.voxel.client.level.mesh.calculation.chunk;
+package de.verdox.voxel.client.renderer.mesh.chunk;
 
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
 import de.verdox.voxel.client.util.ThroughputBenchmark;

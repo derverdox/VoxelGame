@@ -1,9 +1,8 @@
-package de.verdox.voxel.client.renderer.classic;
+package de.verdox.voxel.client.renderer.terrain.regions;
 
 import de.verdox.voxel.client.assets.TextureAtlasManager;
 import de.verdox.voxel.client.level.ClientWorld;
-import de.verdox.voxel.client.level.mesh.MeshWithBounds;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.client.renderer.mesh.MeshWithBounds;
 import de.verdox.voxel.client.renderer.shader.Shaders;
 import de.verdox.voxel.client.util.InstancedTerrainMesh;
 import de.verdox.voxel.shared.util.TerrainRenderStats;
@@ -105,7 +104,7 @@ public class TerrainMesh {
         }
     }
 
-    public MeshWithBounds getOrGenerateMeshFromFaces(ClientWorld world, TerrainRegion terrainRegion) {
+    public MeshWithBounds getOrGenerateMeshFromFaces(ClientWorld world, int offsetX, int offsetY, int offsetZ) {
         if (calculatedMesh != null && !dirty) {
             return calculatedMesh;
         }
@@ -113,9 +112,6 @@ public class TerrainMesh {
         if (amountBlockFaces == 0) {
             return null;
         }
-        int minChunkX = world.getTerrainManager().getBounds().getMinChunkX(terrainRegion.getRegionX());
-        int minChunkY = world.getTerrainManager().getBounds().getMinChunkY(terrainRegion.getRegionY());
-        int minChunkZ = world.getTerrainManager().getBounds().getMinChunkZ(terrainRegion.getRegionZ());
 
         lock.writeLock().lock();
         try {
@@ -144,12 +140,12 @@ public class TerrainMesh {
                 mesh.setIndices(intIndices);
 
                 calculatedMesh = new MeshWithBounds.IntRawMeshBased(mesh, Shaders.SINGLE_PER_CORNER_OPAQUE_BLOCK_SHADER, TextureAtlasManager.getInstance().getBlockTextureAtlas(), 0);
-                calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
+                calculatedMesh.setPos(offsetX, offsetY, offsetZ);
             } else {
                 return null;
             }
 
-            this.calculatedMesh.setPos(world.getChunkSizeX() * minChunkX, world.getChunkSizeY() * minChunkY, world.getChunkSizeZ() * minChunkZ);
+            this.calculatedMesh.setPos(offsetX, offsetY, offsetZ);
             return calculatedMesh;
         } finally {
 /*            vertices = null;

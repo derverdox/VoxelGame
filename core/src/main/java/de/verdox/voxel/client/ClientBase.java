@@ -3,7 +3,6 @@ package de.verdox.voxel.client;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
-import com.badlogic.gdx.graphics.profiling.GLErrorListener;
 import com.badlogic.gdx.graphics.profiling.GLProfiler;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.BufferUtils;
@@ -18,8 +17,8 @@ import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.client.renderer.ClientRenderer;
 import de.verdox.voxel.client.play.input.PlayerController;
 import de.verdox.voxel.shared.data.types.BlockModels;
-import de.verdox.voxel.client.renderer.DebugScreen;
-import de.verdox.voxel.client.renderer.DebuggableOnScreen;
+import de.verdox.voxel.client.renderer.debug.DebugScreen;
+import de.verdox.voxel.client.renderer.debug.DebuggableOnScreen;
 import de.verdox.voxel.shared.util.Benchmark;
 import lombok.Getter;
 

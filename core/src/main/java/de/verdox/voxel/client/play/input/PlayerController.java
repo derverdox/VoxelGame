@@ -6,8 +6,8 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.math.Vector3;
 import com.esotericsoftware.kryonet.Client;
 import de.verdox.voxel.client.GameSession;
-import de.verdox.voxel.client.renderer.DebugScreen;
-import de.verdox.voxel.client.renderer.DebuggableOnScreen;
+import de.verdox.voxel.client.renderer.debug.DebugScreen;
+import de.verdox.voxel.client.renderer.debug.DebuggableOnScreen;
 import lombok.Getter;
 
 @Getter

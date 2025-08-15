@@ -2,12 +2,10 @@ package de.verdox.voxel.client.level;
 
 import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.GameSession;
-import de.verdox.voxel.client.level.chunk.proto.Single;
-import de.verdox.voxel.client.level.mesh.calculation.region.BufferedRegionMeshCalculator;
+import de.verdox.voxel.client.renderer.terrain.regions.mesh.BufferedRegionMeshCalculator;
 import de.verdox.voxel.client.play.multiplayer.ChunkRequestManager;
-import de.verdox.voxel.client.level.mesh.calculation.chunk.BitOcclusionBasedChunkMeshCalculator;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
-import de.verdox.voxel.client.level.mesh.TerrainRegion;
+import de.verdox.voxel.client.renderer.mesh.chunk.BitOcclusionBasedChunkMeshCalculator;
+import de.verdox.voxel.client.renderer.terrain.regions.RegionalizedTerrainManager;
 import de.verdox.voxel.client.renderer.GraphicalConstants;
 import de.verdox.voxel.server.level.chunk.ChunkMap;
 import de.verdox.voxel.shared.data.types.Blocks;
@@ -39,7 +37,7 @@ public class ClientWorld extends DelegateWorld {
             regionSizeZ = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
         }
 
-        this.terrainManager = new TerrainManager(this, new BufferedRegionMeshCalculator(), new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
+        this.terrainManager = new RegionalizedTerrainManager(this, new BufferedRegionMeshCalculator(), new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);
     }
 
     @Override
@@ -82,7 +80,7 @@ public class ClientWorld extends DelegateWorld {
     }
 
     public void onCenterChange(int chunkX, int chunkY, int chunkZ) {
-        this.terrainManager.setCenterChunk(chunkX, chunkY, chunkZ);
+        this.terrainManager.setCameraChunk(chunkX, chunkY, chunkZ);
         int renderDistanceX = ClientBase.clientSettings.horizontalViewDistance;
         int renderDistanceY = ClientBase.clientSettings.verticalViewDistance;
         int renderDistanceZ = ClientBase.clientSettings.horizontalViewDistance;
@@ -109,8 +107,6 @@ public class ClientWorld extends DelegateWorld {
 
             LongSet regionsToRebuild = new LongOpenHashSet();
 
-            int chunkCounter = 0;
-            int regionCounter = 0;
             for (long x = Math.min(oldMinChunkX, newMinChunkX); x <= Math.max(oldMaxChunkX, newMaxChunkX); x++) {
                 for (long y = Math.min(oldMinChunkY, newMinChunkY); y <= Math.max(oldMaxChunkY, newMaxChunkY); y++) {
                     for (long z = Math.min(oldMinChunkZ, newMinChunkZ); z <= Math.max(oldMaxChunkZ, newMaxChunkZ); z++) {
@@ -122,30 +118,16 @@ public class ClientWorld extends DelegateWorld {
 
                             Chunk clientChunk = getChunkNow(chunkOutOfViewDistance);
                             if (clientChunk != null) {
-                                chunkCounter++;
                                 terrainManager.removeChunk(clientChunk);
-                                regionsToRebuild.add(terrainManager.getBounds().getRegionKeyFromChunk((int) x, (int) y, (int) z));
                             }
                         }
                     }
                 }
             }
 
-            for (long regionToRebuild : regionsToRebuild) {
-                int regionX = Chunk.unpackChunkX(regionToRebuild);
-                int regionY = Chunk.unpackChunkY(regionToRebuild);
-                int regionZ = Chunk.unpackChunkZ(regionToRebuild);
-                TerrainRegion terrainRegion = terrainManager.getRegion(regionX, regionY, regionZ);
-                if (terrainRegion != null) {
-                    terrainManager.updateMesh(terrainRegion, false);
-                    regionCounter++;
-                }
-            }
-
             this.maxChunk = maxChunk;
             this.minChunk = minChunk;
         }
-
     }
 
     public BlockBase getBlockAt(int globalX, int globalY, int globalZ) {

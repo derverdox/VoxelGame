@@ -1,9 +1,10 @@
 package de.verdox.voxel.client.level.mesh.block;
 
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import de.verdox.voxel.client.level.TerrainManager;
 import de.verdox.voxel.client.level.mesh.block.face.BlockFace;
 import de.verdox.voxel.client.level.chunk.RenderableChunk;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.renderer.mesh.BlockRenderer;
 import de.verdox.voxel.client.util.RegionalLock;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.level.block.BlockModelType;

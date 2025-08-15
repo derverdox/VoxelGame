@@ -65,8 +65,8 @@ public class ChunkProtoMeshTest {
         byte greenLight = 8;
         byte blueLight = 5;
 
-        ProtoMasks.SINGLE_PER_FACE.storeFace(mesh, ProtoMask.Type.OPAQUE, x, y, z, dir, ao, skyLight, redLight, greenLight, blueLight);
-        ChunkProtoMesh.FaceData data = ProtoMasks.SINGLE_PER_FACE.get(mesh, ProtoMask.Type.OPAQUE, 0);
+        ProtoMasks.SINGLE_PER_FACE.storeFace(mesh, ProtoMask.FaceType.OPAQUE, x, y, z, dir, ao, skyLight, redLight, greenLight, blueLight);
+        ChunkProtoMesh.FaceData data = ProtoMasks.SINGLE_PER_FACE.get(mesh, ProtoMask.FaceType.OPAQUE, 0);
 
         assertEquals(x, data.x, "X coordinate should match");
         assertEquals(y, data.y, "Y coordinate should match");
@@ -96,11 +96,11 @@ public class ChunkProtoMeshTest {
             zs[i] = (byte) ((i + 7) & 0xF);
             aos[i] = (byte) ((i * 5) & 0xFF);
             Direction dir = dirs[i % dirs.length];
-            ProtoMasks.SINGLE_PER_FACE.storeFace(mesh, ProtoMask.Type.OPAQUE, xs[i], ys[i], zs[i], dir, aos[i], (byte) 15, (byte) 0, (byte) 3, (byte) 4);
+            ProtoMasks.SINGLE_PER_FACE.storeFace(mesh, ProtoMask.FaceType.OPAQUE, xs[i], ys[i], zs[i], dir, aos[i], (byte) 15, (byte) 0, (byte) 3, (byte) 4);
         }
 
         for (int i = 0; i < count; i++) {
-            ChunkProtoMesh.FaceData data = ProtoMasks.SINGLE_PER_FACE.get(mesh, ProtoMask.Type.OPAQUE, i);
+            ChunkProtoMesh.FaceData data = ProtoMasks.SINGLE_PER_FACE.get(mesh, ProtoMask.FaceType.OPAQUE, i);
 
             assertEquals(xs[i], data.x, "X mismatch at index " + i);
             assertEquals(ys[i], data.y, "Y mismatch at index " + i);

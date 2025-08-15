@@ -3,7 +3,7 @@ package de.verdox.voxel.client.level.chunk;
 import de.verdox.voxel.client.level.chunk.occupancy.BitsetBasedOccupancyMask;
 import de.verdox.voxel.client.level.chunk.occupancy.OccupancyMask;
 import de.verdox.voxel.client.level.chunk.proto.ChunkProtoMesh;
-import de.verdox.voxel.client.level.mesh.TerrainManager;
+import de.verdox.voxel.client.level.TerrainManager;
 import de.verdox.voxel.shared.util.lod.LODUtil;
 import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.Chunk;
