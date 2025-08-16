@@ -53,4 +53,8 @@ public class Registry<T> {
     public Stream<Map.Entry<ResourceLocation,T>> stream() {
         return keyToDataMapping.entrySet().stream();
     }
+
+    public int getAmountValues() {
+        return keyToDataMapping.size();
+    }
 }

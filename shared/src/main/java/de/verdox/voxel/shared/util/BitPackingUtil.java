@@ -1,6 +1,31 @@
 package de.verdox.voxel.shared.util;
 
 public class BitPackingUtil {
+    public static long packToLong(int bitOffset, long data, int bitSize) {
+        if (bitOffset < 0 || bitSize <= 0 || bitOffset + bitSize > Long.SIZE)
+            throw new IllegalArgumentException("invalid range");
+
+        final long mask = (bitSize == Long.SIZE) ? -1 : ((1L << bitSize) - 1);
+        return (data & mask) << bitOffset;
+    }
+
+    public static long packToLong(long base, int bitOffset, long data, int bitSize) {
+        if (bitOffset < 0 || bitSize <= 0 || bitOffset + bitSize > Long.SIZE)
+            throw new IllegalArgumentException("invalid range");
+
+        final long mask = (bitSize == Long.SIZE) ? -1 : ((1L << bitSize) - 1);
+        return (base & ~(mask << bitOffset)) | ((data & mask) << bitOffset);
+    }
+
+    public static long unpackFromLong(long packed, int bitOffset, int bitSize) {
+        if (bitOffset < 0 || bitSize <= 0 || bitOffset + bitSize > Long.SIZE)
+            throw new IllegalArgumentException("invalid range");
+
+
+        final long mask = (bitSize == Long.SIZE) ? -1 : ((1L << bitSize) - 1);
+        return (packed >>> bitOffset) & mask;
+    }
+
     public static float packToFloat(int bitOffset, int data, int bitSize) {
         if (bitOffset < 0 || bitSize <= 0 || bitOffset + bitSize > Float.SIZE)
             throw new IllegalArgumentException("invalid range");

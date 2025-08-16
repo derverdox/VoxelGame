@@ -116,7 +116,7 @@ public class TerrainRegion implements LightAccessor {
         }
 
 
-        computeRegionSideMask(chunk.getWorld());
+        //computeRegionSideMask(chunk.getWorld());
 
         TerrainRegion highest = terrainManager.getHighestRegion(regionX, regionZ);
         TerrainRegion lowest = terrainManager.getLowestRegion(regionX, regionZ);
@@ -145,7 +145,7 @@ public class TerrainRegion implements LightAccessor {
         chunksInRegion[idx] = null;
         terrainManager.getMeshService().removeChunkMesh(this, getTerrainChunk(chunk));
 
-        computeRegionSideMask(chunk.getWorld());
+        //computeRegionSideMask(chunk.getWorld());
     }
 
     public boolean isComplete() {
@@ -483,7 +483,9 @@ public class TerrainRegion implements LightAccessor {
 
                 Chunk chunk = provider.getChunkNow(cx, cy, cz);
                 if (chunk == null) return false;
-                OccupancyMask mask = getTerrainChunk(chunk).getChunkOccupancyMask();
+                TerrainChunk terrainChunk = getTerrainChunk(chunk);
+                if(terrainChunk == null) return false;
+                OccupancyMask mask = terrainChunk.getChunkOccupancyMask();
                 if ((mask.getSideMask() & (1L << faceDir.getId())) == 0) {
                     return false;
                 }

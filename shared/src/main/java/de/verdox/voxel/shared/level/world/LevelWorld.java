@@ -1,6 +1,7 @@
 package de.verdox.voxel.shared.level.world;
 
 import de.verdox.voxel.server.level.chunk.ChunkMap;
+import de.verdox.voxel.server.level.chunk.grid.SparseOTChunkGrid;
 import de.verdox.voxel.server.level.generator.BenchmarkNoiseChunkGenerator;
 import de.verdox.voxel.server.level.generator.WorldGenerator;
 import de.verdox.voxel.shared.level.chunk.Chunk;
@@ -20,6 +21,8 @@ public class LevelWorld implements World {
 
     private final WorldGenerator worldGenerator = new WorldGenerator(this, new BenchmarkNoiseChunkGenerator(), 1);
     private final ChunkMap chunkMap = new ChunkMap(this);
+    @Getter
+    private final SparseOTChunkGrid grid;
 
     private final List<DelegateWorld> delegates = new ObjectArrayList<>();
 
@@ -27,11 +30,7 @@ public class LevelWorld implements World {
     private final WorldHeightMap worldHeightMap = new WorldHeightMap(getChunkSizeY());
 
     public LevelWorld(UUID uuid) {
-        this.uuid = uuid;
-
-        chunkSizeX = 16;
-        chunkSizeY = 16;
-        chunkSizeZ = 16;
+        this(uuid, (byte) 16, (byte) 16, (byte) 16);
     }
 
     public LevelWorld(UUID uuid, byte chunkSizeX, byte chunkSizeY, byte chunkSizeZ) {
@@ -39,6 +38,7 @@ public class LevelWorld implements World {
         this.chunkSizeX = chunkSizeX;
         this.chunkSizeY = chunkSizeY;
         this.chunkSizeZ = chunkSizeZ;
+        this.grid = new SparseOTChunkGrid(this, (byte) 10);
     }
 
     public Chunk getChunkNeighborNow(int chunkX, int chunkY, int chunkZ, Direction direction) {
@@ -67,6 +67,8 @@ public class LevelWorld implements World {
 
     @Override
     public Chunk getChunkNow(long chunkKey) {
-        return chunkMap.getChunk(Chunk.unpackChunkX(chunkKey), Chunk.unpackChunkY(chunkKey), Chunk.unpackChunkZ(chunkKey)).orElse(null);
+        return chunkMap
+                .getChunk(Chunk.unpackChunkX(chunkKey), Chunk.unpackChunkY(chunkKey), Chunk.unpackChunkZ(chunkKey))
+                .orElse(null);
     }
 }

@@ -5,13 +5,16 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import de.verdox.voxel.shared.level.chunk.Box;
 import de.verdox.voxel.shared.network.packet.serializer.NetworkSerializable;
+import de.verdox.voxel.shared.util.palette.strategy.PaletteIDHolder;
+import de.verdox.voxel.shared.util.palette.strategy.PaletteIDMapper;
 import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
 import lombok.Getter;
 
 import java.util.*;
+import java.util.function.Function;
 
 @Getter
-public abstract class ThreeDimensionalPalette<T> implements NetworkSerializable, Box {
+public abstract class ThreeDimensionalPalette<T extends PaletteIDHolder> implements NetworkSerializable, Box {
     @Override
     public void write(Kryo kryo, Output output) {
         kryo.writeObject(output, state);
@@ -24,7 +27,7 @@ public abstract class ThreeDimensionalPalette<T> implements NetworkSerializable,
         this.strategy = switch (this.state) {
             case EMPTY -> new PaletteStrategy.Empty<>();
             case UNIFORM -> new PaletteStrategy.Uniform<>(null);
-            case PALETTED -> new PaletteStrategy.Paletted<>(this);
+            case PALETTED -> PaletteStrategy.Paletted.create(this);
         };
         strategy.read(kryo, input, this);
     }
@@ -38,12 +41,15 @@ public abstract class ThreeDimensionalPalette<T> implements NetworkSerializable,
     private PaletteStrategy<T> strategy;
 
     private final T defaultValue;
+    @Getter
+    private final PaletteIDMapper<T> paletteIDMapper;
 
     /**
      * Create a palette region of given dimensions, all initialized to defaultValue.
      */
-    public ThreeDimensionalPalette(T defaultValue) {
+    public ThreeDimensionalPalette(T defaultValue, PaletteIDMapper<T> paletteIDMapper) {
         this.defaultValue = defaultValue;
+        this.paletteIDMapper = paletteIDMapper;
         this.strategy = new PaletteStrategy.Empty<>();
     }
 
@@ -60,25 +66,14 @@ public abstract class ThreeDimensionalPalette<T> implements NetworkSerializable,
         this.state = state;
     }
 
-    public List<T> getPalette() {
-        if (this.strategy instanceof PaletteStrategy.Empty<T>) {
-            return List.of(defaultValue);
-        } else if (this.strategy instanceof PaletteStrategy.Uniform<T> uniform) {
-            return List.of(defaultValue, uniform.getUniformValue());
-        } else {
-            PaletteStrategy.Paletted<T> paletted = (PaletteStrategy.Paletted<T>) this.strategy;
-            return Collections.unmodifiableList(paletted.getIdToBlock());
-        }
-    }
-
     public int getPaletteSize() {
         if (this.strategy instanceof PaletteStrategy.Empty<T>) {
             return 1; // ONLY AIR
         } else if (this.strategy instanceof PaletteStrategy.Uniform<T>) {
             return 2; // AIR + UNIFORM
         } else {
-            PaletteStrategy.Paletted<T> paletted = (PaletteStrategy.Paletted<T>) this.strategy;
-            return paletted.getCtx().getPalette().size();
+            PaletteStrategy.Paletted<T> Paletted = (PaletteStrategy.Paletted<T>) this.strategy;
+            return Paletted.getPaletteSize();
         }
     }
 

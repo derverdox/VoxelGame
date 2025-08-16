@@ -6,6 +6,8 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 import de.verdox.voxel.shared.data.registry.ResourceLocation;
+import de.verdox.voxel.shared.data.types.Registries;
+import de.verdox.voxel.shared.level.block.BlockBase;
 import de.verdox.voxel.shared.level.chunk.ChunkBase;
 import de.verdox.voxel.shared.level.chunk.data.sliced.AbstractSliceMap;
 import de.verdox.voxel.shared.level.world.LevelWorld;
@@ -52,6 +54,17 @@ public class PacketRegistry {
         kryo.register(ChunkBase.class, new ChunkSerializer());
         kryo.register(LevelWorld.class, new WorldSerializer());
         kryo.register(UUID.class, new DefaultSerializers.UUIDSerializer());
+        kryo.register(BlockBase.class, new Serializer<BlockBase>() {
+            @Override
+            public void write(Kryo kryo, Output output, BlockBase blockBase) {
+                kryo.writeObject(output, blockBase.findKey());
+            }
+
+            @Override
+            public BlockBase read(Kryo kryo, Input input, Class<? extends BlockBase> aClass) {
+                return Registries.BLOCKS.getOrThrow(kryo.readObject(input, ResourceLocation.class));
+            }
+        });
 
         kryo.register(byte[][].class, new Serializer<byte[][]>() {
             @Override

@@ -194,8 +194,7 @@ public class LODChunk implements Delegate<TerrainChunk>, RenderableChunk {
         } else if (owner.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.UNIFORM) && owner
                 .getChunkBlockPalette().getStrategy() instanceof PaletteStrategy.Uniform<?> strategy) {
 
-            this.getChunkBlockPalette()
-                .setStrategy(new PaletteStrategy.Uniform<>((ResourceLocation) strategy.getUniformValue()), ThreeDimensionalPalette.State.UNIFORM);
+            this.getChunkBlockPalette().setStrategy(new PaletteStrategy.Uniform<>((BlockBase) strategy.getUniformValue()), ThreeDimensionalPalette.State.UNIFORM);
         } else {
             for (int x = 0; x < getSizeX(); x++) {
                 for (int y = 0; y < getSizeY(); y++) {

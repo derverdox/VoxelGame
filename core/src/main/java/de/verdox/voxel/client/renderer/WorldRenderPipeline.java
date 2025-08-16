@@ -19,6 +19,9 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
     private int amountFacesDrawn;
     private TerrainRenderStats terrainRenderStats = new TerrainRenderStats();
 
+    private int gridSize = 0;
+    private int mergedRegions = 0;
+
 
     public WorldRenderPipeline() {
         for (Texture texture : TextureAtlasManager.getInstance().getBlockTextureAtlas().getTextures()) {
@@ -65,6 +68,9 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Shaders.resetCurrentShader();
+
+        gridSize = terrainManager.getWorld().getGrid().getSize();
+        mergedRegions = terrainManager.getWorld().getGrid().getAmountMerged();
     }
 
     @Override
@@ -72,5 +78,8 @@ public class WorldRenderPipeline implements DebuggableOnScreen {
         for (String printToLine : terrainRenderStats.printToLines()) {
             debugScreen.addDebugTextLine(printToLine);
         }
+        debugScreen.addDebugTextLine("Grid Size: " + gridSize);
+        debugScreen.addDebugTextLine("Grid Merged: " + mergedRegions);
+
     }
 }

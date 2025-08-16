@@ -6,6 +6,7 @@ import de.verdox.voxel.client.ClientBase;
 import de.verdox.voxel.client.level.ClientWorld;
 import de.verdox.voxel.client.level.chunk.TerrainChunk;
 import de.verdox.voxel.client.level.TerrainManager;
+import de.verdox.voxel.client.renderer.ClientRenderer;
 import de.verdox.voxel.client.renderer.mesh.chunk.ChunkMeshCalculator;
 import de.verdox.voxel.client.renderer.terrain.regions.mesh.RegionMeshCalculator;
 import de.verdox.voxel.client.renderer.terrain.regions.graph.OctreeRegionBasedTerrainRenderGraph;
@@ -45,12 +46,13 @@ public class RegionalizedTerrainManager implements TerrainManager {
     private int centerChunkX, centerChunkY, centerChunkZ;
 
     public RegionalizedTerrainManager(ClientWorld world, RegionMeshCalculator regionMeshCalculator, ChunkMeshCalculator chunkMeshCalculator, int regionSizeX, int regionSizeY, int regionSizeZ) {
+        Gdx.app.log("Terrain Manager", "Initialized terrain manager with size [" + regionSizeX + ", " + regionSizeY + ", " + regionSizeZ + "]");
         this.world = world;
         this.bounds = new RegionBounds(regionSizeX, regionSizeY, regionSizeZ);
         this.meshService = new TerrainMeshService(this, regionMeshCalculator, chunkMeshCalculator);
+
         this.regionBasedTerrainRenderGraph = new OctreeRegionBasedTerrainRenderGraph(this, 4, 8, ClientBase.clientSettings.horizontalViewDistance, ClientBase.clientSettings.verticalViewDistance, ClientBase.clientSettings.horizontalViewDistance);
         this.lightEngine = new ChunkLightEngine();
-        Gdx.app.log("Terrain Manager", "Initialized terrain manager with size [" + regionSizeX + ", " + regionSizeY + ", " + regionSizeZ + "]");
     }
 
     @Override

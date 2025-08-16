@@ -4,10 +4,11 @@ import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.BlockModels;
 import de.verdox.voxel.shared.data.types.Blocks;
 import de.verdox.voxel.shared.data.types.Registries;
+import de.verdox.voxel.shared.util.palette.strategy.PaletteIDHolder;
 import lombok.Getter;
 import lombok.Setter;
 
-public class BlockBase {
+public class BlockBase implements PaletteIDHolder {
     @Getter @Setter
     private short graphicsBlockId;
     @Getter @Setter
@@ -48,5 +49,10 @@ public class BlockBase {
 
     public byte getEmissionBlue() {
         return 0;
+    }
+
+    @Override
+    public int getPaletteID() {
+        return materialID;
     }
 }

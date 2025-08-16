@@ -1,5 +1,6 @@
 package de.verdox.voxel.shared.level.world;
 
+import de.verdox.voxel.server.level.chunk.grid.SparseOTChunkGrid;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.Delegate;
 import lombok.Getter;
@@ -14,6 +15,11 @@ public abstract class DelegateWorld implements World, Delegate<World> {
     public DelegateWorld(World owner) {
         this.owner = owner;
         owner.subscribe(this);
+    }
+
+    @Override
+    public SparseOTChunkGrid getGrid() {
+        return owner.getGrid();
     }
 
     @Override

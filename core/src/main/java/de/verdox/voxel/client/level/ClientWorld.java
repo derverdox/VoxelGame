@@ -31,10 +31,14 @@ public class ClientWorld extends DelegateWorld {
         int regionSizeY = 1;
         int regionSizeZ = 1;
 
+        int maxRegionSizeX = (int) (Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES) / owner.getChunkSizeX() * 1f);
+        int maxRegionSizeY = (int) (Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES) / owner.getChunkSizeY() * 1f);
+        int maxRegionSizeZ = (int) (Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES) / owner.getChunkSizeZ() * 1f);
+
         if (ClientBase.clientSettings != null) {
-            regionSizeX = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
-            regionSizeY = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR));
-            regionSizeZ = Math.toIntExact(Math.min(Math.round(Math.pow(2, GraphicalConstants.MAX_BYTE_SIZE_SHADER_COORDINATES)), ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
+            regionSizeX = Math.toIntExact(Math.min(maxRegionSizeX, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
+            regionSizeY = Math.toIntExact(Math.min(maxRegionSizeY, ClientBase.clientSettings.verticalViewDistance / SCALE_FACTOR));
+            regionSizeZ = Math.toIntExact(Math.min(maxRegionSizeZ, ClientBase.clientSettings.horizontalViewDistance / SCALE_FACTOR));
         }
 
         this.terrainManager = new RegionalizedTerrainManager(this, new BufferedRegionMeshCalculator(), new BitOcclusionBasedChunkMeshCalculator(), regionSizeX, regionSizeY, regionSizeZ);

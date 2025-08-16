@@ -17,14 +17,17 @@ public class ChunkMap {
 
     private final LevelWorld world;
 
+
     public ChunkMap(LevelWorld world) {
         this.world = world;
     }
 
     public CompletableFuture<Chunk> getOrCreateChunkAsync(int chunkX, int chunkY, int chunkZ, Consumer<Chunk> whenDone) {
         return getChunk(chunkX, chunkY, chunkZ)
-                .map(chunk -> CompletableFuture.completedFuture(chunk).whenComplete((chunk1, throwable) -> whenDone.accept(chunk1)))
-                .orElseGet(() -> getWorld().getWorldGenerator().requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
+                .map(chunk -> CompletableFuture.completedFuture(chunk)
+                                               .whenComplete((chunk1, throwable) -> whenDone.accept(chunk1)))
+                .orElseGet(() -> getWorld().getWorldGenerator()
+                                           .requestChunkGeneration(chunkX, chunkY, chunkZ, whenDone));
     }
 
     public Optional<Chunk> getChunk(int chunkX, int chunkY, int chunkZ) {
@@ -39,6 +42,9 @@ public class ChunkMap {
     public void saveChunkAfterGeneration(Chunk gameChunk) {
         chunks.put(gameChunk.getChunkKey(), gameChunk);
         world.addChunk(gameChunk);
+        synchronized (world.getGrid()) {
+            world.getGrid().addOrUpdateChunk(gameChunk);
+        }
     }
 
     public boolean unloadChunk(int chunkX, int chunkY, int chunkZ) {

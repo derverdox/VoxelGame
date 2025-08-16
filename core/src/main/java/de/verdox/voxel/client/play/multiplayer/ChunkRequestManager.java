@@ -21,7 +21,7 @@ public class ChunkRequestManager implements DebuggableOnScreen {
 
     private final ClientWorld clientWorld;
 
-    private static final int CHUNKS_PER_TICK = 150;
+    private static final int CHUNKS_PER_TICK = 2000;
 
     private final LongQueue pendingQueue = new LongQueue();
 

@@ -1,456 +1,456 @@
 package de.verdox.voxel.server.level.chunk.grid;
 
-import de.verdox.voxel.server.level.chunk.grid.tiles.TileCell;
-import de.verdox.voxel.server.level.chunk.grid.tiles.TileChildren;
-import de.verdox.voxel.shared.data.registry.ResourceLocation;
 import de.verdox.voxel.shared.data.types.Blocks;
-import de.verdox.voxel.shared.data.types.Registries;
 import de.verdox.voxel.shared.level.chunk.Box;
+
 import de.verdox.voxel.shared.level.chunk.Chunk;
-import de.verdox.voxel.shared.util.palette.strategy.PaletteStrategy;
+import de.verdox.voxel.shared.level.world.World;
+import de.verdox.voxel.shared.util.BitPackingUtil;
+import de.verdox.voxel.shared.util.palette.ThreeDimensionalPalette;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 
 import java.util.Objects;
 
 public class SparseOTChunkGrid {
 
+    private static final byte SIZE = 4;
+
+    private static final byte MAX_LEVEL = 15;
+
+    private static final byte SIZE_BITS = 2;
+
+    private static final byte LEVEL_BITS = 4;
+
+    private static final byte GRID_BITS = 7;
+
+    private static final long FULL_MASK = ~0L; // 64 Bits gesetzt
+
+    private final World world;
+    private final byte maxLevel;
+    private final long xBoundsTopWorldLevel, yBoundsTopWorldLevel, zBoundsTopWorldLevel;
+
+    private final Long2ObjectMap<RegionNode> nodes = new Long2ObjectOpenHashMap<>();
+
+    @Getter
+    private int amountMerged = 0;
+
+    public SparseOTChunkGrid(World world, byte maxLevel) {
+        this.world = world;
+        this.maxLevel = maxLevel;
+
+        xBoundsTopWorldLevel = calculateWorldBoundsXForLevel((byte) 0);
+        yBoundsTopWorldLevel = calculateWorldBoundsYForLevel((byte) 0);
+        zBoundsTopWorldLevel = calculateWorldBoundsZForLevel((byte) 0);
+    }
+
+    public int getSize() {
+        return nodes.size();
+    }
+
+    public void addOrUpdateChunk(Chunk chunk) {
+        int treeX = Math.toIntExact(Math.floorMod((long) chunk.getChunkX() * world.getChunkSizeX(), xBoundsTopWorldLevel));
+        int treeY = Math.toIntExact(Math.floorMod((long) chunk.getChunkY() * world.getChunkSizeY(), yBoundsTopWorldLevel));
+        int treeZ = Math.toIntExact(Math.floorMod((long) chunk.getChunkZ() * world.getChunkSizeZ(), zBoundsTopWorldLevel));
+
+        byte lxLeaf = (byte) Math.floorMod(chunk.getChunkX(), SIZE);
+        byte lyLeaf = (byte) Math.floorMod(chunk.getChunkY(), SIZE);
+        byte lzLeaf = (byte) Math.floorMod(chunk.getChunkZ(), SIZE);
+
+        long leafKey = constructKey(maxLevel, treeX, treeY, treeZ, lxLeaf, lyLeaf, lzLeaf);
+
+        boolean isUniform = isUniform(chunk);
+        short prominentMaterial = extractProminentMaterial(chunk);
+
+        // ========= UPDATE-PFAD: Leaf existiert bereits =========
+        if (nodes.containsKey(leafKey)) {
+            LeafNode leafNode = (LeafNode) nodes.get(leafKey);
+
+            if (leafNode.prominentMaterial == prominentMaterial && leafNode.uniform == isUniform) {
+                // Nichts zu tun
+                return;
+            }
+
+            // Leaf inhaltlich aktualisieren
+            leafNode.prominentMaterial = prominentMaterial;
+            leafNode.uniform = isUniform;
+
+            // Aufwärts propagieren: Eltern existieren garantiert.
+            propagateUpAfterChildChange(chunk, treeX, treeY, treeZ);
+            return;
+        }
+
+        // ========= INSERT-PFAD: Leaf existiert noch nicht =========
+
+        // Pfad-Digits je Ebene vorbereiten: pathL*[level] = lokaler Index auf der Ebene "level"
+        byte[] pathLx = new byte[maxLevel + 1];
+        byte[] pathLy = new byte[maxLevel + 1];
+        byte[] pathLz = new byte[maxLevel + 1];
+
+        {
+            long tx = chunk.getChunkX();
+            long ty = chunk.getChunkY();
+            long tz = chunk.getChunkZ();
+            for (int depthFromLeaf = 0; depthFromLeaf <= maxLevel; depthFromLeaf++) {
+                byte digitX = (byte) Math.floorMod(tx, SIZE);
+                byte digitY = (byte) Math.floorMod(ty, SIZE);
+                byte digitZ = (byte) Math.floorMod(tz, SIZE);
+                int level = maxLevel - depthFromLeaf; // tatsächliche Ebene
+                pathLx[level] = digitX;
+                pathLy[level] = digitY;
+                pathLz[level] = digitZ;
+
+                tx = Math.floorDiv(tx, SIZE);
+                ty = Math.floorDiv(ty, SIZE);
+                tz = Math.floorDiv(tz, SIZE);
+            }
+        }
+
+        // Von oben nach unten gehen (Ebene 0 .. maxLevel-1)
+        for (byte level = 0; level < maxLevel; level++) {
+            long key = constructKey(level, treeX, treeY, treeZ, pathLx[level], pathLy[level], pathLz[level]);
+            IntermediateNode parent = (IntermediateNode) nodes.get(key);
+            if (parent == null) {
+                parent = new IntermediateNode();
+                // Neuer Parent: zunächst "komprimiert" mit Zielwerten
+                parent.prominentMaterial = prominentMaterial;
+                parent.uniform = isUniform;
+                parent.merged = true;
+                nodes.put(key, parent);
+            }
+
+            // Kindindex (nächste Ebene)
+            byte cx = pathLx[level + 1];
+            byte cy = pathLy[level + 1];
+            byte cz = pathLz[level + 1];
+
+            if (parent.merged) {
+                if (parent.uniform == isUniform && parent.prominentMaterial == prominentMaterial) {
+                    // Inhalt identisch -> nicht weiter absteigen, keine Kinder materialisieren,
+                    // und KEIN existBit setzen (gemergte Parents führen keine Kinder).
+                    return;
+                } else {
+                    // Split: alle 64 Kinder materialisieren und parent wird "expanded"
+                    splitMergedParent(parent, (byte) (level + 1), treeX, treeY, treeZ);
+                    parent.merged = false;
+                }
+            }
+
+            // Sicherstellen, dass das (level+1)-Kind existiert:
+            long childKey = constructKey((byte) (level + 1), treeX, treeY, treeZ, cx, cy, cz);
+            RegionNode child = nodes.get(childKey);
+            if (child == null) {
+                if (level + 1 == maxLevel) {
+                    LeafNode leaf = new LeafNode();
+                    leaf.prominentMaterial = prominentMaterial;
+                    leaf.uniform = isUniform;
+                    leaf.merged = false;
+                    nodes.put(childKey, leaf);
+                } else {
+                    IntermediateNode inter = new IntermediateNode();
+                    // neue Zwischenknoten: zunächst "komprimiert" mit Zielwerten
+                    inter.prominentMaterial = prominentMaterial;
+                    inter.uniform = isUniform;
+                    inter.merged = true;
+                    nodes.put(childKey, inter);
+                }
+            }
+
+            // Parent ist nicht gemergt -> existierendes Kind markieren
+            parent.markExisting(cx, cy, cz);
+
+            // Leaf erreicht → Aufwärts-Propagation und fertig
+            if (level + 1 == maxLevel) {
+                propagateUpAfterChildChange(chunk, treeX, treeY, treeZ);
+                return;
+            }
+        }
+    }
+
     /**
-     * Kantenlänge pro Tile innerhalb eines Region-Nodes. 4 ist ein guter Kompromiss.
+     * Materialisiert alle 64 Kinder eines gemergten Parents mit dessen bisherigem Inhalt.
+     * Kinder bekommen dieselben (uniform, prominentMaterial) und starten selbst auf merged=true.
      */
-    private static final int TILE_DIM = 4;
+    private void splitMergedParent(RegionNode parent, byte childLevel, int treeX, int treeY, int treeZ) {
+        for (byte ix = 0; ix < SIZE; ix++) {
+            for (byte iy = 0; iy < SIZE; iy++) {
+                for (byte iz = 0; iz < SIZE; iz++) {
+                    long childKey = constructKey(childLevel, treeX, treeY, treeZ, ix, iy, iz);
+
+                    if (!nodes.containsKey(childKey)) {
+                        RegionNode child;
+                        if (childLevel == maxLevel) {
+                            child = new LeafNode();
+                        } else {
+                            child = new IntermediateNode();
+                        }
+                        child.prominentMaterial = parent.prominentMaterial;
+                        child.uniform = parent.uniform;
+                        child.merged = true; // weiterhin komprimiert
+                        nodes.put(childKey, child);
+                    }
+                    parent.markExisting(ix, iy, iz);
+                }
+            }
+        }
+    }
 
     /**
-     * Material-ID, die als "Luft/transparent" gilt – mit eurer Block-ID abstimmen.
+     * Prüft von Ebene (maxLevel-1) bis 0 die Eltern; wenn alle 64 Kinder existieren und
+     * alle identische (uniform, material) haben, wird der Parent gemergt:
+     * - alle direkten Kinder werden aus der Map entfernt
+     * - existMask wird auf 0 gesetzt
+     * - Parent übernimmt (uniform, material) und setzt merged=true
      */
-    public static final int MATERIAL_AIR = Blocks.AIR.getMaterialID();
+    private void propagateUpAfterChildChange(Chunk chunk, int treeX, int treeY, int treeZ) {
+        // Pfad-Digits je Ebene
+        byte[] pathLx = new byte[maxLevel + 1];
+        byte[] pathLy = new byte[maxLevel + 1];
+        byte[] pathLz = new byte[maxLevel + 1];
 
+        long tx = chunk.getChunkX();
+        long ty = chunk.getChunkY();
+        long tz = chunk.getChunkZ();
+        for (int depthFromLeaf = 0; depthFromLeaf <= maxLevel; depthFromLeaf++) {
+            byte digitX = (byte) Math.floorMod(tx, SIZE);
+            byte digitY = (byte) Math.floorMod(ty, SIZE);
+            byte digitZ = (byte) Math.floorMod(tz, SIZE);
+            int level = maxLevel - depthFromLeaf;
+            pathLx[level] = digitX;
+            pathLy[level] = digitY;
+            pathLz[level] = digitZ;
 
-    private final GridConfig gridConfig;
-
-    // Nodes are identified by a key.
-    // A key is 64 bits.
-    // 5 Bits are to decode the level of the octree node. [0-maxLevel] Max Possible Level = 2^5 = 32 Which will never be used
-    // 30 bits are to decode the coordinate in the sparse octree grid. Each coordinate gets 10 bits.
-    // 24 bits are to decode the relative coordinates in this level [0 - sizeX, 0 - sizeY, 0 - sizeZ] with 24 / 3 = 8 bits being the maximum size of entries per region node.
-    private final Long2ObjectMap<RegionNode> octreeGrid = new Long2ObjectOpenHashMap<>();
-
-    public SparseOTChunkGrid(byte sizeX, byte sizeY, byte sizeZ) {
-        this.gridConfig = new GridConfig(sizeX, sizeY, sizeZ, TILE_DIM);
-    }
-
-
-    public void addChunk(Chunk chunk) {
-        final byte level = 0;
-
-        // Region-Koords + lokale Koords (alles primitive, keine Allokation)
-        final int rgx = Math.floorDiv(chunk.gridX(), gridConfig.sizeX());
-        final int rgy = Math.floorDiv(chunk.gridY(), gridConfig.sizeY());
-        final int rgz = Math.floorDiv(chunk.gridZ(), gridConfig.sizeZ());
-        final int lx  = Math.floorMod(chunk.gridX(), gridConfig.sizeX());
-        final int ly  = Math.floorMod(chunk.gridY(), gridConfig.sizeY());
-        final int lz  = Math.floorMod(chunk.gridZ(), gridConfig.sizeZ());
-
-        // Leaf-Region holen/erzeugen
-        final long regionKey = packKey(level, rgx, rgy, rgz);
-        RegionNode rn = octreeGrid.get(regionKey);
-        IntermediateNode region;
-        if (rn instanceof IntermediateNode in) {
-            region = in;
-        } else {
-            // Auf dem Leaf-Level existieren nur IntermediateNodes (Container), die Kinder = LeafNodes (Chunks) halten
-            region = new IntermediateNode(level);
-            octreeGrid.put(regionKey, region);
+            tx = Math.floorDiv(tx, SIZE);
+            ty = Math.floorDiv(ty, SIZE);
+            tz = Math.floorDiv(tz, SIZE);
         }
 
-        // Chunk als LeafNode einsetzen
-        LeafNode leaf = new LeafNode(chunk);
-        Node prev = region.getChild(lx, ly, lz);
-        if (!Objects.equals(prev, leaf)) {
-            region.setChild(lx, ly, lz, leaf);
-            region.tryCollapse();
-        } else {
-            return; // nichts geändert
-        }
+        for (byte level = (byte) (maxLevel - 1); level >= 0; level--) {
+            long parentKey = constructKey(level, treeX, treeY, treeZ, pathLx[level], pathLy[level], pathLz[level]);
+            IntermediateNode parent = (IntermediateNode) nodes.get(parentKey);
+            Objects.requireNonNull(parent, "Missing parent node in tree");
 
-        // Bubbling nach oben (nur IntermediateNodes über dem Leaf-Level)
-        Node carry = reduceForParent(region);
-        int pgx = rgx, pgy = rgy, pgz = rgz;
-        byte curLevel = level;
+            // Kindindex in diesem Parent:
+            byte cx = pathLx[level + 1];
+            byte cy = pathLy[level + 1];
+            byte cz = pathLz[level + 1];
 
-        while (true) {
-            final int prgx = Math.floorDiv(pgx, gridConfig.sizeX());
-            final int prgy = Math.floorDiv(pgy, gridConfig.sizeY());
-            final int prgz = Math.floorDiv(pgz, gridConfig.sizeZ());
-            final int plx  = Math.floorMod(pgx, gridConfig.sizeX());
-            final int ply  = Math.floorMod(pgy, gridConfig.sizeY());
-            final int plz  = Math.floorMod(pgz, gridConfig.sizeZ());
-            final byte parentLevel = (byte)(curLevel + 1);
-
-            final long pKey = packKey(parentLevel, prgx, prgy, prgz);
-            RegionNode pNode = octreeGrid.get(pKey);
-
-            if (carry == null && !(pNode instanceof IntermediateNode)) break;
-
-            IntermediateNode parent;
-            if (pNode instanceof IntermediateNode pin) {
-                parent = pin;
-            } else {
-                parent = new IntermediateNode(parentLevel);
-                octreeGrid.put(pKey, parent);
+            // Parent könnte gemergt sein (z.B. ganz oben) – in diesem Fall führt er keine Kinder.
+            // Wenn er nicht gemergt ist, stellen wir sicher, dass das Existenzbit gesetzt ist.
+            if (!parent.merged) {
+                parent.markExisting(cx, cy, cz);
             }
 
-            Node before = parent.getChild(plx, ply, plz);
-            boolean changed;
-            if (carry == null) {
-                if (before != null) {
-                    parent.setChild(plx, ply, plz, null);
-                    changed = true;
-                } else {
-                    changed = false;
+            // Nur "expandierte" Parents können zu einem neuen Merge evaluiert werden
+            if (!parent.merged && parent.existMask == FULL_MASK) {
+                Boolean commonUniform = null;
+                Short commonMaterial = null;
+                boolean allEqual = true;
+
+                outer:
+                for (byte ix = 0; ix < SIZE; ix++) {
+                    for (byte iy = 0; iy < SIZE; iy++) {
+                        for (byte iz = 0; iz < SIZE; iz++) {
+                            long childKey = constructKey((byte) (level + 1), treeX, treeY, treeZ, ix, iy, iz);
+                            RegionNode child = nodes.get(childKey);
+                            if (child == null) { // Inkonsistenz – dann kein Merge
+                                allEqual = false;
+                                break outer;
+                            }
+                            if (commonUniform == null) {
+                                commonUniform = child.uniform;
+                                commonMaterial = child.prominentMaterial;
+                            } else {
+                                if (commonUniform != child.uniform || commonMaterial != child.prominentMaterial) {
+                                    allEqual = false;
+                                    break outer;
+                                }
+                            }
+                        }
+                    }
                 }
-            } else {
-                if (!Objects.equals(before, carry)) {
-                    parent.setChild(plx, ply, plz, carry);
-                    changed = true;
+
+                if (allEqual) {
+                    // MERGE: Parent übernimmt die Werte, Kinder werden entfernt
+                    parent.uniform = commonUniform;
+                    parent.prominentMaterial = commonMaterial;
+                    parent.merged = true;
+                    amountMerged++;
+
+                    // Direkte Kinder löschen und existMask leeren
+                    pruneChildrenForMerge((byte) (level + 1), treeX, treeY, treeZ,
+                            pathLx[level], pathLy[level], pathLz[level]);
+                    parent.existMask = 0L;
                 } else {
-                    changed = false;
+                    parent.merged = false;
+                    amountMerged--;
                 }
             }
-            if (!changed) break;
 
-            parent.tryCollapse();
-
-            if (parent.childCount() == 0) {
-                octreeGrid.remove(pKey);
-                carry = null;
-            } else {
-                carry = reduceForParent(parent);
-            }
-
-            pgx = prgx; pgy = prgy; pgz = prgz;
-            curLevel = parentLevel;
-            if (curLevel == 31) break;
+            if (level == 0) break; // byte-Underflow vermeiden
         }
     }
 
-    public void removeChunkOrMarkEmpty(Chunk chunk) {
-        final byte level = leafLevel;
-
-        final int rgx = Math.floorDiv(chunk.gridX(), sizeX);
-        final int rgy = Math.floorDiv(chunk.gridY(), sizeY);
-        final int rgz = Math.floorDiv(chunk.gridZ(), sizeZ);
-        final int lx  = Math.floorMod(chunk.gridX(), sizeX);
-        final int ly  = Math.floorMod(chunk.gridY(), sizeY);
-        final int lz  = Math.floorMod(chunk.gridZ(), sizeZ);
-
-        final long regionKey = packKey(level, rgx, rgy, rgz);
-        RegionNode<?> rn = octreeGrid.get(regionKey);
-        if (!(rn instanceof IntermediateNode region)) return; // nichts da
-
-        Node before = region.getChild(lx, ly, lz);
-        if (before == null) return; // bereits leer
-
-        // Entfernen (kein Kind = Luft)
-        region.setChild(lx, ly, lz, null);
-        region.tryCollapse();
-
-        Node carry;
-        if (region.childCount() == 0) {
-            octreeGrid.remove(regionKey);
-            carry = null;
-        } else {
-            carry = reduceForParent(region);
-        }
-
-        int pgx = rgx, pgy = rgy, pgz = rgz;
-        byte curLevel = level;
-
-        while (true) {
-            final int prgx = Math.floorDiv(pgx, sizeX);
-            final int prgy = Math.floorDiv(pgy, sizeY);
-            final int prgz = Math.floorDiv(pgz, sizeZ);
-            final int plx  = Math.floorMod(pgx, sizeX);
-            final int ply  = Math.floorMod(pgy, sizeY);
-            final int plz  = Math.floorMod(pgz, sizeZ);
-            final byte parentLevel = (byte)(curLevel + 1);
-
-            final long pKey = packKey(parentLevel, prgx, prgy, prgz);
-            RegionNode<?> pNode = octreeGrid.get(pKey);
-
-            if (carry == null && !(pNode instanceof IntermediateNode)) break;
-
-            IntermediateNode parent;
-            if (pNode instanceof IntermediateNode pin) {
-                parent = pin;
-            } else {
-                parent = new IntermediateNode(sizeX, sizeY, sizeZ, parentLevel);
-                octreeGrid.put(pKey, parent);
-            }
-
-            Node beforeParent = parent.getChild(plx, ply, plz);
-            boolean changed;
-            if (carry == null) {
-                if (beforeParent != null) {
-                    parent.setChild(plx, ply, plz, null);
-                    changed = true;
-                } else {
-                    changed = false;
-                }
-            } else {
-                if (!Objects.equals(beforeParent, carry)) {
-                    parent.setChild(plx, ply, plz, carry);
-                    changed = true;
-                } else {
-                    changed = false;
+    /**
+     * Entfernt alle 64 direkten Kinder des Parents mit lokaler Position (px,py,pz) auf Ebene 'level'
+     * → also Kinder auf 'childLevel = level+1' unter demselben Grid (treeX/Y/Z) und Parent-Lokalen.
+     */
+    private void pruneChildrenForMerge(byte childLevel, int treeX, int treeY, int treeZ,
+                                       byte px, byte py, byte pz) {
+        for (byte ix = 0; ix < SIZE; ix++) {
+            for (byte iy = 0; iy < SIZE; iy++) {
+                for (byte iz = 0; iz < SIZE; iz++) {
+                    long childKey = constructKey(childLevel, treeX, treeY, treeZ, ix, iy, iz);
+                    // Wichtig: childKeys müssen zu demselben Parent gehören.
+                    // Da level/lokale Koordinaten kodiert sind, reicht es aus,
+                    // dass childLevel exakt level+1 ist und gridX/Y/Z gleich sind.
+                    // (Die Parent-Lokalen (px,py,pz) sind Bestandteil des parentKey,
+                    // die Kinder haben ihre eigenen lokalen (ix,iy,iz) auf childLevel.)
+                    nodes.remove(childKey);
                 }
             }
-            if (!changed) break;
-
-            parent.tryCollapse();
-
-            if (parent.childCount() == 0) {
-                octreeGrid.remove(pKey);
-                carry = null;
-            } else {
-                carry = reduceForParent(parent);
-            }
-
-            pgx = prgx; pgy = prgy; pgz = prgz;
-            curLevel = parentLevel;
-            if (curLevel == 31) break;
         }
     }
 
 
+    abstract class RegionNode implements Box {
+        protected short prominentMaterial;
+        protected boolean uniform;
+        protected boolean merged; // a flag indicating whether childs are missing because they are merged into this parent node or because they have not been generated yet.
+        protected long existMask; // 4x4x4 Child nodes per node. Existence masked into 64bit
 
-    public interface Node extends Box {
-        boolean isHomogeneous();
-
-        boolean isFullyTransparent();
-
-        long getContentHash();
-
-        byte getLevel();
-    }
-
-
-    abstract class RegionNode implements Node {
-        RegionNode(byte level) {
+        public boolean isFullyTransparent() {
+            for (byte x = 0; x < getSizeX(); x++) {
+                for (byte y = 0; y < getSizeY(); y++) {
+                    for (byte z = 0; z < getSizeZ(); z++) {
+                        if (!isFullyTransparent(x, y, z)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
         }
 
-        public abstract boolean isFullyTransparent();
+        public void markExisting(byte lx, byte ly, byte lz) {
+            checkLocals(lx, ly, lz);
+
+            int bitToMarkTrue = lz + lx * getSizeX() + ly * getSizeY() * getSizeX();
+            existMask |= (1L << bitToMarkTrue);
+        }
+
+        public boolean exists(byte lx, byte ly, byte lz) {
+            int bit = ((ly & 3) << 4) | ((lx & 3) << 2) | (lz & 3);
+            return (existMask & (1L << bit)) != 0;
+        }
 
         @Override
         public int getSizeY() {
-            return gridConfig.sizeY();
+            return SIZE;
         }
 
         @Override
         public int getSizeX() {
-            return gridConfig.sizeX();
+            return SIZE;
         }
 
         @Override
         public int getSizeZ() {
-            return gridConfig.sizeZ();
+            return SIZE;
         }
 
         public abstract boolean isFullyTransparent(byte x, byte y, byte z);
     }
 
-    /**
-     * Region-Node mit (potenziell) sizeX*sizeY*sizeZ Kindern (andere Nodes).
-     * Kinder werden kachelig (Tiles à TILE_DIM^3) sparse gehalten.
-     */
-    private final class IntermediateNode extends RegionNode {
-
-        private final TileChildren<Node> children;
-
-        // Optional: schneller Homogenitäts-Flag (wenn alle Kinder homogen & identisch)
-        private boolean homogeneous;
-        @Getter
-        private byte level;
-        private int homogeneousMaterial = MATERIAL_AIR;
-
-        public IntermediateNode(byte level) {
-            super(level);
-            this.level = level;
-            this.children = new TileChildren<>(gridConfig);
-        }
-
-        /**
-         * O(1): Kind setzen (null entfernt).
-         */
-        public void setChild(int x, int y, int z, Node child) {
-            Node prev = children.set(x, y, z, child);
-            if (!Objects.equals(prev, child)) {
-                homogeneous = false;
-            }
-        }
-
-        /**
-         * O(1): Kind holen.
-         */
-        public Node getChild(int x, int y, int z) {
-            return children.get(x, y, z);
-        }
-
-        @Override
-        public boolean isFullyTransparent() {
-            if (homogeneous && homogeneousMaterial == MATERIAL_AIR) return true;
-
-            return children.allTransparent();
-        }
-
-        @Override
-        public boolean isFullyTransparent(byte x, byte y, byte z) {
-            Node c = children.get(x, y, z);
-            return (c == null) || c.isFullyTransparent();
-        }
-
-        /**
-         * Versucht zu "collapsen": wenn alle belegten Kinder homogen und mit gleichem Material sind,
-         * markiere diesen Node als homogen. (Optional: zu Leaf umwandeln.)
-         */
-        public void tryCollapse() {
-            if (children.size() == 0) {
-                homogeneous = true;
-                homogeneousMaterial = MATERIAL_AIR;
-                return;
-            }
-            int commonMat = Integer.MIN_VALUE;
-
-            for (var cur = children.cursor(); cur.hasNext(); ) {
-                TileCell<Node> cell = cur.next();
-                Node n = cell.value;
-                if (n == null || !n.isHomogeneous()) {
-                    homogeneous = false;
-                    return;
-                }
-                // Wenn es ein Leaf ist, Material auslesen, sonst abbrechen
-                int mat = (n instanceof LeafNode lf) ? lf.getHomogeneousMaterial() : Integer.MIN_VALUE;
-                if (mat == Integer.MIN_VALUE) {
-                    homogeneous = false;
-                    return;
-                }
-                if (commonMat == Integer.MIN_VALUE) commonMat = mat;
-                else if (commonMat != mat) {
-                    homogeneous = false;
-                    return;
-                }
-            }
-            homogeneous = true;
-            homogeneousMaterial = (commonMat == Integer.MIN_VALUE) ? MATERIAL_AIR : commonMat;
-        }
-
-        @Override
-        public boolean isHomogeneous() {
-            return homogeneous;
-        }
-
-        public int homogeneousMaterial() {
-            return homogeneous ? homogeneousMaterial : MATERIAL_AIR;
-        }
-
-        @Override
-        public long getContentHash() {
-            // robust: Hash über (tile index, bitmask, child.hash)
-            long h = 1469598103934665603L;
-
-            for (var cur = children.cursor(); cur.hasNext(); ) {
-                TileCell<Node> cell = cur.next();
-                int linear = cell.linearIndex;
-                Node n = cell.value;
-                long ch = (n == null) ? 0L : n.getContentHash();
-                h = fnv64(h ^ (linear * 0x9E3779B97F4A7C15L));
-                h = fnv64(h ^ ch);
-            }
-            // Homogenitätsflag mit hashen
-            h = fnv64(h ^ (homogeneous ? 0xC0FFEE : 0xBADC0DE));
-            h = fnv64(h ^ homogeneousMaterial);
-            return h;
-        }
-
-        private static long fnv64(long x) {
-            long hash = 1469598103934665603L;
-            hash ^= x;
-            hash *= 1099511628211L;
-            return hash;
-        }
-    }
-
-    private final class LeafNode extends RegionNode {
-        @Getter
-        private final boolean fullyTransparent;
-        @Getter
-        private final boolean isHomogeneous;
-        @Getter
-        private final long contentHash;
-        @Getter
-        private short homogeneousMaterial;
-
-
-        public LeafNode(Chunk chunk) {
-            super((byte) 0);
-
-            switch (chunk.getChunkBlockPalette().getState()) {
-                case EMPTY -> {
-                    fullyTransparent = true;
-                    isHomogeneous = true;
-                    homogeneousMaterial = MATERIAL_AIR;
-                }
-                case UNIFORM -> {
-                    PaletteStrategy.Uniform<ResourceLocation> strategy = (PaletteStrategy.Uniform<ResourceLocation>) chunk
-                            .getChunkBlockPalette().getStrategy();
-                    homogeneousMaterial = getBlockMaterialID(strategy.getUniformValue());
-                    isHomogeneous = true;
-                    fullyTransparent = true;
-                }
-                default -> {
-                    fullyTransparent = false;
-                    isHomogeneous = false;
-                }
-            }
-
-            this.contentHash = chunk.getChunkBlockPalette().contentHash();
-        }
-
+    private class IntermediateNode extends RegionNode {
         @Override
         public boolean isFullyTransparent(byte x, byte y, byte z) {
             return false;
         }
+    }
 
+    private class LeafNode extends RegionNode {
         @Override
-        public byte getLevel() {
-            //TODO: Leaf nodes always have the highest possible level
-            return 0;
+        public boolean isFullyTransparent(byte x, byte y, byte z) {
+            return false;
         }
     }
 
-    private static short getBlockMaterialID(ResourceLocation blockKey) {
-        return Registries.BLOCKS.get(blockKey).getMaterialID();
+    private boolean isUniform(Chunk chunk) {
+        return chunk.isEmpty() || chunk.getChunkBlockPalette().getState().equals(ThreeDimensionalPalette.State.UNIFORM);
     }
 
-    // Für den Parent „reduzieren“: null (leer), homogene Leaf, oder Node selbst
-    private Node reduceForParent(Node node) {
-        if (node == null) return null;
-        if (node instanceof LeafNode leaf) {
-            if (leaf.isFullyTransparent()) return null; // Luft -> Parent-Kind weglassen
-            if (leaf.isHomogeneous()) {
-                return LeafNode.homogeneous(leaf.sizeX, leaf.sizeY, leaf.sizeZ, leaf.level(), leaf.getHomogeneousMaterial());
-            }
-            return leaf;
+    private short extractProminentMaterial(Chunk chunk) {
+        return Blocks.AIR.getMaterialID();
+    }
+
+    private long calculateWorldBoundsXForLevel(byte level) {
+        return (long) (world.getChunkSizeX() * (Math.pow(2, MAX_LEVEL - level)) * SIZE);
+    }
+
+    private long calculateWorldBoundsYForLevel(byte level) {
+        return (long) (world.getChunkSizeY() * (Math.pow(2, MAX_LEVEL - level)) * SIZE);
+    }
+
+    private long calculateWorldBoundsZForLevel(byte level) {
+        return (long) (world.getChunkSizeZ() * (Math.pow(2, MAX_LEVEL - level)) * SIZE);
+    }
+
+    /**
+     * 4 bits for Level (0-15)
+     * 2 bits for lx
+     * 2 bits for ly
+     * 2 bits for lz
+     */
+    private static long constructKey(byte level, int gridX, int gridY, int gridZ, byte lx, byte ly, byte lz) {
+        if (level < 0 || level > MAX_LEVEL) {
+            throw new IllegalArgumentException("level must be between 0 and " + MAX_LEVEL);
         }
-        if (node instanceof IntermediateNode in) {
-            if (in.childCount() == 0) return null;
-            if (in.isHomogeneous()) {
-                return LeafNode.homogeneous((byte)in.getSizeX(), (byte)in.getSizeY(), (byte)in.getSizeZ(),
-                        in.level(), in.homogeneousMaterial());
-            }
-            return in;
+        checkLocals(lx, ly, lz);
+
+        long packed = 0L;
+        int offset = 0;
+
+
+        packed = BitPackingUtil.packToLong(packed, offset, level, LEVEL_BITS);
+        offset += LEVEL_BITS;
+        // 4 Bits
+
+        packed = BitPackingUtil.packToLong(packed, offset, lx, SIZE_BITS);
+        offset += SIZE_BITS;
+        // 6 Bits
+
+        packed = BitPackingUtil.packToLong(packed, offset, ly, SIZE_BITS);
+        offset += SIZE_BITS;
+        // 8 Bits
+
+        packed = BitPackingUtil.packToLong(packed, offset, lz, SIZE_BITS);
+        offset += SIZE_BITS;
+        // 10 Bits
+
+        packed = BitPackingUtil.packToLong(packed, offset, gridX, GRID_BITS);
+        offset += GRID_BITS;
+
+        packed = BitPackingUtil.packToLong(packed, offset, gridY, GRID_BITS);
+        offset += GRID_BITS;
+
+        packed = BitPackingUtil.packToLong(packed, offset, gridZ, GRID_BITS);
+        offset += GRID_BITS;
+
+        return packed;
+    }
+
+    private static void checkLocals(byte lx, byte ly, byte lz) {
+        if (lx < 0 || lx >= SIZE) {
+            throw new IllegalArgumentException("lx must be between 0 and " + SIZE);
         }
-        return node;
+        if (ly < 0 || ly >= SIZE) {
+            throw new IllegalArgumentException("ly must be between 0 and " + SIZE);
+        }
+        if (lz < 0 || lz >= SIZE) {
+            throw new IllegalArgumentException("lz must be between 0 and " + SIZE);
+        }
     }
 }

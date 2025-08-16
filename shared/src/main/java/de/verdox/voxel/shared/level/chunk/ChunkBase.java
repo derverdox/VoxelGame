@@ -25,7 +25,7 @@ public class ChunkBase implements Box, Chunk {
     private final List<DelegateChunk> delegates = new ObjectArrayList<>();
 
     public ChunkBase(World world, int chunkX, int chunkY, int chunkZ) {
-        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR.findKey()), new HeightMap(), new DepthMap(), new ChunkLightData());
+        this(world, chunkX, chunkY, chunkZ, new ChunkBlockPalette(Blocks.AIR), new HeightMap(), new DepthMap(), new ChunkLightData());
     }
 
     private ChunkBase(World world, int chunkX, int chunkY, int chunkZ, ChunkBlockPalette chunkBlockPalette, HeightMap heightMap, DepthMap depthMap, ChunkLightData chunkLightData) {

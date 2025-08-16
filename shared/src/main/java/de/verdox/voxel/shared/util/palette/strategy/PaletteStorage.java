@@ -16,7 +16,7 @@ public interface PaletteStorage {
         return new LongStore(owner, bitsPerBlock);
     }
 
-    static PaletteStorage resizeIfNeeded(PaletteStrategy.Paletted<?> owner, PaletteStorage current) {
+    static PaletteStorage resizeIfNeeded(PaletteStrategy.PalettedLocalID<?> owner, PaletteStorage current) {
         int needed = computeRequiredBitsPerEntry(owner.getPaletteSize());
         if (needed < current.getMaxBitsPerEntry() && needed >= current.getMinBitsPerEntry()) {
             current.resizeIfNeeded();

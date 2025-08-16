@@ -38,15 +38,14 @@ public interface Chunk extends Box, DelegateBase<DelegateChunk> {
     <SELF extends Chunk> SELF getNeighborChunk(Direction direction);
 
     default BlockBase getBlockAt(int localX, int localY, int localZ) {
-        ResourceLocation resourceLocation = getChunkBlockPalette().get((short) localX, (short) localY, (short) localZ);
-        return Registries.BLOCKS.get(resourceLocation);
+        return getChunkBlockPalette().get((short) localX, (short) localY, (short) localZ);
     }
 
     default void setBlockAt(BlockBase newBlock, int localX, int localY, int localZ) {
         boolean isEmptyBefore = isEmpty();
         boolean didHeightMapChange = false;
 
-        getChunkBlockPalette().set((short) localX, (short) localY, (short) localZ, newBlock.findKey());
+        getChunkBlockPalette().set((short) localX, (short) localY, (short) localZ, newBlock);
 
         HeightMap heightMap = getHeightMap();
         DepthMap depthMap = getDepthMap();

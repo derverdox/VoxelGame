@@ -1,6 +1,7 @@
 package de.verdox.voxel.shared.level.world;
 
 import de.verdox.voxel.server.level.chunk.ChunkMap;
+import de.verdox.voxel.server.level.chunk.grid.SparseOTChunkGrid;
 import de.verdox.voxel.shared.level.chunk.Chunk;
 import de.verdox.voxel.shared.util.DelegateBase;
 import de.verdox.voxel.shared.util.Direction;
@@ -37,6 +38,8 @@ public interface World extends DelegateBase<DelegateWorld> {
     Chunk getChunkNow(long chunkKey);
 
     ChunkMap getChunkMap();
+
+    SparseOTChunkGrid getGrid();
 
     default void addChunk(Chunk chunk) {
         getWorldHeightMap().addChunk(chunk);
